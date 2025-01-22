@@ -1,4 +1,4 @@
-package com.star4droid.template.Items;
+ package com.star4droid.template.Items;
 
 import box2dLight.Light;
 import com.badlogic.gdx.ApplicationAdapter;
@@ -64,9 +64,6 @@ public class StageImp extends ApplicationAdapter {
 	public InputMultiplexer multiplexer;
 	ArrayList<LightInfo> lights= new ArrayList<>();
 	
-	// TODO : order the actors based on their z index then render them instead of relying on allStage...
-	
-	
 	public StageImp(){
 		viewport = new FitViewport(720,1560);
 	}
@@ -87,7 +84,7 @@ public class StageImp extends ApplicationAdapter {
 	
 	boolean needsUpdate = true;
 	public void init(Viewport viewport){
-	    if(propertySet==null || Gdx.files == null) return;
+	    if(propertySet==null || Gdx.app==null || Gdx.files == null) return;
 	    float height = propertySet==null?0:propertySet.getInt("logicHeight"),
 			width = propertySet==null?0:propertySet.getInt("logicWidth");
 		if(height==0) height=1560;
@@ -97,7 +94,7 @@ public class StageImp extends ApplicationAdapter {
 		if(true || viewport==null || needsUpdate) viewport = new FitViewport(width,height);
 		    //else viewport.setWorldSize(width,height);
 		needsUpdate = (propertySet==null);
-		
+		preferences = Gdx.app.getPreferences("prefs");
 		Gdx.input.setCatchKey(4,true);//back key
 		UiStage = new Stage(new FitViewport(width,height));
 		GameStage = new Stage(viewport){
@@ -113,12 +110,16 @@ public class StageImp extends ApplicationAdapter {
 		
 		loadingStage = new LoadingStage();
 		stagePair = new StagePair(UiStage,GameStage);
-		preferences = Gdx.app.getPreferences("com.star4droid.star2d.evo.prefs");
+		
 		if(project==null)
 		    project = new Project(Gdx.files.getExternalStoragePath());
 		initDone = true;
 		if(spriteSheetLoader!=null&&assetLoader!=null&&!isMain()){
-		    onCreate();
+		    try {
+			    onCreate();
+			} catch(Exception e){
+			    throw new RuntimeException(e.toString());
+			}
 		    onCreateCalled = true;
 		}
 		
@@ -145,7 +146,11 @@ public class StageImp extends ApplicationAdapter {
 		} else {
 			loadComplete = true;
 			onCreateCalled = true;
-			onCreate();
+			try {
+			    onCreate();
+			} catch(Exception e){
+			    throw new RuntimeException(e.toString());
+			}
 		}
 		this.viewport = viewport;
 	}
@@ -280,8 +285,8 @@ public class StageImp extends ApplicationAdapter {
 	
 	@Override
     public void resize(int width, int height) {
-        //GameStage().getViewport().update(width,height);
-        //UiStage().getViewport().update(width,height);
+        getGameStage().getViewport().update(width,height);
+        getUiStage().getViewport().update(width,height);
     }
 	
 	public void onCreate(){
@@ -329,6 +334,7 @@ public class StageImp extends ApplicationAdapter {
 		playing = true;
 	}
     
+    //idk why this ... :)
     public boolean onCreateCalled(){
         return onCreateCalled;
     }
@@ -337,6 +343,8 @@ public class StageImp extends ApplicationAdapter {
 	public final void render() {
 		super.render();
 		if(needsUpdate) return;
+		if(preferences==null)
+		    preferences = Gdx.app.getPreferences("prefs");
 		// PlayerItem item= findItem("Box1");
 		// if(item!=null){
 		    // GameStage.getCamera().position.x = item.getActorX();
@@ -347,7 +355,11 @@ public class StageImp extends ApplicationAdapter {
 		Gdx.gl.glClearColor(bg.r,bg.g,bg.b,bg.a);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		if(loadComplete&&(!onCreateCalled)){
-			onCreate();
+		    try {
+			    onCreate();
+			} catch(Exception e){
+			    throw new RuntimeException(e.toString());
+			}
 			onCreateCalled = true;
 		}
 		
@@ -432,7 +444,9 @@ public class StageImp extends ApplicationAdapter {
 		Gdx.net.openURI(url);
 	}
 	
+	public boolean finished=false;
 	public void finish(){
+	    finished=true;
 		if(finishFunc!=null){
 			finishFunc.onFinish(this);
 			return;
@@ -686,9 +700,9 @@ public class StageImp extends ApplicationAdapter {
 			}).setFinishFunc((st)->{
 				if(previousStages.contains(st))
 					previousStages.remove(st);
-				if(previousStages.size()==0)
+				if(previousStages.size()==0 && StageImp.this.finished)
 					Gdx.app.exit();
-				else currentStage = previousStages.get(previousStages.size()-1);
+				else currentStage = previousStages.size()==0?StageImp.this:previousStages.get(previousStages.size()-1);
 				if(currentStage.isMain()) {
 				    currentStage = null;
 				    Gdx.input.setInputProcessor(multiplexer);
@@ -766,24 +780,24 @@ public class StageImp extends ApplicationAdapter {
 		getCamera().position.y = playerItem.getActorY()+playerItem.getActor().getHeight()*0.5f;
 	}
 	
-	boolean isDrawingUi=false;
-	public void ui(com.badlogic.gdx.graphics.g2d.Batch batch){
-	    if(!isDrawingUi){
-	        UiStage.getViewport().apply();
-	        UiStage.getCamera().update();
-	        batch.setProjectionMatrix(UiStage.getCamera().combined);
-	        isDrawingUi = true;
-	    }
-	}
+	// boolean isDrawingUi=false;
+	// public void ui(com.badlogic.gdx.graphics.g2d.Batch batch){
+	    // if(!isDrawingUi){
+	        // UiStage.getViewport().apply();
+	        // UiStage.getCamera().update();
+	        // batch.setProjectionMatrix(UiStage.getCamera().combined);
+	        // isDrawingUi = true;
+	    // }
+	// }
 	
-	public void body(com.badlogic.gdx.graphics.g2d.Batch batch){
-	    if(isDrawingUi){
-	        GameStage.getViewport().apply();
-	        GameStage.getCamera().update();
-	        batch.setProjectionMatrix(GameStage.getCamera().combined);
-	        isDrawingUi = false;
-	    }
-	}
+	// public void body(com.badlogic.gdx.graphics.g2d.Batch batch){
+	    // if(isDrawingUi){
+	        // GameStage.getViewport().apply();
+	        // GameStage.getCamera().update();
+	        // batch.setProjectionMatrix(GameStage.getCamera().combined);
+	        // isDrawingUi = false;
+	    // }
+	// }
 	
 	public boolean draw() {
 		if(preferences==null) return false;
@@ -860,7 +874,10 @@ public class StageImp extends ApplicationAdapter {
 	}
 	
 	public void act() {
-		if(preferences==null) return;
+		if(preferences==null) {
+		    preferences = Gdx.app.getPreferences("prefs");
+		    if(preferences==null) return;
+		}
 		UiStage.act();
 		GameStage.act();
 	}
