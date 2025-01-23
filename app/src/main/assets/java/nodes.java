@@ -60,7 +60,7 @@ split
 -color:#018253•
 _DoAfter delay name
 <<=>>
-%2$s = Timer.schedule(new Timer.Task(){
+Timer.Task %2$s = Timer.schedule(new Timer.Task(){
     public void run(){
         %3$s
     }
@@ -74,7 +74,7 @@ split
 -color:#018253•
 _repeatEvery delay name
 <<=>>
-%2$s = Timer.schedule(new Timer.Task(){
+Timer.Task %2$s = Timer.schedule(new Timer.Task(){
     public void run(){
         %4$s
     }
