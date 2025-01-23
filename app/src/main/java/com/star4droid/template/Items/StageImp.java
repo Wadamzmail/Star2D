@@ -1,4 +1,4 @@
-package com.star4droid.template.Items;
+ package com.star4droid.template.Items;
 
 import box2dLight.Light;
 import com.badlogic.gdx.ApplicationAdapter;
@@ -63,7 +63,10 @@ public class StageImp extends ApplicationAdapter {
 	public SpriteSheetLoader spriteSheetLoader;
 	public InputMultiplexer multiplexer;
 	ArrayList<LightInfo> lights= new ArrayList<>();
+<<<<<<< HEAD
 	int viewportWidth = -1,viewportHeight = -1;
+=======
+>>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 	
 	public StageImp(){
 		viewport = new FitViewport(720,1560);
@@ -305,12 +308,15 @@ public class StageImp extends ApplicationAdapter {
     public void resize(int width, int height) {
         getGameStage().getViewport().update(width,height);
         getUiStage().getViewport().update(width,height);
+<<<<<<< HEAD
         viewportWidth = width;
         viewportHeight = height;
         if(currentStage!=null){
             currentStage.getGameStage().getViewport().update(width,height);
             currentStage.getUiStage().getViewport().update(width,height);
         }
+=======
+>>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
     }
 	
 	public void onCreate(){
@@ -470,10 +476,14 @@ public class StageImp extends ApplicationAdapter {
 	
 	public boolean finished=false;
 	public void finish(){
+<<<<<<< HEAD
 	    if(finished) {
 	        debug("already finished\n"+System.currentTimeMillis() + ", main finished : "+StageImp.this.finished +", size : "+previousStages.size()+"\n");
 	        return;
 	    }
+=======
+	    finished=true;
+>>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 		if(finishFunc!=null){
 			finishFunc.onFinish(this);
 			finished=true;
@@ -730,6 +740,7 @@ public class StageImp extends ApplicationAdapter {
 				    currentStage = getFromDex(project.getPath(),sc,assetLoader,spriteSheetLoader).setOpenSceneFunc(newStage.openSceneFunc).setFinishFunc(newStage.finishFunc).setPrev(stageImp).updateViewport(viewportWidth,viewportHeight);
 				}
 			}).setFinishFunc((st)->{
+<<<<<<< HEAD
 			    if(currentStage !=null && !st.equals(currentStage)) return;
 			    StageImp temp = st;
 			    // check the previous stage opened before this
@@ -748,6 +759,18 @@ public class StageImp extends ApplicationAdapter {
 			    }
 			    //debug("no scene opened, finish the game\n");
 			    Gdx.app.exit();
+=======
+				if(previousStages.contains(st))
+					previousStages.remove(st);
+				if(previousStages.size()==0 && StageImp.this.finished)
+					Gdx.app.exit();
+				else currentStage = previousStages.size()==0?StageImp.this:previousStages.get(previousStages.size()-1);
+				if(currentStage.isMain()) {
+				    currentStage = null;
+				    Gdx.input.setInputProcessor(multiplexer);
+				} else if(currentStage!=null)
+				        Gdx.input.setInputProcessor(currentStage.multiplexer);
+>>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 			});
 		if(currentStage==null){
 			previousStages.add(this);
@@ -928,7 +951,10 @@ public class StageImp extends ApplicationAdapter {
 	}
 	
 	public void act() {
+<<<<<<< HEAD
 	    if(finished) return;
+=======
+>>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 		if(preferences==null) {
 		    preferences = Gdx.app.getPreferences("prefs");
 		    if(preferences==null) return;
@@ -1000,6 +1026,7 @@ public class StageImp extends ApplicationAdapter {
 			this.name = name;
 		}
 	}
+<<<<<<< HEAD
 	
 	// public int id = new java.util.Random().nextInt(Integer.MAX_VALUE);
 	// @Override
@@ -1010,3 +1037,6 @@ public class StageImp extends ApplicationAdapter {
 	    // return false;
 	// }
 }
+=======
+}
+>>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
