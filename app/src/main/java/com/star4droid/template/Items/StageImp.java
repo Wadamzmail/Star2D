@@ -1,4 +1,4 @@
- package com.star4droid.template.Items;
+package com.star4droid.template.Items;
 
 import box2dLight.Light;
 import com.badlogic.gdx.ApplicationAdapter;
@@ -46,7 +46,7 @@ public class StageImp extends ApplicationAdapter {
 	Color backgroundColorGdx= Color.WHITE;
 	public Project project;
 	public PropertySet<String,Object> propertySet;
-	public java.util.LinkedHashSet<StageImp> previousStages= new java.util.LinkedHashSet<>();
+	ArrayList<StageImp> previousStages= new ArrayList<>();
 	HashMap<String,Object> collisionMap= new HashMap<>();
 	//Image background;
 	StagePair stagePair;//useless...
@@ -63,10 +63,6 @@ public class StageImp extends ApplicationAdapter {
 	public SpriteSheetLoader spriteSheetLoader;
 	public InputMultiplexer multiplexer;
 	ArrayList<LightInfo> lights= new ArrayList<>();
-<<<<<<< HEAD
-	int viewportWidth = -1,viewportHeight = -1;
-=======
->>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 	
 	public StageImp(){
 		viewport = new FitViewport(720,1560);
@@ -157,23 +153,6 @@ public class StageImp extends ApplicationAdapter {
 			}
 		}
 		this.viewport = viewport;
-		updateViewport();
-		}
-	}
-	
-	public StageImp updateViewport(){
-	    if(viewportWidth!=-1 && getGameStage()!=null && getUiStage()!=null){
-	        getGameStage().getViewport().update(viewportWidth,viewportHeight);
-            getUiStage().getViewport().update(viewportWidth,viewportHeight);
-	    }
-	    return this;
-	}
-	
-	public StageImp updateViewport(int width,int height){
-	    viewportWidth = width;
-	    viewportHeight = height;
-	    updateViewport();
-	    return this;
 	}
 	
 	public RayHandler getRayHandler(){
@@ -308,15 +287,6 @@ public class StageImp extends ApplicationAdapter {
     public void resize(int width, int height) {
         getGameStage().getViewport().update(width,height);
         getUiStage().getViewport().update(width,height);
-<<<<<<< HEAD
-        viewportWidth = width;
-        viewportHeight = height;
-        if(currentStage!=null){
-            currentStage.getGameStage().getViewport().update(width,height);
-            currentStage.getUiStage().getViewport().update(width,height);
-        }
-=======
->>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
     }
 	
 	public void onCreate(){
@@ -353,7 +323,7 @@ public class StageImp extends ApplicationAdapter {
 		if(!loadComplete) return;
 		if(currentStage==null)
 			onPause();
-				else currentStage.onPause();
+				else currentStage.pause();
 	}
 	
 	public void Pause(){
@@ -476,25 +446,16 @@ public class StageImp extends ApplicationAdapter {
 	
 	public boolean finished=false;
 	public void finish(){
-<<<<<<< HEAD
-	    if(finished) {
-	        debug("already finished\n"+System.currentTimeMillis() + ", main finished : "+StageImp.this.finished +", size : "+previousStages.size()+"\n");
-	        return;
-	    }
-=======
 	    finished=true;
->>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 		if(finishFunc!=null){
 			finishFunc.onFinish(this);
-			finished=true;
 			return;
 		}
-		if(currentStage==null || currentStage.equals(this))
+		if(currentStage==null)
 			Gdx.app.exit();
 				else {
 					if(previousStages.contains(this))
 						previousStages.remove(this);
-				    finished=true;
 				}
 	}
 	
@@ -582,7 +543,7 @@ public class StageImp extends ApplicationAdapter {
 					boolean b2= body2.getProperties().getString("Collision").contains(body1.getParentName());
 					return !(b1||b2);
 					/*
-					debug(
+					Gdx.files.external("collision.txt").writeString(
 					    "\n1 : "+body1.getProperties().getString("Collision")
 					    + "\np name : "+ body1.getParentName()
 					    +"\n contains: " + b1
@@ -602,7 +563,6 @@ public class StageImp extends ApplicationAdapter {
 		this.world.setContactListener(new ContactListener(){
 			@Override
 			public void beginContact(Contact contact) {
-			    if(finished) return;
 				try {
 					PlayerItem body1 = (PlayerItem)contact.getFixtureA().getUserData();
 					PlayerItem body2 = (PlayerItem)contact.getFixtureB().getUserData();
@@ -724,42 +684,20 @@ public class StageImp extends ApplicationAdapter {
 			openSceneFunc.openScene(scene,this);
 			return;
 		}
-		if(currentStage != null && currentStage != this)
-		    return;
-		StageImp newStage = getFromDex(project.getPath(),scene,assetLoader,spriteSheetLoader).setPrev(this);
-		if(newStage==null) {
-		    // TODO : show error when scene is null ...
-		    debug("scene is null!!\n"+System.currentTimeMillis()+" , scene not found!\nscene : "+scene+"\n",true);
-		    return;
-		}
-		
+		StageImp newStage = getFromDex(project.getPath(),scene,assetLoader,spriteSheetLoader);
+		// this is complex, but if you want to understand...:
+		// when the new Stage call openScene/finish
+		// the current stage add a stage in it's list of stages
+		// then display it
+		// and when it call finish, the stage remove it from the list
+		// and give the input to the stage that come after it ...
+		// if there's no stages in the list, then give the input to the main stage
+		// if the main stage isn't available, it means it finished, close the game in that case ...
 		newStage.setOpenSceneFunc((sc,stageImp)->{
-		        //if the stage isn't the current, it means it's previous one or finished stage...
-				if(currentStage==stageImp){
+				if(currentStage==stageImp)
 					previousStages.add(stageImp);
-				    currentStage = getFromDex(project.getPath(),sc,assetLoader,spriteSheetLoader).setOpenSceneFunc(newStage.openSceneFunc).setFinishFunc(newStage.finishFunc).setPrev(stageImp).updateViewport(viewportWidth,viewportHeight);
-				}
+				currentStage = getFromDex(project.getPath(),sc,assetLoader,spriteSheetLoader).setOpenSceneFunc(newStage.openSceneFunc).setFinishFunc(newStage.finishFunc);
 			}).setFinishFunc((st)->{
-<<<<<<< HEAD
-			    if(currentStage !=null && !st.equals(currentStage)) return;
-			    StageImp temp = st;
-			    // check the previous stage opened before this
-			    // if there previous is finished then check the previous of it
-			    while(temp.prevStage!=null){
-			        temp = temp.prevStage;
-			        if(temp == null){
-			            Gdx.app.exit();
-			            return;
-			        } else if(!temp.finished) {
-			            currentStage = temp;
-			            Gdx.input.setInputProcessor(currentStage.multiplexer);
-			            //debug("scene finished without any problem\n");
-			            return;
-			        } //if current != null && finished => check the previous stage
-			    }
-			    //debug("no scene opened, finish the game\n");
-			    Gdx.app.exit();
-=======
 				if(previousStages.contains(st))
 					previousStages.remove(st);
 				if(previousStages.size()==0 && StageImp.this.finished)
@@ -770,7 +708,6 @@ public class StageImp extends ApplicationAdapter {
 				    Gdx.input.setInputProcessor(multiplexer);
 				} else if(currentStage!=null)
 				        Gdx.input.setInputProcessor(currentStage.multiplexer);
->>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 			});
 		if(currentStage==null){
 			previousStages.add(this);
@@ -796,20 +733,6 @@ public class StageImp extends ApplicationAdapter {
 					}
 		}
 		*/
-	}
-	
-	public void debug(String string){
-	    debug(string,true);
-	}
-	
-	public void debug(String string, boolean append){
-	    Gdx.files.external("game-logs/log.txt").writeString(string,append);
-	}
-	
-	public StageImp prevStage = null;
-	public StageImp setPrev(StageImp previous){
-	    this.prevStage = previous;
-	    return this;
 	}
 	
 	public float getZooming(){
@@ -877,7 +800,7 @@ public class StageImp extends ApplicationAdapter {
 	// }
 	
 	public boolean draw() {
-		if(preferences==null || finished) return false;
+		if(preferences==null) return false;
 		if(followX!=null&&followY!=null){
 			getCamera().position.set(followX.getActorX()+followX.getActor().getWidth()*0.5f+cameraOffset[0],followY.getActorY()+followY.getActor().getHeight()*0.5f+cameraOffset[1],0);
 		} else if(followX!=null){
@@ -951,10 +874,6 @@ public class StageImp extends ApplicationAdapter {
 	}
 	
 	public void act() {
-<<<<<<< HEAD
-	    if(finished) return;
-=======
->>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
 		if(preferences==null) {
 		    preferences = Gdx.app.getPreferences("prefs");
 		    if(preferences==null) return;
@@ -1026,17 +945,4 @@ public class StageImp extends ApplicationAdapter {
 			this.name = name;
 		}
 	}
-<<<<<<< HEAD
-	
-	// public int id = new java.util.Random().nextInt(Integer.MAX_VALUE);
-	// @Override
-	// public boolean equals(Object object){
-	    // if(object instanceof StageImp){
-	        // return ((StageImp)object).id == this.id;
-	    // }
-	    // return false;
-	// }
 }
-=======
-}
->>>>>>> 1ec6da5d7bd9cbcc6a7ce7b950f380bac1e232c1
