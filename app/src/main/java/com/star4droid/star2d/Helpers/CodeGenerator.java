@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CodeGenerator {
+    // TODO : make this class code more clear (maybe AI can do that? 🤔)
 	private static final String script_import ="//import .....script_here;";
 	public interface GenerateListener {
 		public void onGenerate(String s);
@@ -39,7 +40,7 @@ public class CodeGenerator {
 	"%1$s = (%3$s)(this.world.createJoint(%1$s_Def));";
 	
 	private static final String fixZIndexDefault =
-	"\n         %1$s.getActor().setZIndex((int)(%1$s_def.z));";
+	"\n         %1$s.getActor().setZIndex((int)(%1$s_def.z));\n";
 	
 	public static void generateFor(Editor editor,final GenerateListener generateListener){
 	    ArrayList<PropertySet<String,Object>> properties = new ArrayList<>();
@@ -154,10 +155,10 @@ public class CodeGenerator {
 							    itemsCode+= "\n"+propertySet.getString("name")+".attachToBody("+
 							    propertySet.getString("attach To")+".getBody());\n";
 				}
-				itemsCode+="\n"+joint.toString()+project.readEvent(scene,"OnCreate");
+				itemsCode+="\n"+fixZ+joint.toString()+project.readEvent(scene,"OnCreate");
 				if(!vars.equals("")) vars+=";";
 				if(!lightsVar.equals("")) lightsVar+=";";
-				final String code=itemsCode + fixZ;
+				final String code=itemsCode;
 				final String variables=vars+"\n"+jointVars+"\n"+lightsVar;
 				final boolean replaceImportOfTheScript = (!thereIsScript);
 				if(generateListener!=null) {

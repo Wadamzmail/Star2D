@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="add_joint">أضف ربط</string>
+    <string name="add_point">إضافة نقطة</string>
     <string name="alpha">شفافيه</string>
     <string name="animation_pictures">صور الانميشن</string>
     <string name="box_body">عنصر مربع</string>
@@ -8,6 +9,7 @@
     <string name="choose_color">اختر لون</string>
     <string name="circle_body">عنصر دائري</string>
     <string name="click_plus_to_add">انقر (+) لإضافة ملفات</string>
+    <string name="close">إغلاق</string>
     <string name="code_editor">محرر الأكواد</string>
     <string name="community">مجتمع</string>
     <string name="compiler">المترجم</string>
@@ -15,8 +17,10 @@
     <string name="copy">نسخ</string>
     <string name="create">إنشاء</string>
     <string name="create_project">إنشاء مشروع</string>
+    <string name="custom_body">عنصر مخصص (⭐)</string>
     <string name="d8_enable">تفعيل نظام D8</string>
     <string name="delete">حذف</string>
+    <string name="delete_the_point">حذف النقطة</string>
     <string name="download">تحميل</string>
     <string name="edit">تعديل</string>
     <string name="enter_value">ادخل قيمه</string>
@@ -63,6 +67,8 @@
 	السقوط لا يعني الفشل ، بل يعني انه اللعبه اشتغلت :)
 	</string>
     <string name="tutorials">شروحات</string>
+    <string name="update">تحديث</string>
+    <string name="update_needed">قم بتنزيل التحديث الجديد</string>
     <string name="version_code">رمز النسخه</string>
     <string name="version_name">اسم النسخه</string>
     <string name="your_images">صورك</string>

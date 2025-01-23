@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.star4droid.star2d.evo.app-mergeDebugResources-31:/values-v21/values-v21.xml",
+            "outputFile": "com.star4droid.star2d.evo.app-mergeDebugResources-32:/values-v21/values-v21.xml",
             "map": [
                 {
                     "source": "/data/data/com.itsaky.androidide/files/home/.gradle/caches/transforms-3/ee2c8cb9546df334536eaa7be8b5bda3/transformed/appcompat-1.6.1/res/values-v21/values-v21.xml",
@@ -42,7 +42,7 @@
                     }
                 },
                 {
-                    "source": "/data/data/com.itsaky.androidide/files/home/.gradle/caches/transforms-3/f54d6636ae8e853327b389636caa4d97/transformed/core-1.9.0/res/values-v21/values-v21.xml",
+                    "source": "/data/data/com.itsaky.androidide/files/home/.gradle/caches/transforms-3/edba46d37b12d2547e278f9d6e8cd13a/transformed/core-1.13.1/res/values-v21/values-v21.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,13",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4",

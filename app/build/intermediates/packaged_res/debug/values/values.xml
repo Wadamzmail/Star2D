@@ -90,6 +90,7 @@
     <color name="unselect_color">#FF000000</color>
     <color name="white">#FFFFFF</color>
     <string name="add_joint">Add Joint</string>
+    <string name="add_point">Add Point</string>
     <string name="alpha">Alpha</string>
     <string name="ambient_light" translatable="false">Ambient Light</string>
     <string name="animation_pictures">Animation Pictures</string>
@@ -100,6 +101,7 @@
     <string name="choose_color">Choose Color</string>
     <string name="circle_body">Circular Body</string>
     <string name="click_plus_to_add">Click (+) To add Files</string>
+    <string name="close">Close</string>
     <string name="code_editor">Code Editor</string>
     <string name="community">Community</string>
     <string name="compiler">Compiler</string>
@@ -109,8 +111,10 @@
     <string name="create">Create</string>
     <string name="create_project">Create Project</string>
     <string name="culling" translatable="false">Enable Culling</string>
+    <string name="custom_body">Custom Body (⭐)</string>
     <string name="d8_enable">Enable D8 for Dexing jar Files</string>
     <string name="delete">Delete</string>
+    <string name="delete_the_point">Delete The Point</string>
     <string name="directional_light">Directional Light</string>
     <string name="download">Download</string>
     <string name="edit">Edit</string>
@@ -159,6 +163,8 @@
     <string name="translator_url"/>
     <string name="tutorial">Tutorial</string>
     <string name="tutorials">Tutorials</string>
+    <string name="update">Update</string>
+    <string name="update_needed">Download The New Update</string>
     <string name="use_diffuse_light" translatable="false">Use Diffuse Light</string>
     <string name="version_code">Version Code</string>
     <string name="version_name">Version Name</string>

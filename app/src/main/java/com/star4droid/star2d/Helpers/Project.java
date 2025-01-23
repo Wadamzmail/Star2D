@@ -42,9 +42,11 @@ public class Project {
 	    String scrp = getEventPath(scene,body,event);
 		String result= FileUtil.readFile(scrp+".java")+"\n"+FileUtil.readFile(scrp+".code");
 		//Log.e("eeeee","empty "+getEventPath(event,body));
+	    /*
 	    FileUtil.writeFile(get("log")+event+"/"+body+".txt", 
 	    scrp+".java\n"+
 	    result);
+	    */
 		return result;
 	}
 	

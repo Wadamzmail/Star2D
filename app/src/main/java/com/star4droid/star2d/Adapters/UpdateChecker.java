@@ -59,6 +59,7 @@ public class UpdateChecker {
             connection.disconnect();
         } catch (Exception e) {
             e.printStackTrace();
+           // throw new RuntimeException(e.toString());
         }
         return response;
     }

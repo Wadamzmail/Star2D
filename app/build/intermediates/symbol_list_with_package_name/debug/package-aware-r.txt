@@ -1385,6 +1385,8 @@ color button_background
 color button_material_dark
 color button_material_light
 color button_stroke
+color call_notification_answer_color
+color call_notification_decline_color
 color cardview_dark_background
 color cardview_light_background
 color cardview_shadow_end_color
@@ -3112,6 +3114,12 @@ drawable grids_icon
 drawable help_box
 drawable ic_add_black
 drawable ic_arrow_back_black_24
+drawable ic_call_answer
+drawable ic_call_answer_low
+drawable ic_call_answer_video
+drawable ic_call_answer_video_low
+drawable ic_call_decline
+drawable ic_call_decline_low
 drawable ic_clear_black_24
 drawable ic_clock_black_24dp
 drawable ic_delete
@@ -3219,6 +3227,7 @@ drawable notification_bg_low_pressed
 drawable notification_bg_normal
 drawable notification_bg_normal_pressed
 drawable notification_icon_background
+drawable notification_oversize_large_icon_bg
 drawable notification_template_icon_bg
 drawable notification_template_icon_low_bg
 drawable notification_tile_bg
@@ -3342,6 +3351,7 @@ id add
 id addBody
 id addProject
 id add_light
+id add_point
 id alertTitle
 id aligned
 id all
@@ -3414,6 +3424,7 @@ id close
 id closest
 id code
 id collapseActionView
+id collider_view
 id community
 id comp_sp
 id compress
@@ -3451,6 +3462,7 @@ id delete
 id deleteBody
 id deleteScene
 id delete_img
+id delete_point
 id delete_text
 id deltaRelative
 id dependency_ordering
@@ -3494,6 +3506,7 @@ id east
 id edge
 id edit
 id edit_query
+id edit_text_id
 id editor
 id edittext
 id edittext1
@@ -3545,6 +3558,7 @@ id grouping
 id groups
 id header_title
 id hide
+id hide_ime_id
 id hideable
 id hints
 id home
@@ -3736,6 +3750,7 @@ id pick
 id pin
 id play
 id play_float
+id points_linear
 id portrait
 id position
 id postLayout
@@ -4093,6 +4108,7 @@ layout code_editor
 layout color_field
 layout color_value_editor
 layout create_dialog
+layout custom_collider_editor_dialog
 layout custom_dialog
 layout debug
 layout default_completion_result_item
@@ -4122,6 +4138,8 @@ layout floating_input
 layout for_circles
 layout give_perm
 layout image_value
+layout ime_base_split_test_activity
+layout ime_secondary_split_test_activity
 layout imgs_dialog
 layout joint_dialog
 layout light_settings
@@ -4244,6 +4262,7 @@ string abc_shareactionprovider_share_with
 string abc_shareactionprovider_share_with_application
 string abc_toolbar_collapse_description
 string add_joint
+string add_point
 string alpha
 string ambient_light
 string androidx_startup
@@ -4258,6 +4277,13 @@ string bottomsheet_action_expand_halfway
 string bottomsheet_drag_handle_clicked
 string bottomsheet_drag_handle_content_description
 string box_body
+string call_notification_answer_action
+string call_notification_answer_video_action
+string call_notification_decline_action
+string call_notification_hang_up_action
+string call_notification_incoming_text
+string call_notification_ongoing_text
+string call_notification_screening_text
 string cancel
 string character_counter_content_description
 string character_counter_overflowed_content_description
@@ -4266,6 +4292,7 @@ string choose_color
 string circle_body
 string clear_text_end_icon_content_description
 string click_plus_to_add
+string close
 string code_editor
 string community
 string compiler
@@ -4275,8 +4302,10 @@ string copy
 string create
 string create_project
 string culling
+string custom_body
 string d8_enable
 string delete
+string delete_the_point
 string directional_light
 string download
 string edit
@@ -4453,6 +4482,8 @@ string translation_by
 string translator_url
 string tutorial
 string tutorials
+string update
+string update_needed
 string use_diffuse_light
 string version_code
 string version_name

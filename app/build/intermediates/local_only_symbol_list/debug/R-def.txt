@@ -178,6 +178,7 @@ id add
 id addBody
 id addProject
 id add_light
+id add_point
 id alphaLinear
 id ambient
 id animationsList
@@ -201,6 +202,7 @@ id circle
 id clear
 id close
 id code
+id collider_view
 id community
 id comp_sp
 id contact
@@ -218,6 +220,7 @@ id delete
 id deleteBody
 id deleteScene
 id delete_img
+id delete_point
 id delete_text
 id diffuse
 id done
@@ -287,6 +290,7 @@ id payeer
 id pick
 id play
 id play_float
+id points_linear
 id portrait
 id progress
 id project_container
@@ -385,6 +389,7 @@ layout code_editor
 layout color_field
 layout color_value_editor
 layout create_dialog
+layout custom_collider_editor_dialog
 layout debug
 layout editor
 layout editor_point_picker
@@ -427,6 +432,7 @@ menu menu_files
 mipmap ic_launcher
 mipmap ic_launcher_round
 string add_joint
+string add_point
 string alpha
 string ambient_light
 string animation_pictures
@@ -437,6 +443,7 @@ string cancel
 string choose_color
 string circle_body
 string click_plus_to_add
+string close
 string code_editor
 string community
 string compiler
@@ -446,8 +453,10 @@ string copy
 string create
 string create_project
 string culling
+string custom_body
 string d8_enable
 string delete
+string delete_the_point
 string directional_light
 string download
 string edit
@@ -492,6 +501,8 @@ string translation_by
 string translator_url
 string tutorial
 string tutorials
+string update
+string update_needed
 string use_diffuse_light
 string version_code
 string version_name

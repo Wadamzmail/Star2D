@@ -36,6 +36,7 @@
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"مشاركة مع <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"تصغير"</string>
     <string name="add_joint">أضف ربط</string>
+    <string name="add_point">إضافة نقطة</string>
     <string name="alpha">شفافيه</string>
     <string name="animation_pictures">صور الانميشن</string>
     <string name="bottomsheet_action_collapse">تصغير البطاقة السفلية</string>
@@ -44,6 +45,13 @@
     <string name="bottomsheet_drag_handle_clicked">تم النقر مرّتين على مقبض السحب.</string>
     <string name="bottomsheet_drag_handle_content_description">مقبض السحب</string>
     <string name="box_body">عنصر مربع</string>
+    <string msgid="881409763997275156" name="call_notification_answer_action">"ردّ"</string>
+    <string msgid="8793775615905189152" name="call_notification_answer_video_action">"فيديو"</string>
+    <string msgid="3229508546291798546" name="call_notification_decline_action">"رفض"</string>
+    <string msgid="2659457946726154263" name="call_notification_hang_up_action">"قطع الاتصال"</string>
+    <string msgid="6107532579223922871" name="call_notification_incoming_text">"مكالمة واردة"</string>
+    <string msgid="8623827134497363134" name="call_notification_ongoing_text">"مكالمة جارية"</string>
+    <string msgid="59049573811482460" name="call_notification_screening_text">"يتم فحص المكالمة الواردة"</string>
     <string name="cancel">إلغاء</string>
     <string name="character_counter_content_description">تمّ إدخال %1$d حرف من إجمالي %2$d.</string>
     <string name="character_counter_overflowed_content_description">تجاوز عدد الأحرف المسموح به %1$d من %2$d.</string>
@@ -51,6 +59,7 @@
     <string name="circle_body">عنصر دائري</string>
     <string name="clear_text_end_icon_content_description">محو النص</string>
     <string name="click_plus_to_add">انقر (+) لإضافة ملفات</string>
+    <string name="close">إغلاق</string>
     <string name="code_editor">محرر الأكواد</string>
     <string name="community">مجتمع</string>
     <string name="compiler">المترجم</string>
@@ -58,8 +67,10 @@
     <string name="copy">نسخ</string>
     <string name="create">إنشاء</string>
     <string name="create_project">إنشاء مشروع</string>
+    <string name="custom_body">عنصر مخصص (⭐)</string>
     <string name="d8_enable">تفعيل نظام D8</string>
     <string name="delete">حذف</string>
+    <string name="delete_the_point">حذف النقطة</string>
     <string name="download">تحميل</string>
     <string name="edit">تعديل</string>
     <string name="enter_value">ادخل قيمه</string>
@@ -168,6 +179,8 @@
 	السقوط لا يعني الفشل ، بل يعني انه اللعبه اشتغلت :)
 	</string>
     <string name="tutorials">شروحات</string>
+    <string name="update">تحديث</string>
+    <string name="update_needed">قم بتنزيل التحديث الجديد</string>
     <string name="version_code">رمز النسخه</string>
     <string name="version_name">اسم النسخه</string>
     <string name="your_images">صورك</string>

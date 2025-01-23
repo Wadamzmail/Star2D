@@ -8,7 +8,7 @@ import com.star4droid.template.Items.StageImp;
 public class ItemScript {
 	public PlayerItem playerItem;
 	public Body body;
-	private StageImp stage;
+	public StageImp stage;
 	
 	public ItemScript(){}
 	
