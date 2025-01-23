@@ -68,18 +68,17 @@ jobs:
       with:
         name: classes.zip
         path: classes.zip
-        retention-days: 1 # Specify how many days the artifact should be retained
+        retention-days: 1 # Specify how many days the artifact should be retained.
+    - name: upload release apk
+      uses: actions/upload-artifact@v4
+      if: ${{ !github.head_ref }}
+      with:
+          name: apk-release
+          path: app/build/outputs/apk/debug/app-debug.apk
 
-    - name: Upload release apk
-            uses: actions/upload-artifact@v4
-            if: ${{ !github.head_ref }}
-            with:
-              name: apk-release
-              path: app/build/outputs/apk/debug/app-debug.apk
-      
-          - name: Upload mapping files
-            uses: actions/upload-artifact@v4      
-            if: ${{ !github.head_ref }}
-            with:
-              name: mapping
-              path: app/build/outputs/mapping
+    - name: Upload mapping files
+      uses: actions/upload-artifact@v4
+      with:
+          name: mapping
+          path: app/build/outputs/mapping
+          
