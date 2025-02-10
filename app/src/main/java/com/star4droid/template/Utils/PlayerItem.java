@@ -3,6 +3,7 @@ package com.star4droid.template.Utils;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.ParticleEffect;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -12,6 +13,8 @@ import com.star4droid.template.Items.ProgressItem;
 public interface PlayerItem {
 	public void update();
 	public Body getBody();
+	default public void scaleEffect(float sx,float sy){}
+	default public ParticleEffect getParticleEffect(){return null;};
 	default public String getName(){
 		return getProperties().getString("name");
 	};
