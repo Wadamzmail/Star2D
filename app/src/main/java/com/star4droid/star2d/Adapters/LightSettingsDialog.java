@@ -7,7 +7,9 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import androidx.appcompat.app.AlertDialog;
+import com.badlogic.gdx.Gdx;
 import com.star4droid.star2d.Helpers.FileUtil;
+import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.Helpers.Project;
 import com.star4droid.star2d.Helpers.PropertySet;
@@ -49,6 +51,14 @@ public class LightSettingsDialog {
 				}
 			}
 			FileUtil.writeFile(project.getConfig(scene),propertySet.toString());
+			Gdx.app.postRunnable(()->{
+				if(LibgdxEditor.getCurrentEditor()!=null){
+					try {
+						LibgdxEditor.getCurrentEditor().updateConfig();
+						LibgdxEditor.getCurrentEditor().setupLight();
+					} catch(Exception e){}
+				}
+			});
 			dialog.dismiss();
 		});
 		cv.findViewById(R.id.ambient).setOnClickListener(v->{
