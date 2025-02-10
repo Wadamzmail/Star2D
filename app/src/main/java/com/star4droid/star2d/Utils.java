@@ -35,6 +35,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.load.engine.GlideException;
@@ -51,8 +52,7 @@ import com.star4droid.star2d.Adapters.ImagesSelectorAdapter;
 import com.star4droid.star2d.Helpers.EngineSettings;
 import com.star4droid.star2d.Helpers.FileUtil;
 import com.star4droid.star2d.Helpers.PropertySet;
-import com.star4droid.star2d.Items.BoxBody;
-import com.star4droid.star2d.Items.EditorItem;
+import com.star4droid.star2d.editor.items.EditorItem;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.evo.star2dApp;
 import java.io.InputStream;
@@ -231,8 +231,8 @@ public class Utils {
 			v.setBackground(new GradientDrawable() { public GradientDrawable getIns(int a, int b, int c, int d) { this.setCornerRadius(a); this.setStroke(b, c); this.setColor(d); return this; } }.getIns(25, 0, 0xFFFFB300, 0xFF222222));
 		}
 		
-		public static void update(View view){
-			if(view instanceof EditorItem) ((EditorItem)view).update();
+		public static void update(Actor actor){
+			if(actor instanceof EditorItem) ((EditorItem)actor).update();
 		}
 		
 		public static void setCornerRadius(View v,int radius,int color){
@@ -243,13 +243,15 @@ public class Utils {
 			v.setBackground(new GradientDrawable() { public GradientDrawable getIns(int a, int b, int c, int d) { this.setCornerRadius(a); this.setStroke(b, c); this.setColor(d); return this; } }.getIns(radius, stroke, strokeColor, bgcolor));
 		}
 		
-		public static boolean isEditorItem(View v){
+		public static boolean isEditorItem(Actor v){
 			return (v instanceof EditorItem);
 		}
 		
+		/*
 		public static void setImageFromFile(ImageView imageView,String path){
 			setImageFromFile(imageView,path,null,null,null);
 		}
+		*/
 		
 		public static void extractAssetFile(Context context,String file,String to) throws Exception {
 			if(!FileUtil.isExistFile(to)) FileUtil.writeFile(to,"");
@@ -265,6 +267,7 @@ public class Utils {
 			input.close();
 		}
 		
+		/*
 		public static void setImageFromFile(final ImageView imageView,String _path,final Point repeat,final Point cut1,Point cut2){
 			if(_path.equals("")) {
 				imageView.setImageDrawable(imageView.getContext().getDrawable(R.drawable.icon));
@@ -408,17 +411,12 @@ public class Utils {
 						//Log(error_tag,"too large : "+repeatedBitmap.getByteCount());
 						return repeatedBitmap;
 					}
-					/*
-					if(System.currentTimeMillis()-tm>900){
-						Log(error_tag,"take a long time, size : "+repeatedBitmap.getByteCount()+"B");
-						//return repeatedBitmap;
-					}
-					*/
 				}
 			}
 			
 			return repeatedBitmap;
 		}
+		*/
 		
 		public static String getTag(View view){
 			if(view.getTag()==null) return "";
