@@ -70,7 +70,7 @@ public class TestApp implements ApplicationListener {
 	public void resize(int width, int height) {
 		this.width = width;
 		this.height = height;
-		stage.getViewport().update(width,height);
+		//stage.getViewport().update(width,height);
 		try {
 			editor.getViewport().update(width,height);
 		} catch(Exception e){}
