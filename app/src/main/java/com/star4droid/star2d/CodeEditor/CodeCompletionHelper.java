@@ -4,10 +4,12 @@ import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.star4droid.star2d.Helpers.FileUtil;
 import com.star4droid.star2d.Helpers.Project;
 import com.star4droid.star2d.Items.Editor;
-import com.star4droid.star2d.Items.EditorItem;
+import com.star4droid.star2d.editor.items.EditorItem;
 import com.tyron.javacompletion.JavaCompletions;
 import com.tyron.javacompletion.completion.CompletionCandidate;
 import com.tyron.javacompletion.completion.CompletionResult;
@@ -66,18 +68,17 @@ public class CodeCompletionHelper implements EventReceiver<SelectionChangeEvent>
 		*/
 		//moduleManager = new FileSystemModuleManager(completions.getFileManager(),new java.io.File(Editor.getCurrentEditor().getProject().get("java")).toPath(),indexOptions);
 		
-		Project project = Editor.getCurrentEditor().getProject();
+		Project project = new Project(Editor.getCurrentEditor().getProject().getPath());
 		editor = codeEditor;
 		try {
 		//moduleManager.initialize();
 		//completions.openFile(path, FileUtil.readFile(file));
 		completions.getFileManager().openFileForSnapshot(getURI(file),/*completions.getFileManager().getFileContent(path).orElse(*/FileUtil.readFile(file)/*).toString()*/);
 		if(Editor.getCurrentEditor()!=null)
-			for(int x=0;x<Editor.getCurrentEditor().getChildCount();x++){
-				View v=Editor.getCurrentEditor().getChildAt(x);
-				if(v instanceof ImageView&&v instanceof EditorItem){
-					String name=((EditorItem)v).getPropertySet().getString("name");
-					drawablesMap.put(name,((ImageView)v).getDrawable());
+			for(Actor actor:Editor.getCurrentEditor().getLibgdxEditor().getActors()){
+				if(actor instanceof Image && actor instanceof EditorItem){
+					String name = ((EditorItem)actor).getPropertySet().getString("name");
+					//TODO : ...
 				}
 			}
 		} catch(Exception exception){}
