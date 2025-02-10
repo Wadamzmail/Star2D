@@ -19,12 +19,13 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.AppCompatCheckBox;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.star4droid.star2d.EditorActivity;
 import com.star4droid.star2d.Helpers.CheckBoxUtils;
 import com.star4droid.star2d.Helpers.FileUtil;
 import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Items.Editor;
-import com.star4droid.star2d.Items.EditorItem;
+import com.star4droid.star2d.editor.items.EditorItem;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.Utils;
 import java.util.ArrayList;
@@ -50,7 +51,7 @@ public class EditorField implements EditorValue {
 			drag_control_fields = Utils.readAssetFile("dragControl.json",ctx);
 		if(disableOnPlayFields==null)
 			disableOnPlayFields = Utils.readAssetFile("playOffProps.txt",ctx);
-		if(type.equals("body")){
+		if(type.equals("body") || type.toLowerCase().equals("file")){
 			view = LayoutInflater.from(ctx).inflate(R.layout.float_value,null);
 			name = view.findViewById(R.id.name);
 			value = view.findViewById(R.id.value);
@@ -58,6 +59,16 @@ public class EditorField implements EditorValue {
 			if(nm.equals("Collision")||nm.equals("attach To")) value.setText("Tap to select");
 			value.setOnClickListener(v->{
 				if(isDisabled()) return;
+				if(type.toLowerCase().equals("file")){
+					com.badlogic.gdx.Gdx.app.postRunnable(()->{
+						editor.getLibgdxEditor().getFilePicker(true).setRoot(editor.getProject().get("files")).setExtensions("p","particle").setOnPick((fhandle,path)->{
+							PropertySet<String,Object> propertySet = PropertySet.getPropertySet(editor.getSelectedView());
+							propertySet.put("file",path.replace("/",Utils.seperator));
+							((EditorItem)(editor.getSelectedView())).setProperties(propertySet);
+						});
+					});
+					return;
+				}
 				final AlertDialog alert = new AlertDialog.Builder(ctx).create();
 				
 				View vv = LayoutInflater.from(ctx).inflate(R.layout.joint_dialog,null);
@@ -107,19 +118,19 @@ public class EditorField implements EditorValue {
 						if(result.equals(""))
 							PropertySet.getPropertySet(editor.getSelectedView()).setParent(null);
 						if(!result.equals(""))
-						for(int x=0;x<editor.getChildCount();x++){
-							if(Utils.isEditorItem(editor.getChildAt(x))){
-								PropertySet set=PropertySet.getPropertySet(editor.getChildAt(x));
-								if(set.getString("name").equals(result)){
-									if(!PropertySet.getPropertySet(editor.getSelectedView()).setParent(set)){
-										Utils.showMessage(ctx,"Can\'t be set as parent!");
-										return;
+							for(Actor actor:editor.getLibgdxEditor().getActors()){
+								if(Utils.isEditorItem(actor)){
+									PropertySet set=PropertySet.getPropertySet(actor);
+									if(set.getString("name").equals(result)){
+										if(!PropertySet.getPropertySet(editor.getSelectedView()).setParent(set)){
+											Utils.showMessage(ctx,"Can\'t be set as parent!");
+											return;
+										}
+										editor.selectView(editor.getSelectedView());
+										break;
 									}
-									editor.selectView(editor.getSelectedView());
-									break;
 								}
 							}
-						}
 					}
 					PropertySet.getPropertySet(editor.getSelectedView()).put(getName(),result);
 					editor.updateProperties();
@@ -191,15 +202,13 @@ public class EditorField implements EditorValue {
 						
 						float dx=event.getX()-pf.x;
 						float dy=event.getY()-pf.y;//Uesless
-						float increase = (float)(dx*0.05*1.3f*(1/editor.getEditorScale()));
+						float increase = (float)(dx*0.05*1.3f);
 						PropertySet<String,Object> propertySet = PropertySet.getPropertySet(editor.getSelectedView());
 						propertySet.put(getName(),propertySet.getFloat(getName())+increase);
 						if(getName().equals("height")) propertySet.put("Collider Height",propertySet.getFloat("Collider Height")+increase);
 						if(getName().equals("width")) propertySet.put("Collider Width",propertySet.getFloat("Collider Width")+increase);
-						if(getName().equals("x")||getName().equals("y")||getName().equals("rotation"))
-							propertySet.updateMatrixToCurrent();
+						
 						editor.updateProperties();
-						editor.updateSelector();
 						Utils.update(editor.getSelectedView());
 						break;
 					}
@@ -223,8 +232,7 @@ public class EditorField implements EditorValue {
 							if(getName().equals("height")&&propertySet.containsKey("Collider Height")) propertySet.put("Collider Height",f);
 							editor.updateProperties();
 							editor.getSaveState();
-							if(getName().equals("x")||getName().equals("y")||getName().equals("rotation"))
-								propertySet.updateMatrixToCurrent();
+							
 							if(getName().equals("tileX")||getName().equals("tileY"))
 							((EditorItem)(editor.getSelectedView())).setProperties(propertySet);
 							else Utils.update(editor.getSelectedView());
@@ -383,7 +391,9 @@ public class EditorField implements EditorValue {
 		if(p==null) return false;
 		view.setVisibility(bool);
 		if(p.containsKey(name.getText().toString())){
-			if(type.equals("float"))
+			if(type.toLowerCase().equals("file")){
+				value.setText(p.getString(name.getText().toString()).replace(Utils.seperator,"/"));
+			} else if(type.equals("float"))
 			value.setText(p.getString(name.getText().toString()));
 			if(type.equals("image")){
 				if(!imgPath.equals(p.getString(getName()))){
