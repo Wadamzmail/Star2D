@@ -75,7 +75,8 @@ public class ExportDialog {
 	public static SharedPreferences restore(Context context,String project,AppCompatCheckBox portrait,TextInputEditText... texts){
 		SharedPreferences sh = context.getSharedPreferences("export",Context.MODE_PRIVATE);
 		String imgPath=sh.getString(project+"-image","");
-		if(FileUtil.isExistFile(imgPath)) Utils.setImageFromFile(icon,imgPath);
+		//TODO : ...
+		//if(FileUtil.isExistFile(imgPath)) Utils.setImageFromFile(icon,imgPath);
 		portrait.setChecked(sh.getBoolean(project+"or",false));
 		int x=0;
 		for(TextInputEditText text:texts){
