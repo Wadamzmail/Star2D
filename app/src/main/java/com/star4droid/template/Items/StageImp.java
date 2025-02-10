@@ -85,14 +85,18 @@ public class StageImp extends ApplicationAdapter {
 	
 	boolean needsUpdate = true;
 	public void init(Viewport viewport){
-	    if(propertySet==null || Gdx.app==null || Gdx.files == null) return;
+	    if(propertySet==null || Gdx.app==null || Gdx.files == null) {
+	        Gdx.files.external("null.error.txt").writeString(String.format("property: %1$s, app : %2$s, files : %3$s\n\n",propertySet!=null,Gdx.app!=null,Gdx.files != null),true);
+	        return;
+	    }
 	    float height = propertySet==null?0:propertySet.getInt("logicHeight"),
 			width = propertySet==null?0:propertySet.getInt("logicWidth");
 		if(height==0) height=1560;
 		if(width==0) width=720;
 		float ratio = width/height;
 		//viewport = new FitViewport(10,10/ratio);
-		if(true || viewport==null || needsUpdate) viewport = new FitViewport(width,height);
+		/*if(true || viewport==null || needsUpdate)*/
+		    viewport = new FitViewport(width,height);
 		    //else viewport.setWorldSize(width,height);
 		needsUpdate = (propertySet==null);
 		preferences = Gdx.app.getPreferences("prefs");
@@ -150,7 +154,7 @@ public class StageImp extends ApplicationAdapter {
 			try {
 			    onCreate();
 			} catch(Exception e){
-			    throw new RuntimeException(e.toString());
+			    throw new RuntimeException(Utils.getStackTraceString(e));
 			}
 		}
 		this.viewport = viewport;
@@ -381,15 +385,17 @@ public class StageImp extends ApplicationAdapter {
 		    try {
 			    onCreate();
 			} catch(Exception e){
-			    throw new RuntimeException(e.toString());
+			    throw new RuntimeException("\nonCreate Error : "+Utils.getStackTraceString(e)+"\n");
 			}
 			onCreateCalled = true;
 		}
 		
 		if(!loadComplete){
-			loadingStage.setProgress(assetLoader.getProgress()*75);
-			loadingStage.act();
-			loadingStage.draw();
+			if(loadingStage!=null){
+			    loadingStage.setProgress(assetLoader.getProgress()*75);
+			    loadingStage.act();
+			    loadingStage.draw();
+			}
 		} else if(currentStage==null){
 			act();
 			draw();
@@ -401,7 +407,11 @@ public class StageImp extends ApplicationAdapter {
 			currentStage.draw();
 			//if(!currentStage.draw())
 			    //throw new RuntimeException("game not drawn for unknown reason...");
-			currentStage.onDraw();
+			try {
+			    currentStage.onDraw();
+			} catch(Exception ex){
+			    ex.printStackTrace();
+			}
 		}
 		
 	}
@@ -653,7 +663,11 @@ public class StageImp extends ApplicationAdapter {
 	public static StageImp getFromDex(String path,String scene,ProjectAssetLoader projectAssetLoader,SpriteSheetLoader spriteSheetLoader){
 		try {
 			Project project = new Project(path);
-			PropertySet<String,Object> set = PropertySet.getFrom(Utils.readFile(project.getConfig(scene)));
+			String read = Utils.readFile(project.getConfig(scene));
+			PropertySet<String,Object> set = PropertySet.getFrom(read);
+			if(set == null){
+			    Gdx.files.external("logs/set.null.txt").writeString(String.format("path : %1$s, read : \n%2$s\n\n"),true);
+			}
 			String optimizedDir = null;// star2dApp.getContext().getDir("odex", android.content.Context.MODE_PRIVATE).getAbsolutePath();
 			java.io.File file = new java.io.File(project.getDex());
 			file.setReadOnly();
