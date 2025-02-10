@@ -7,9 +7,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import com.star4droid.star2d.EditorActivity;
+import com.star4droid.star2d.Helpers.Project;
 import com.star4droid.star2d.Items.*;
 import android.widget.PopupMenu;
 import android.view.MenuItem;
+import com.star4droid.star2d.editor.items.LightItem;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.Utils;
 
@@ -28,16 +30,19 @@ public class AddLightPopup {
                     @Override
                     public boolean onMenuItemClick(MenuItem item) {
                         if(item.getItemId()==4){
-                            LightSettingsDialog.showFor(editor.getContext(),editor.getProject(),editor.getScene());
+                            LightSettingsDialog.showFor(editor.getContext(),new Project(editor.getProject().getPath()),editor.getScene());
                             return true;
                         }
-                        LightItem lightItem = new LightItem(activity);
-        				editor.addView(lightItem);
-        				lightItem.setDefault(getType(item.getItemId()));
-        				lightItem.getPropertySet().put("z",getLastZ(editor));
-        				editor.selectView(lightItem);
+                        com.badlogic.gdx.Gdx.app.postRunnable(()->{
+                            LightItem lightItem = new LightItem(editor.getLibgdxEditor());
+            				editor.getLibgdxEditor().addActor(lightItem);
+            				lightItem.setName(editor.getName(lightItem));
+            				lightItem.setDefault(getType(item.getItemId()));
+            				lightItem.getPropertySet().put("z",getLastZ(editor));
+            				editor.selectView(lightItem);
+            				lightItem.update();
+        				});
         				activity.refreshBodies();
-        				lightItem.update();
                         return true;
                     }
                 });
@@ -53,13 +58,6 @@ public class AddLightPopup {
 	}
 	
 	private static float getLastZ(Editor editor){
-		float z=0;
-		for(int x=0;x<editor.getChildCount();x++){
-			if(Utils.isEditorItem(editor.getChildAt(x))){
-				z = Math.max(editor.getChildAt(x).getZ(),z);
-			}
-		}
-		z++;
-		return z;
+		return editor.getLastZ();
 	}
 }
