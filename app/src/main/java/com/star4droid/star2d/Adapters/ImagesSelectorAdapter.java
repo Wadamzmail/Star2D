@@ -9,6 +9,7 @@ import android.widget.BaseAdapter;
 import android.widget.GridView;
 import android.widget.ImageView;
 import androidx.appcompat.app.AlertDialog;
+import com.bumptech.glide.Glide;
 import com.star4droid.star2d.Helpers.FileUtil;
 import com.star4droid.star2d.Items.Editor;
 import com.star4droid.star2d.evo.R;
@@ -70,7 +71,8 @@ public class ImagesSelectorAdapter extends BaseAdapter {
 			view = new ImageView(context);
 			view.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,250));
 		}
-		if(FileUtil.isFile(imagesList.get(position))) Utils.setImageFromFile(view,imagesList.get(position));
+		if(FileUtil.isFile(imagesList.get(position)))
+			Glide.with(context).load(imagesList.get(position)).error(R.drawable.icon).into(view);
 		else if(FileUtil.isDirectory(imagesList.get(position))){
 			view.setImageDrawable(context.getDrawable(R.drawable.ic_filter_black));
 		} else if(imagesList.get(position).equals("...")) view.setImageDrawable(context.getDrawable(R.drawable.right_black));
