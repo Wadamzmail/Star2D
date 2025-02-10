@@ -6,10 +6,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.star4droid.star2d.Items.*;
 import com.star4droid.star2d.Utils;
+import com.star4droid.star2d.editor.items.EditorItem;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,17 +46,16 @@ public class CodeGenerator {
 	
 	public static void generateFor(Editor editor,final GenerateListener generateListener){
 	    ArrayList<PropertySet<String,Object>> properties = new ArrayList<>();
-	    for(int x=0;x<editor.getChildCount();x++){
-	        View child = editor.getChildAt(x);
-					if(Utils.isEditorItem(child)){
-					    PropertySet<String,Object> propertySet=((EditorItem)child).getPropertySet();
-					    properties.add(propertySet);
-					}
-	    }
+	    for(Actor actor:editor.getLibgdxEditor().getActors()){
+			if(Utils.isEditorItem(actor)){
+				PropertySet<String,Object> propertySet=((EditorItem)actor).getPropertySet();
+				properties.add(propertySet);
+			}
+		}
 	    generateFor(editor.getProject(), editor.getScene(),editor.getContext(),properties,generateListener);
 	}
 	
-	public static void generateFor(Project project,String scene,Context context,ArrayList<PropertySet<String,Object>> properties,final GenerateListener generateListener){
+	public static void generateFor(com.star4droid.star2d.Helpers.editor.Project project,String scene,Context context,ArrayList<PropertySet<String,Object>> properties,final GenerateListener generateListener){
 		new Thread(){
 			public void run(){
 				String itemsCode="",fixZ = "";
@@ -139,7 +140,7 @@ public class CodeGenerator {
 							if((!isLight)&&propertySet.getParent()!=null)
 								itemsCode+=propertySet.getParent().getString("name")+".addChild("+name+");\n";
 							if(!FileUtil.readFile(project.getBodyScriptPath(script,scene)).equals("")){
-								itemsCode+=String.format("\n%1$s.setScript(new %1$sScript().setItem(%2$s).setStage(this));\n",script,name);
+								itemsCode+=String.format("\n%2$s.setScript(new %1$sScript().setItem(%2$s).setStage(this));\n",script,name);
 								thereIsScript=true;
 							}
 							if(!propertySet.getString("TYPE").contains("LIGHT"))
@@ -173,13 +174,16 @@ public class CodeGenerator {
 	}
 	
 	public static String getType(String type){
-		if(type.equals("BOX")) return "BoxDef";
-		if(type.equals("CUSTOM")) return "CustomDef";
-		if(type.equals("JOYSTICK")) return "JoyStickDef";
-		if(type.equals("TEXT")) return "TextDef";
-		if(type.equals("CIRCLE")) return "CircleDef";
-		if(type.equals("PROGRESS")) return "ProgressDef";
-		if(type.equals("LIGHT")) return "LightDef";
+		switch(type){
+			case "BOX": return "BoxDef";
+			case "CUSTOM": return "CustomDef";
+			case "JOYSTICK": return "JoyStickDef";
+			case "TEXT": return "TextDef";
+			case "CIRCLE": return "CircleDef";
+			case "PROGRESS": return "ProgressDef";
+			case "LIGHT": return "LightDef";
+			case "PARTICLE" : return "ParticleDef";
+		}
 		return "Unknown";
 	}
 }
