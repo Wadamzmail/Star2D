@@ -12,7 +12,7 @@ import androidx.appcompat.app.AlertDialog;
 import com.star4droid.star2d.Helpers.ColorWheelView;
 import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Items.Editor;
-import com.star4droid.star2d.Items.EditorItem;
+import com.star4droid.star2d.editor.items.EditorItem;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.Utils;
 
