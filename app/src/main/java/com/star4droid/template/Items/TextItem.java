@@ -15,7 +15,7 @@ import com.star4droid.template.Utils.ChildsHolder;
 import com.star4droid.template.Utils.PlayerItem;
 import com.star4droid.template.Utils.PropertySet;
 
-public class TextItem extends Label implements PlayerItem{
+public class TextItem extends Label implements PlayerItem {
 	StageImp stage;
 	float textY=0;
 	ElementEvent elementEvent;
@@ -27,6 +27,7 @@ public class TextItem extends Label implements PlayerItem{
 		//setWrap(true);
 		this.stage = stageImp;
 		setY(0);
+		setWrap(true);
 		addListener(new InputListener(){
 			@Override
 			public void touchUp (InputEvent event, float x, float y, int pointer, int button) {
@@ -55,7 +56,7 @@ public class TextItem extends Label implements PlayerItem{
 	public static TextItem create(StageImp stageImp,PropertySet<String,Object> propertySet,ElementEvent elementEvent){
 		BitmapFont font = new BitmapFont(Gdx.files.internal("files/default.fnt"));
 		LabelStyle labelStyle = new LabelStyle(font, Color.GOLD);
-		return new TextItem(propertySet.getString("Text"),labelStyle,stageImp).setPropertySet(propertySet);
+		return new TextItem(propertySet.getString("Text"),labelStyle,stageImp).setPropertySet(propertySet).setElementEvent(elementEvent);
 	}
 	@Override
 	public void update() {
@@ -78,6 +79,7 @@ public class TextItem extends Label implements PlayerItem{
 	    return null;
 	}
 	
+	/*
 	@Override
 	public boolean setZIndex(int z){
 	    boolean b = true;
@@ -87,11 +89,12 @@ public class TextItem extends Label implements PlayerItem{
 	    if(stage!=null) stage.updateActors();
 	    return b;
 	}
+	*/
 
 	@Override
 	public ChildsHolder getChildsHolder() {
 		if(childsHolder!=null)
-		return childsHolder;
+			return childsHolder;
 		else {
 			childsHolder = new ChildsHolder(this);
 			return childsHolder;
@@ -126,7 +129,7 @@ public class TextItem extends Label implements PlayerItem{
 		// capHeight * scale =  height 
 		//  scale = height / capHeight
 		// capHeight*x = height => scale = height/capH
-		setFontScale(getHeight()/getStyle().font.getCapHeight());
+		//setFontScale(getHeight()/getStyle().font.getCapHeight());
 		
 	}
 	
@@ -165,6 +168,10 @@ public class TextItem extends Label implements PlayerItem{
 		getStyle().fontColor= new Color(propertySet.getColor("Text Color"));
 		if(getStage()==null)
 		    stage.addActor(this);
+		if(elementEvent!=null)
+			elementEvent.onBodyCreated(this);
+		if(getScript()!=null)
+			getScript().bodyCreated();
 	}
 	
 	@Override
