@@ -70,7 +70,7 @@ public class CompileThread extends Thread {
 		}
         Utils.extractAssetFile(context,"java/PlayerItem.java",filesPath+"/com/star4droid/star2d/player/PlayerItem.java");
 		//FileUtil.deleteFile(filesPath+"/com/star4droid/star2d/player/PlayerItem.java");
-		Utils.extractAssetFile(context,"java/game.jar",dataDir+"/bin/addition.jar");
+		Utils.extractAssetFile(context,"java/game.zip",dataDir+"/bin/addition.jar");
 		if(EngineSettings.get().getString("compiler","javac").equals("ecj")){
 			opt.add(jv);
 			opt.add("-nowarn");
