@@ -90,7 +90,7 @@ public class MyIndexer extends Indexer {
 		
 		if((!FileUtil.isExistFile(idx2))||new java.io.File(idx2).length()==0||!EngineSettings.get().getString("JAR_FILE_VERSION","").equals("1.1")){
 		FileUtil.writeFile(idx2,"");
-		Utils.extractAssetFile(editor.getContext(),"java/game.jar",data+"/bin/addition.jar");
+		Utils.extractAssetFile(editor.getContext(),"java/game.zip",data+"/bin/addition.jar");
 		Utils.unzipf(data+"/bin/addition.jar",data+"/bin/add/","");
 		jars.add(data+"/bin/add/");
 		run(jars,idx2,Collections.emptyList(),Collections.emptyList(),data+"/bin/add/");
@@ -123,8 +123,11 @@ public class MyIndexer extends Indexer {
 		java.util.Collections.emptyList(),
 		list/*indexed files list...*/
 		);
-		
-		javaCompletions.initialize(URI.create("file://" + editor.getProject().get("java")),options);
+		try {
+		    javaCompletions.initialize(URI.create("file://" + editor.getProject().get("java")),options);
+		} catch(Exception ex){
+		    ex.printStackTrace();
+		}
 		try {
 			IndexUtil.loadJdk(javaCompletions.getProject(),context,indexes);
 			} catch(Exception ex){
