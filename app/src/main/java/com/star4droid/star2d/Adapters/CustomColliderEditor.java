@@ -4,9 +4,10 @@ import android.view.View;
 import android.view.LayoutInflater;
 import android.widget.LinearLayout;
 import androidx.appcompat.app.AlertDialog;
+import com.bumptech.glide.Glide;
 import com.star4droid.star2d.Views.CustomColliderView;
+import com.star4droid.star2d.editor.items.CustomItem;
 import com.star4droid.star2d.evo.R;
-import com.star4droid.star2d.Items.CustomBody;
 import com.star4droid.star2d.Items.Editor;
 import com.star4droid.star2d.Utils;
 import com.star4droid.star2d.Helpers.FileUtil;
@@ -17,7 +18,7 @@ public class CustomColliderEditor {
 		    android.widget.Toast.makeText(editor.getContext(),"shown",1500).show();
 		    return;
 		}
-		CustomBody customBody = (CustomBody)editor.getSelectedView();
+		CustomItem customBody = (CustomItem)editor.getSelectedView();
 		View view = LayoutInflater.from(editor.getContext()).inflate(R.layout.custom_collider_editor_dialog,null);
 		LinearLayout pointsLinear = view.findViewById(R.id.points_linear);
 		CustomColliderView colliderView = view.findViewById(R.id.collider_view);
@@ -45,13 +46,14 @@ public class CustomColliderEditor {
 		// android.widget.Toast.makeText(editor.getContext(),customBody.getPropertySet().getString("image"),2500).show();
 		if (!customBody.getPropertySet().getString("image").equals("")) {
 		    // android.widget.Toast.makeText(editor.getContext(),"request sent",2500).show();
-			String img = customBody.editor.getProject().getImagesPath() + customBody.getPropertySet().getString("image").replace(Utils.seperator,"/");
+			String img = editor.getProject().getImagesPath() + customBody.getPropertySet().getString("image").replace(Utils.seperator,"/");
 			if (FileUtil.isExistFile(img)) {
 			    // android.widget.Toast.makeText(editor.getContext(),"exist determined",2500).show();
 			    android.graphics.Point repeat = new android.graphics.Point();
 				repeat.x = customBody.getPropertySet().getInt("tileX");
 				repeat.y = customBody.getPropertySet().getInt("tileY");
-				Utils.setImageFromFile(colliderView, img, repeat, null, null);
+				Glide.with(editor.getContext()).load(img).error(R.drawable.icon).into(colliderView);
+				//Utils.setImageFromFile(colliderView, img, repeat, null, null);
 			}
 		}
 	}
@@ -81,6 +83,6 @@ public class CustomColliderEditor {
 	}
 	
 	public static boolean isTheCurrentIsCustom(Editor editor){
-		return (editor.getSelectedView() != null && editor.getSelectedView() instanceof CustomBody);
+		return (editor.getSelectedView() != null && editor.getSelectedView() instanceof CustomItem);
 	}
 }
