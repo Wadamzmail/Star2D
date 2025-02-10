@@ -1,6 +1,5 @@
 package com.star4droid.star2d.Helpers;
 
-import android.net.Uri;
 import com.star4droid.star2d.Items.Editor;
 import java.util.ArrayList;
 
@@ -145,7 +144,7 @@ public class Project {
 	}
 	
 	public String getName(){
-		return Uri.parse(path).getLastPathSegment();
+		return new java.io.File(path).getName();
 	}
 	
 	public void save(Editor editor){
