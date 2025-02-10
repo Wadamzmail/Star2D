@@ -14,6 +14,7 @@
 	<string name="install">install</string>
 	<string name="cancel">Cancel</string>
 	<string name="box_body">Box Body</string>
+	<string name="particle_effect">Particle Effect</string>
 	<string name="custom_body">Custom Body (⭐)</string>
 	<string name="circle_body">Circular Body</string>
 	<string name="text_item">Text Item</string>
