@@ -13,7 +13,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import com.google.gson.Gson;
 import com.star4droid.star2d.Helpers.FileUtil;
-import com.star4droid.star2d.Helpers.Project;
+import com.star4droid.star2d.Helpers.editor.Project;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Items.Editor;
