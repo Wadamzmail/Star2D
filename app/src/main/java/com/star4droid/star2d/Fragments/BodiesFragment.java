@@ -13,10 +13,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.Fragment;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.google.android.material.elevation.SurfaceColors;
 import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Items.Editor;
-import com.star4droid.star2d.Items.EditorItem;
+import com.star4droid.star2d.editor.items.EditorItem;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.Utils;
 import java.lang.reflect.Constructor;
@@ -53,22 +54,25 @@ public class BodiesFragment extends Fragment {
   public void update() {
     if (gridViewAdapter != null && editor != null) {
       gridViewAdapter.getArrayList().clear();
-      for (int x = 0; x < editor.getChildCount(); x++) {
-        if (!Utils.isEditorItem(editor.getChildAt(x))) continue;
-        HashMap<String, Object> hash = new HashMap<>();
-        PropertySet<String, Object> propertySet = PropertySet.getPropertySet(editor.getChildAt(x));
-        if (!propertySet.containsKey("name")) continue;
-        if (!propertySet.getString("parent").equals("")) continue;
-        hash.put("name", propertySet.getString("name"));
-        hash.put("item", editor.getChildAt(x));
-        gridViewAdapter.getArrayList().add(hash);
-        for (PropertySet set : getChilds(propertySet, null)) {
-          HashMap<String, Object> hashMap = new HashMap<>();
-          hashMap.put("name", set.getString("name"));
-          hashMap.put("item", set);
-          gridViewAdapter.getArrayList().add(hashMap);
-        }
-      }
+      try {
+    	  for(Actor actor:editor.getLibgdxEditor().getActors()){
+    		  if (!Utils.isEditorItem(actor)) continue;
+    		  HashMap<String, Object> hash = new HashMap<>();
+            PropertySet<String, Object> propertySet = PropertySet.getPropertySet(actor);
+            if(propertySet==null) continue;
+    		if (!propertySet.containsKey("name")) continue;
+            if (!propertySet.getString("parent").equals("")) continue;
+            hash.put("name", propertySet.getString("name"));
+            hash.put("item", actor);
+            gridViewAdapter.getArrayList().add(hash);
+            for (PropertySet set : getChilds(propertySet, null)) {
+              HashMap<String, Object> hashMap = new HashMap<>();
+              hashMap.put("name", set.getString("name"));
+              hashMap.put("item", set);
+              gridViewAdapter.getArrayList().add(hashMap);
+            }
+    	  }
+	  } catch(Exception exc){}
       gridViewAdapter.notifyDataSetChanged();
     }
   }
@@ -117,9 +121,8 @@ public class BodiesFragment extends Fragment {
 
     @Override
     public View getView(final int position, View convertView, ViewGroup parent) {
-      // if(convertView==null){
       convertView = LayoutInflater.from(getContext()).inflate(R.layout.body_image_card, null);
-      // }
+	  
       int padding = 0;
       PropertySet pst = getProperty(position);
       while (pst.getParent() != null) {
@@ -131,7 +134,7 @@ public class BodiesFragment extends Fragment {
           .setPadding(Utils.convertPixelsToDp(getContext(), 20) * padding, 0, 0, 0);
       if (getProperty(position)
           .getString("name")
-          .equals(PropertySet.getPropertySet(editor.getSelectedView()).getString("name")))
+          .equals(editor.getSelectedView()==null?"":PropertySet.getPropertySet(editor.getSelectedView()).getString("name")))
         convertView
             .findViewById(R.id.linear)
             .setBackgroundColor(/*SurfaceColors.SURFACE_4.getColor(getContext())*/android.graphics.Color.BLACK);
@@ -167,27 +170,9 @@ public class BodiesFragment extends Fragment {
                       int itemId = item.getItemId();
 
                       if (itemId == R.id.copy) {
-                        try {
-                          Constructor<?> cc =
-                              getItem(position).getClass().getConstructor(Context.class);
-                          EditorItem i = (EditorItem) cc.newInstance(getContext());
-                          PropertySet<String, Object> ps = new PropertySet<>();
-                          ps.putAll(getProperty(position));
-                          String name = getRealNameAndNum(getProperty(position).getString("name"));
-                          String result = name.split(" ")[0];
-                          int num = Utils.getInt(name.split(" ")[1]);
-                          ArrayList<String> bodies = editor.getBodiesList();
-                          while (bodies.contains(result + num)) num++;
-                          ps.put("name", result + num);
-                          editor.addView((View) i);
-                          i.setProperties(ps);
-                          i.update();
-                          editor.selectView((View) i);
-                        } catch (Exception exception) {
-                          Utils.showMessage(getContext(), Log.getStackTraceString(exception));
-                        }
+                        Utils.showMessage(getContext(),"Copy Not Supported For Now...");
                       } else if (itemId == R.id.delete) {
-                        editor.removeView((View) getItem(position));
+                        ((Actor)getItem(position)).remove();
                       } else if (itemId == R.id.lock) {
                         switchLock(position, lock);
                       } else {
@@ -202,9 +187,8 @@ public class BodiesFragment extends Fragment {
               });
       ImageView image = (ImageView) convertView.findViewById(R.id.image);
       image.setImageDrawable(getContext().getDrawable(R.drawable.icon));
-      if (getProperty(position).containsKey("image"))
-        Utils.setImageFromFile(
-            image, editor.getProject().getImagesPath() + getProperty(position).getString("image"));
+      //if (getProperty(position).containsKey("image"))
+        //Utils.setImageFromFile(image, editor.getProject().getImagesPath() + getProperty(position).getString("image"));
       TextView name = (TextView) convertView.findViewById(R.id.name);
       name.setText(getProperty(position).getString("name"));
       convertView
@@ -212,17 +196,8 @@ public class BodiesFragment extends Fragment {
           .setOnClickListener(
               view -> {
                 if (getItem(position) instanceof PropertySet) {
-                  for (int x = 0; x < editor.getChildCount(); x++) {
-                    if (Utils.isEditorItem(editor.getChildAt(x))) {
-                      if (PropertySet.getPropertySet(editor.getChildAt(x))
-                          .getString("name")
-                          .equals(getProperty(position).getString("name"))) {
-                        editor.selectView(editor.getChildAt(x));
-                        break;
-                      }
-                    }
-                  }
-                } else editor.selectView((View) getItem(position));
+                  editor.selectByName(((PropertySet)getItem(position)).getString("name"));
+                } else if(getItem(position) instanceof Actor) editor.selectView((Actor) getItem(position));
                 notifyDataSetChanged();
               });
       return convertView;
@@ -247,7 +222,7 @@ public class BodiesFragment extends Fragment {
     }
   }
 
-  public String getRealNameAndNum(final String _str) {
+  public static String getRealNameAndNum(final String _str) {
     try {
       String str = _str;
       String nums = "1234567890";
