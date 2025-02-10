@@ -13,7 +13,7 @@ public class ScaleGesture implements ScaleGestureDetector.OnScaleGestureListener
 	
 	@Override
 	public boolean onScale(ScaleGestureDetector detector) {
-		editor.setScale(editor.getEditorScale()/editor.getRatioScale()*detector.getScaleFactor());
+		//editor.setScale(editor.getEditorScale()/editor.getRatioScale()*detector.getScaleFactor());
 	    return true;
 	}
 
