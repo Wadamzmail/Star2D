@@ -21,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
 			@Override
 			public void run() {
 				Intent i = new Intent();
-				i.setClass(MainActivity.this,ProjectsActivity.class);
+				i.setClass(MainActivity.this,com.star4droid.star2d.ProjectsActivity.class);
 				startActivity(i);
 				finish();
 			}
