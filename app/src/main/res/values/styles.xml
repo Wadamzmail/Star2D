@@ -1,5 +1,8 @@
 <resources>
-
-  
-
+    <style name="RoundButtonStyle" parent="Widget.AppCompat.ImageButton">
+    <item name="android:layout_width">48dp</item>
+    <item name="android:layout_height">48dp</item>
+    <item name="android:background">@drawable/round_button_background</item>
+    <item name="android:scaleType">centerInside</item>
+</style>
 </resources>
