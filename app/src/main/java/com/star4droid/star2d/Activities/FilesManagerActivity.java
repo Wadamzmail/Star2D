@@ -494,7 +494,7 @@ public class FilesManagerActivity extends AppCompatActivity {
               this.setColor(d);
               return this;
             }
-          }.getIns(360, 0, 0xFFFFB300, 0xFF323232));
+          }.getIns(8, 0, 0xFFFFB300, 0xFF323232));
 
       Animation fadeInAnimation =
           AnimationUtils.loadAnimation(getApplicationContext(), android.R.anim.fade_in);
@@ -663,7 +663,20 @@ public class FilesManagerActivity extends AppCompatActivity {
           new View.OnClickListener() {
             @Override
             public void onClick(View _view) {
-              if (types_x.contains("anim")) {
+              if (_data.get(_position).get("file").toString().equals("...")) {
+                  interalPath.remove((interalPath.size() - 1));
+                  _refresh();
+				  return;
+                } else {
+                  if (FileUtil.isDirectory(_data.get(_position).get("file").toString())) {
+                    interalPath.add(
+                        Uri.parse(_data.get(_position).get("file").toString())
+                            .getLastPathSegment());
+                    _refresh();
+					return;
+                  }
+                }
+			  if (types_x.contains("anim")) {
                 intent.setClass(getApplicationContext(), AnimationActivity.class);
                 intent.putExtra("path", _data.get(_position).get("file").toString());
                 intent.putExtra("imgs", path.concat("/images/"));
@@ -697,19 +710,7 @@ public class FilesManagerActivity extends AppCompatActivity {
                 }
               }
               if (types_x.contains("images")) {
-                if (_data.get(_position).get("file").toString().equals("...")) {
-                  interalPath.remove((interalPath.size() - 1));
-                  _refresh();
-                } else {
-                  if (FileUtil.isDirectory(_data.get(_position).get("file").toString())) {
-                    interalPath.add(
-                        Uri.parse(_data.get(_position).get("file").toString())
-                            .getLastPathSegment());
-                    _refresh();
-                  } else {
-
-                  }
-                }
+                
               }
             }
           });
