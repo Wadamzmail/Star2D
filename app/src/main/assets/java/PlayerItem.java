@@ -6,10 +6,13 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.star4droid.star2d.ElementDefs.ElementEvent;
+import com.badlogic.gdx.graphics.g2d.ParticleEffect;
 
 public interface PlayerItem {
 	public void update();
 	public Body getBody();
+	public void scaleEffect(float sx,float sy);
+	public ParticleEffect getParticleEffect();
 	public String getName();
 	public String getParentName();
 	public PlayerItem getChild(String child);
