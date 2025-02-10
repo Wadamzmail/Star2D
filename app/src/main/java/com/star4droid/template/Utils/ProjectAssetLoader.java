@@ -20,7 +20,7 @@ public class ProjectAssetLoader extends AssetManager {
 			Utils.Log("assets load error : \nfile : "+descriptor.fileName,Utils.getStackTraceString(error));
 		});
 		load(new File(project.getImagesPath()),Texture.class);
-		load(new File(project.get("files")),null);
+		//load(new File(project.get("files")),null);
 		load(new File(project.get("sounds")),Music.class);
 	}
 	
