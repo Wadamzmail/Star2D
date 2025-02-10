@@ -136,7 +136,7 @@ public class ProjectsActivity extends AppCompatActivity {
 
     public void init() {
         try {
-            Utils.extractAssetFile(this, "cp.jar", FileUtil.getPackageDataDir(this) + "/bin/cp.jar");
+            Utils.extractAssetFile(this, "cp.zip", FileUtil.getPackageDataDir(this) + "/bin/cp.jar");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
