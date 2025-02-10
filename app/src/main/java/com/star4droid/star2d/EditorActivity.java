@@ -51,6 +51,7 @@ import com.star4droid.star2d.Helpers.SwipeHelper;
 import com.star4droid.star2d.Items.*;
 import com.star4droid.star2d.Items.Editor;
 
+import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.evo.R;
 
 import java.lang.reflect.Field;
@@ -142,10 +143,15 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         project = new Project(getIntent().getStringExtra("project"));
         init();
         editor.setProject(project);
-        editor.setScene("scene1");
-        editor.loadFromPath();
-		editor.setOrienation(editor.getConfig().getString("or").equals("")?Editor.ORIENATION.PORTRAIT:Editor.ORIENATION.LANDSCAPE);
-		
+        //editor.setScene("scene1");
+        //editor.loadFromPath();
+		//editor.setOrienation(editor.getConfig().getString("or").equals("")?Editor.ORIENATION.PORTRAIT:Editor.ORIENATION.LANDSCAPE);
+		editor.setEdtitorReadyAction(()->{
+			new Handler(Looper.getMainLooper()).post(()->continueInit());
+		});
+	}
+	
+	private void continueInit(){
         indexFiles();
         refreshBodies();
         new Timer().schedule(new TimerTask() {
@@ -159,10 +165,10 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                 });
             }
         }, 200);
-        setupSwitchModeButton(move, Editor.TOUCHMODE.MOVE);
-        setupSwitchModeButton(scale, Editor.TOUCHMODE.SCALE);
-        setupSwitchModeButton(grid, Editor.TOUCHMODE.GRID);
-        setupSwitchModeButton(rotate, Editor.TOUCHMODE.ROTATE);
+        setupSwitchModeButton(move, LibgdxEditor.TOUCHMODE.MOVE);
+        setupSwitchModeButton(scale, LibgdxEditor.TOUCHMODE.SCALE);
+        setupSwitchModeButton(grid, LibgdxEditor.TOUCHMODE.GRID);
+        setupSwitchModeButton(rotate, LibgdxEditor.TOUCHMODE.ROTATE);
         updateScenes();
 		
         findViewById(R.id.add_light).setOnClickListener(new View.OnClickListener() {
@@ -249,12 +255,17 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                         }
                     } else {
                         if (!scenesList.get(position).equalsIgnoreCase(editor.getScene())) {
-                            editor.setScene(scenesList.get(position));
-                            editor.loadFromPath();
-                            CodeGenerator.generateFor(editor, code -> {
-                                FileUtil.writeFile(project.getCodesPath(editor.getScene()), code);
+                            //generate code for the current scene and save it...
+                            CodeGenerator.generateFor(editor, cd -> {
+                                FileUtil.writeFile(project.getCodesPath(editor.getScene()), cd);
+                                editor.setScene(scenesList.get(position));
+                                editor.loadFromPath();
+                                //generate code for the new scene and save it
+                                CodeGenerator.generateFor(editor, code -> {
+                                    FileUtil.writeFile(project.getCodesPath(editor.getScene()), code);
+                                });
+                                refreshBodies();
                             });
-                            refreshBodies();
                         }
                     }
                 }
@@ -305,6 +316,8 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
             public void onBodySelected() {
                 refreshBodies();
                 bodiesFragment.update();
+				editor.setPropertiesIfNotSet();
+				//editor.updateProperties();
                 if (editor.getSelectedView() != null) {
                     String isLock = PropertySet.getPropertySet(editor.getSelectedView()).getString("lock");
                     lock.setImageDrawable(getDrawable(isLock.equals("true") ? R.drawable.lock : R.drawable.unlock));
@@ -347,6 +360,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         SwipeHelper.useViewToSwipe(findViewById(R.id.right_swipe), right_linear, SwipeHelper.SwipeType.RIGHT_LEFT, 1, Integer.MAX_VALUE);
         properties = new Properties(this);
         propsLinear.addView(properties.getView());
+		
         properties.getViewPager().setAdapter(new FragmentAdapter(this, editor));
         right_viewPager.setAdapter(new RightFragmentAdapter(this, editor));
         //disable viewpager touch because we don't need it currently...
@@ -399,7 +413,8 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                                 file.setWritable(true);
                             FileUtil.writeFile(project.getDex(), "");
                             FileUtil.moveFile(project.getPath() + "/java/classes.dex", project.getDex());
-                            if(window){
+                            editor.getApp().play(project.getPath(),editor.getScene());
+							/*if(window){
                                 playerDialog = PlayerDialog.showFor(EditorActivity.this,project.getPath(),editor.getScene());
 								playFloat.setVisibility(View.INVISIBLE);
 								//play.setVisibilty(View.INVISIBLE);
@@ -417,6 +432,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 							i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             i.putExtra("scene", editor.getScene());
                             startActivity(i);
+							*/
                             //dialog.dismiss();
                         }
 
@@ -449,15 +465,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         bodiesSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> _param1, View _param2, int position, long _param4) {
-                boolean found = false;
-                for (int x = 0; x < editor.getChildCount(); x++) {
-                    if (!Utils.isEditorItem(editor.getChildAt(x))) continue;
-                    if (PropertySet.getPropertySet(editor.getChildAt(x)).getString("name").equals(bodiesList.get(position))) {
-                        editor.selectView(editor.getChildAt(x));
-                        found = true;
-                        break;
-                    }
-                }
+                boolean found = editor.selectByName(bodiesList.get(position));
                 //if(!found) refreshBodies();//Toast.makeText(EditorActivity.this,"not found",Toast.LENGTH_SHORT).show();
                 deleteBody.setVisibility(View.VISIBLE);
             }
@@ -575,16 +583,16 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         right_linear = findViewById(R.id.right_linear);
     }
 
-    public void setupSwitchModeButton(View v, final Editor.TOUCHMODE touchmode) {
+    public void setupSwitchModeButton(View v, final LibgdxEditor.TOUCHMODE touchmode) {
         v.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (editor.getChildCount() > 0) {
+                if (editor.getLibgdxEditor().getActors().size > 0) {
                     selectMode(view);
                     editor.setTouchMode(touchmode);
                 } else {
                     selectMode(grid);
-                    editor.setTouchMode(Editor.TOUCHMODE.GRID);
+                    editor.setTouchMode(LibgdxEditor.TOUCHMODE.GRID);
                 }
             }
         });
