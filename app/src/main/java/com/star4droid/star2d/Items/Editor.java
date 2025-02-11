@@ -85,7 +85,7 @@ public class Editor extends FrameLayout {
 					//,2500);
 		((AppCompatActivity)getContext()).getSupportFragmentManager().beginTransaction()
 				.replace(frameLayout.getId(),new LibgdxFragment(testApp)).commit();
-		com.star4droid.star2d.Helpers.FileUtil.writeFile(com.star4droid.star2d.Helpers.FileUtil.getPackageDataDir(getContext())+"/logs/1","works 1");
+		//com.star4droid.star2d.Helpers.FileUtil.writeFile(com.star4droid.star2d.Helpers.FileUtil.getPackageDataDir(getContext())+"/logs/1","works 1");
 	}
 	
 	public static void disableTouch(View view){
