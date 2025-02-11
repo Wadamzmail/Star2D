@@ -28,7 +28,8 @@ public class TestApp implements ApplicationListener {
 	
 	@Override
 	public void create() {
-		//Gdx.files.external("logs/testapp.txt").writeString("test app created\n"+"_".repeat(10)+"\n",true);
+		//com.star4droid.star2d.Helpers.FileUtil.writeFile(com.star4droid.star2d.Helpers.FileUtil.getPackageDataDir(getContext())+"/logs/libgdx created","works 1");
+		Gdx.files.external("logs/testapp.txt").writeString("test app created\n"+"_".repeat(10)+"\n",true);
 		if(!VisUI.isLoaded())
 			VisUI.load();
 		//stage = new Stage();
