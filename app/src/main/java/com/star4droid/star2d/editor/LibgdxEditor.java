@@ -82,6 +82,7 @@ public class LibgdxEditor extends Stage {
 		debugRenderer = new Box2DDebugRenderer();
 		shapeRenderer = new ShapeRenderer();
 		rayHandler = new RayHandler(world);
+		Gdx.files.external("logs/libgdx created editor").writeString("",false);
 		this.filePicker = new FilePicker(){
 			InputProcessor inputProcessor;
 			@Override
