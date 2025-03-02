@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import com.badlogic.gdx.Gdx;
 import com.star4droid.star2d.EditorActivity;
 import com.star4droid.star2d.Helpers.Project;
 import com.star4droid.star2d.Items.*;
@@ -30,7 +31,9 @@ public class AddLightPopup {
                     @Override
                     public boolean onMenuItemClick(MenuItem item) {
                         if(item.getItemId()==4){
-                            LightSettingsDialog.showFor(editor.getContext(),new Project(editor.getProject().getPath()),editor.getScene());
+							Gdx.app.postRunnable(()->
+                            	com.star4droid.star2d.editor.ui.LightSettingsDialog.showFor(new Project(editor.getProject().getPath()),editor.getScene())
+							);
                             return true;
                         }
                         com.badlogic.gdx.Gdx.app.postRunnable(()->{
