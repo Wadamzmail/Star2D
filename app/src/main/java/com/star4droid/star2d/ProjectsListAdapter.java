@@ -94,8 +94,9 @@ public class ProjectsListAdapter extends BaseAdapter {
 		final TextView textView = view.findViewById(R.id.name);
 		ImageView backup = view.findViewById(R.id.backup);
 		MaterialCardView card=view.findViewById(R.id.project_container);
-		card.setCardBackgroundColor(SurfaceColors.SURFACE_4.getColor(card.getContext()));
-		textView.setTextColor(Utils.getColorAttr(textView.getContext(),com.google.android.material.R.attr.colorOnBackground));
+		//card.setCardBackgroundColor(SurfaceColors.SURFACE_4.getColor(card.getContext()));
+		//textView.setTextColor(Utils.getColorAttr(textView.getContext(),com.google.android.material.R.attr.colorOnBackground));
+		
 		textView.setText(Uri.parse(arrayList.get(position)).getLastPathSegment());
 		ImageView delete = view.findViewById(R.id.delete);
 
