@@ -20,13 +20,16 @@ import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.kotcrab.vis.ui.VisUI;
+import com.kotcrab.vis.ui.util.ToastManager;
 import com.star4droid.star2d.Helpers.Pair;
 import com.star4droid.star2d.Helpers.editor.Project;
 import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.editor.items.*;
+import com.star4droid.star2d.editor.ui.ControlLayer;
 import com.star4droid.star2d.editor.ui.FilePicker;
 import com.star4droid.star2d.editor.ui.PointPicker;
 import com.star4droid.star2d.editor.utils.AddPopup;
@@ -43,6 +46,7 @@ import java.util.Stack;
 public class LibgdxEditor extends Stage {
 	public static LibgdxEditor currentEditor = null;
 	ShapeRenderer shapeRenderer;
+	ControlLayer controlLayer;
 	World world = new World(new Vector2(0,-9.8f),true);
 	Box2DDebugRenderer debugRenderer;
 	EditorListener editorListener;
@@ -50,7 +54,7 @@ public class LibgdxEditor extends Stage {
 	PropertySet<String,Object> editorConfig;
 	boolean AUTO_SAVE = false,LANDSCAPE = true;
 	Project project;
-	Color backgroundColor = Color.BLACK;
+	public Color backgroundColor = Color.BLACK;
 	String scene;
 	PropertiesHolder propertiesHolder;
 	CameraController cameraController;
@@ -61,6 +65,7 @@ public class LibgdxEditor extends Stage {
 	RayHandler rayHandler;
 	FilePicker filePicker;
 	TOUCHMODE touch_mode=TOUCHMODE.GRID;
+	ToastManager toastManager;
 	float prevDistance = -1,startAngle=0,ratioScale =1,gridSizeX=50,logicalWidth=1600,logicalHeight=720,gridSizeY=50;
 	
 	public LibgdxEditor(Project project){
@@ -82,19 +87,8 @@ public class LibgdxEditor extends Stage {
 		debugRenderer = new Box2DDebugRenderer();
 		shapeRenderer = new ShapeRenderer();
 		rayHandler = new RayHandler(world);
-		//Gdx.files.external("logs/libgdx created editor").writeString("",false);
-		this.filePicker = new FilePicker(){
-			InputProcessor inputProcessor;
-			@Override
-			public void setVisible(boolean b){
-				super.setVisible(b);
-				if(b){
-					inputProcessor = Gdx.input.getInputProcessor();
-					Gdx.input.setInputProcessor(UiStage);
-				} else Gdx.input.setInputProcessor(inputProcessor);
-			}
-		}.setShowImageIcons(true);
-		this.filePicker.setVisible(false);
+		setToCurrentEditor();
+		
 		//addActor(filePicker);
 		pointPicker = new PointPicker();
 		rayHandler.setAmbientLight(0.1f, 0.1f, 0.1f, 1f);
@@ -102,7 +96,7 @@ public class LibgdxEditor extends Stage {
 		cameraController = new CameraController((OrthographicCamera)getCamera());
 		updateConfig();
 		setupLight();
-		UiStage = new Stage();
+		
 		/*
 		CircleItem circleItem = new CircleItem(this);
 		circleItem.setName("circle1");
@@ -124,8 +118,33 @@ public class LibgdxEditor extends Stage {
 		//((OrthographicCamera)getCamera()).zoom = 0.5f;
 	}
 	
+	public void setFilePicker(FilePicker picker){
+		this.filePicker = picker;
+	}
+	
+	public void setControlLayer(ControlLayer layer){
+		this.controlLayer = layer;
+	}
+	
+	public void setUiStage(Stage stage){
+		this.UiStage = stage;
+	}
+	
+	public void setToastManager(ToastManager manager){
+		this.toastManager = manager;
+	}
+	
+	public void toast(String message){
+		toast(message,2);
+	}
+	
+	public void toast(String message,int duration){
+		toastManager.show(message,duration);
+	}
+	
 	public FilePicker getFilePicker(boolean show){
-		///UiStage.addActor(filePicker);
+		
+		if(filePicker==null) return null;
 		if(filePicker.getStage()==null || filePicker.getStage() != UiStage)
 			if(UiStage!=null)
 				UiStage.addActor(filePicker);
@@ -154,6 +173,11 @@ public class LibgdxEditor extends Stage {
 	
 	@Override
 	public boolean touchUp(int arg0, int arg1, int arg2, int arg3) {
+		getSaveState();
+		if(controlLayer!=null)
+			controlLayer.updateUndoRedo();
+		if(editorListener!=null)
+			editorListener.onUpdateUndoRedo();
 		if(AUTO_SAVE)
 			project.save(LibgdxEditor.this);
 		return super.touchUp(arg0, arg1, arg2, arg3);
@@ -275,11 +299,13 @@ public class LibgdxEditor extends Stage {
 	}
 	
 	public float getLogicWidth(){
-		return editorConfig != null && editorConfig.containsKey(LANDSCAPE ? "logicWidth":"logicHeight")?editorConfig.getFloat(LANDSCAPE?"logicWidth":"logicHeight"):(LANDSCAPE ? Gdx.graphics.getWidth() : Gdx.graphics.getHeight());
+	    String key = LANDSCAPE ? "logicWidth":"logicHeight";
+		return editorConfig != null && editorConfig.containsKey(key)?editorConfig.getFloat(key):(LANDSCAPE ? Gdx.graphics.getWidth() : Gdx.graphics.getHeight());
 	}
 	
 	public float getLogicHeight(){
-		return editorConfig != null && editorConfig.containsKey(LANDSCAPE ? "logicHeight":"logicWidth")?editorConfig.getFloat(LANDSCAPE?"logicHeight":"logicWidth"):(LANDSCAPE ? Gdx.graphics.getHeight() : Gdx.graphics.getWidth());
+	    String key = LANDSCAPE ? "logicHeight":"logicWidth";
+		return editorConfig != null && editorConfig.containsKey(key)?editorConfig.getFloat(key):(LANDSCAPE ? Gdx.graphics.getHeight() : Gdx.graphics.getWidth());
 	}
 	
 	public PropertySet<String,Object> getConfig(){
@@ -416,9 +442,22 @@ public class LibgdxEditor extends Stage {
 	
 	public void selectActor(Actor actor){
 		selectedActor = actor;
+		if(actor == null){
+			for(Actor a:getActors()){
+				if(actor instanceof EditorItem)
+					selectedActor = a;
+			}
+		}
+		if(selectedActor==null) return;
 		updateProperties();
-		if (editorListener != null)
+		
+		if(controlLayer!=null){
+				controlLayer.bodySelected();
+		}
+		
+		if (editorListener != null){
 			editorListener.onBodySelected();
+		}
 	}
 	
 	public String getScene(){
@@ -462,8 +501,11 @@ public class LibgdxEditor extends Stage {
 			redoList.clear();
 			//Log.e("error_of_star2d","prev :\n"+(undoList.elementAt(undoList.size()-1)+"\n prev : \n"+save));
 		}
-		if (editorListener != null)
+		if (editorListener != null){
 			editorListener.onUpdateUndoRedo();
+		}
+		if(controlLayer!=null)
+			controlLayer.updateUndoRedo();
 		return save;
 	}
 	
@@ -493,8 +535,6 @@ public class LibgdxEditor extends Stage {
 					}
 			}
 		}
-		if (editorListener != null)
-			editorListener.onUpdateUndoRedo();
 	}
 
 	public void redo() {
@@ -513,8 +553,6 @@ public class LibgdxEditor extends Stage {
 					}
 			}
 		}
-		if (editorListener != null)
-			editorListener.onUpdateUndoRedo();
 	}
 	
 	public void load(String jsonSave){
@@ -584,6 +622,12 @@ public class LibgdxEditor extends Stage {
     				}
 				} catch(Exception exx){}
 				propsMap.clear();
+				if(controlLayer!=null){
+					if(selectedActor!=null)
+						controlLayer.bodySelected();
+					controlLayer.updateUndoRedo();
+				}
+				
 				if(editorListener!=null){
 					editorListener.onUpdateUndoRedo();
 					if(selectedActor!=null)
@@ -633,20 +677,127 @@ public class LibgdxEditor extends Stage {
 		return ratioScale;
 	}
 	
+	@Override
+	public boolean touchDragged(int arg0, int arg1, int arg2) {
+		handleTouch();
+		return super.touchDragged(arg0, arg1, arg2);
+	}
+	
+	private void handleTouch(){
+		OrthographicCamera camera = (OrthographicCamera)getCamera();
+		if(Gdx.input.isTouched() && !Gdx.input.isTouched(1)){
+			PropertySet<String,Object> propertySet = (selectedActor != null && selectedActor instanceof EditorItem) ? ((EditorItem)selectedActor).getPropertySet():null;
+			float deltaX = -Gdx.input.getDeltaX() * camera.zoom * 0.5f;
+			float deltaY = Gdx.input.getDeltaY() * camera.zoom * 0.5f;
+			boolean locked = propertySet != null && propertySet.getString("lock").equals("true");
+			if(touch_mode == TOUCHMODE.GRID || selectedActor == null || locked || !(selectedActor instanceof EditorItem)){
+				//movement
+				camera.translate(deltaX,deltaY);
+			} else if(touch_mode == TOUCHMODE.MOVE){
+				propertySet.put("x",propertySet.getFloat("x")-deltaX);
+				propertySet.put("y",propertySet.getFloat("y")+deltaY);
+				((EditorItem)selectedActor).update();
+				
+				//selectedActor.setPosition(selectedActor.getX()+deltaX,selectedActor.getY()+deltaX);
+			} else if(touch_mode == TOUCHMODE.ROTATE){
+				Vector2 input = screenToStageCoordinates(new Vector2(Gdx.input.getX(),Gdx.input.getY()));
+				float ix = input.x,
+					iy = input.y;
+				float centerX = selectedActor.getX() + selectedActor.getWidth() * 0.5f,
+						centerY = selectedActor.getY() + selectedActor.getHeight() * 0.5f;
+				double angle = Math.atan2(iy - centerY, ix - centerX);
+				angle = Math.toDegrees(angle) - 90;
+				//float dy = centerY - iy;
+				shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+				shapeRenderer.setColor(Color.YELLOW);
+				shapeRenderer.line(ix,iy,centerX,centerY);
+				shapeRenderer.end();
+				
+				float currentAngle = propertySet.containsKey("rotation") ? propertySet.getFloat("rotation") : 0;
+				double deltaRotation = angle + startAngle; 
+				startAngle = (float)angle;
+				angle = currentAngle + deltaRotation;
+				while (angle > 360)
+					angle -= 360;
+				while (angle < 0)
+					angle += 360;
+				propertySet.put("rotation", angle);
+				((EditorItem)selectedActor).update();
+				
+			} else if(touch_mode == TOUCHMODE.SCALE){
+				if(propertySet.containsKey("width")){
+					float x = propertySet.getFloat("width") - deltaX;
+					float y = propertySet.getFloat("height") + deltaY;
+					float colx = propertySet.getFloat("Collider Width") - deltaX;
+					float coly = propertySet.getFloat("Collider Height") + deltaY;
+					propertySet.put("width", Math.max(x, 1f));
+					propertySet.put("height", Math.max(y, 1f));
+					if(propertySet.containsKey("Collider Width")) propertySet.put("Collider Width", Math.max(1f,colx));
+					if(propertySet.containsKey("Collider Height")) propertySet.put("Collider Height", Math.max(1f,coly));
+				} else if(propertySet.containsKey("radius")){
+					float rad = propertySet.getFloat("radius") - deltaX;
+					float cRad = propertySet.getFloat("Collider Radius") - deltaX;
+					propertySet.put("radius", Math.max(rad, 1f));
+					propertySet.put("Collider Radius", Math.max(cRad,1f));
+				}
+				if(propertySet.containsKey("radius") || propertySet.containsKey("width")){
+					((EditorItem)selectedActor).update();
+				}
+			}
+		}
+		
+		// zoom
+		float deltaX = Gdx.input.getX(0) - Gdx.input.getX(1);
+        float deltaY = Gdx.input.getY(0) - Gdx.input.getY(1);
+        float distance = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (Gdx.input.isTouched(1) && prevDistance != -1) {
+            camera.zoom -= 0.0005f * (distance - prevDistance);
+            camera.zoom = MathUtils.clamp(camera.zoom, 0.1f, 3f);
+        }
+		
+		//two finger movement
+		if (Gdx.input.isTouched(0) && Gdx.input.isTouched(1)) {
+			// Get deltas for both pointers (0 and 1)
+			float deltaX0 = -Gdx.input.getDeltaX(0) * camera.zoom * 0.5f;
+			float deltaY0 = Gdx.input.getDeltaY(0) * camera.zoom * 0.5f;
+			float deltaX1 = -Gdx.input.getDeltaX(1) * camera.zoom * 0.5f;
+			float deltaY1 = Gdx.input.getDeltaY(1) * camera.zoom * 0.5f;
+			
+			// Determine direction vectors
+			float dirX0 = Math.signum(deltaX0);
+			float dirY0 = Math.signum(deltaY0);
+			float dirX1 = Math.signum(deltaX1);
+			float dirY1 = Math.signum(deltaY1);
+			
+			boolean update = false;
+			
+			// Combine X movement if both fingers move in the same X direction
+			if (dirX0 == dirX1 && dirX0 != 0) {
+				camera.position.x += (deltaX0 + deltaX1);
+				update = true;
+			}
+			
+			// Combine Y movement if both fingers move in the same Y direction
+			if (dirY0 == dirY1 && dirY0 != 0) {
+				camera.position.y += (deltaY0 + deltaY1);
+				update = true;
+			}
+			
+			/*if (update) {
+				camera.update();
+			}*/
+		}
+		
+        prevDistance = distance;
+    
+        if ((!Gdx.input.isTouched(1)) && prevDistance != -1) {
+            prevDistance = -1;
+        }
+		camera.update();
+	}
+	
 	boolean childsUpdated = false;
 	boolean SHOW_GRIDS = true;
-	
-	@Override
-	public void act() {
-		super.act();
-		UiStage.act();
-	}
-	
-	@Override
-	public void act(float delta) {
-		super.act(delta);
-		UiStage.act(delta);
-	}
 	
 	@Override
 	public void draw() {
@@ -661,7 +812,7 @@ public class LibgdxEditor extends Stage {
 		//draw background
 		shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 		shapeRenderer.setColor(backgroundColor);
-		shapeRenderer.rect(-50,-50,getWidth()+50,getHeight()+50);
+		shapeRenderer.rect(-50,-50,super.getWidth()+50,super.getHeight()+50);
 		shapeRenderer.end();
 		shapeRenderer.setProjectionMatrix(camera.combined);
 		if(SHOW_GRIDS){
@@ -702,73 +853,7 @@ public class LibgdxEditor extends Stage {
 		
 			shapeRenderer.end();
 		}
-		if(Gdx.input.isTouched() && !Gdx.input.isTouched(1)){
-			PropertySet<String,Object> propertySet = (selectedActor != null && selectedActor instanceof EditorItem) ? ((EditorItem)selectedActor).getPropertySet():null;
-			float deltaX = -Gdx.input.getDeltaX() * camera.zoom * 0.5f;
-			float deltaY = Gdx.input.getDeltaY() * camera.zoom * 0.5f;
-			boolean locked = propertySet != null && propertySet.getString("lock").equals("true");
-			if(touch_mode == TOUCHMODE.GRID || selectedActor == null || locked || !(selectedActor instanceof EditorItem)){
-				//movement
-				camera.translate(deltaX,deltaY);
-			} else if(touch_mode == TOUCHMODE.MOVE){
-				propertySet.put("x",propertySet.getFloat("x")-deltaX);
-				propertySet.put("y",propertySet.getFloat("y")+deltaY);
-				((EditorItem)selectedActor).update();
-				getSaveState();
-				if(editorListener!=null)
-					editorListener.onUpdateUndoRedo();
-				//selectedActor.setPosition(selectedActor.getX()+deltaX,selectedActor.getY()+deltaX);
-			} else if(touch_mode == TOUCHMODE.ROTATE){
-				Vector2 input = screenToStageCoordinates(new Vector2(Gdx.input.getX(),Gdx.input.getY()));
-				float ix = input.x,
-					iy = input.y;
-				float centerX = selectedActor.getX() + selectedActor.getWidth() * 0.5f,
-						centerY = selectedActor.getY() + selectedActor.getHeight() * 0.5f;
-				double angle = Math.atan2(iy - centerY, ix - centerX);
-				angle = Math.toDegrees(angle) - 90;
-				//float dy = centerY - iy;
-				shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-				shapeRenderer.setColor(Color.YELLOW);
-				shapeRenderer.line(ix,iy,centerX,centerY);
-				shapeRenderer.end();
-				
-				float currentAngle = propertySet.containsKey("rotation") ? propertySet.getFloat("rotation") : 0;
-				double deltaRotation = angle - startAngle; 
-				startAngle = (float)angle;
-				angle = currentAngle + deltaRotation;
-				while (angle > 360)
-					angle -= 360;
-				while (angle < 0)
-					angle += 360;
-				propertySet.put("rotation", angle);
-				((EditorItem)selectedActor).update();
-				getSaveState();
-				if(editorListener!=null)
-					editorListener.onUpdateUndoRedo();
-			} else if(touch_mode == TOUCHMODE.SCALE){
-				if(propertySet.containsKey("width")){
-					float x = propertySet.getFloat("width") - deltaX;
-					float y = propertySet.getFloat("height") + deltaY;
-					float colx = propertySet.getFloat("Collider Width") - deltaX;
-					float coly = propertySet.getFloat("Collider Height") + deltaY;
-					propertySet.put("width", Math.max(x, 1f));
-					propertySet.put("height", Math.max(y, 1f));
-					if(propertySet.containsKey("Collider Width")) propertySet.put("Collider Width", Math.max(1f,colx));
-					if(propertySet.containsKey("Collider Height")) propertySet.put("Collider Height", Math.max(1f,coly));
-				} else if(propertySet.containsKey("radius")){
-					float rad = propertySet.getFloat("radius") - deltaX;
-					float cRad = propertySet.getFloat("Collider Radius") - deltaX;
-					propertySet.put("radius", Math.max(rad, 1f));
-					propertySet.put("Collider Radius", Math.max(cRad,1f));
-				}
-				if(propertySet.containsKey("radius") || propertySet.containsKey("width")){
-					((EditorItem)selectedActor).update();
-					getSaveState();
-					if(editorListener!=null)
-						editorListener.onUpdateUndoRedo();
-				}
-			}
-		}
+		
 		//draw border and selector
 		shapeRenderer.setProjectionMatrix(camera.combined);
 		Gdx.gl.glLineWidth(3f);
@@ -778,55 +863,6 @@ public class LibgdxEditor extends Stage {
 		shapeRenderer.rect(0,0,getLogicWidth(),getLogicHeight());
 		shapeRenderer.end();
 		Gdx.gl.glLineWidth(1f);
-		// zoom
-		float deltaX = Gdx.input.getX(0) - Gdx.input.getX(1);
-        float deltaY = Gdx.input.getY(0) - Gdx.input.getY(1);
-        float distance = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        if (Gdx.input.isTouched(1) && prevDistance != -1) {
-            ((OrthographicCamera)getCamera()).zoom -= 0.0005f * (distance - prevDistance);
-            camera.zoom = MathUtils.clamp(camera.zoom, 0.1f, 3f);
-            
-        }
-		
-		//two finger movement
-		if (Gdx.input.isTouched(0) && Gdx.input.isTouched(1)) {
-			// Get deltas for both pointers (0 and 1)
-			float deltaX0 = -Gdx.input.getDeltaX(0) * camera.zoom * 0.5f;
-			float deltaY0 = Gdx.input.getDeltaY(0) * camera.zoom * 0.5f;
-			float deltaX1 = -Gdx.input.getDeltaX(1) * camera.zoom * 0.5f;
-			float deltaY1 = Gdx.input.getDeltaY(1) * camera.zoom * 0.5f;
-			
-			// Determine direction vectors
-			float dirX0 = Math.signum(deltaX0);
-			float dirY0 = Math.signum(deltaY0);
-			float dirX1 = Math.signum(deltaX1);
-			float dirY1 = Math.signum(deltaY1);
-			
-			boolean update = false;
-			
-			// Combine X movement if both fingers move in the same X direction
-			if (dirX0 == dirX1 && dirX0 != 0) {
-				camera.position.x += (deltaX0 + deltaX1);
-				update = true;
-			}
-			
-			// Combine Y movement if both fingers move in the same Y direction
-			if (dirY0 == dirY1 && dirY0 != 0) {
-				camera.position.y += (deltaY0 + deltaY1);
-				update = true;
-			}
-			
-			if (update) {
-				camera.update();
-			}
-		}
-		
-        prevDistance = distance;
-    
-        if ((!Gdx.input.isTouched(1)) && prevDistance != -1) {
-            prevDistance = -1;
-        }
-		camera.update();
 		
 		super.draw();
 		updateProperties();
@@ -848,8 +884,6 @@ public class LibgdxEditor extends Stage {
 			rayHandler.updateAndRender();
 		} catch(Exception e){}
 		
-		if(filePicker.isVisible())
-			UiStage.draw();
 	}
 	
 	public Stage getUiStage(){
@@ -902,6 +936,8 @@ public class LibgdxEditor extends Stage {
 	@Override
 	public void dispose() {
 		super.dispose();
+		debugRenderer.dispose();
+		rayHandler.dispose();
 		if(VisUI.isLoaded())
 			VisUI.dispose();
 		for(Actor actor:getActors())
