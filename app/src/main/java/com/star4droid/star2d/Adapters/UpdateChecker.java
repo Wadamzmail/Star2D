@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 
 public class UpdateChecker {
 
-    private static final String CURRENT_VERSION = "0.1.3Fixed";
+    private static final String CURRENT_VERSION = "0.1.3";
     private static final String CHECK_UPDATE_URL = "https://raw.githubusercontent.com/abodinagdat16/Star2D/refs/heads/master/assets/latest.version"; // Replace with your URL
     private static final String UPDATE_PAGE_URL = "https://github.com/abodinagdat16/Star2D/releases/"; // Replace with your update page URL
 
