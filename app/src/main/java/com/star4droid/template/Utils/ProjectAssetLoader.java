@@ -67,6 +67,10 @@ public class ProjectAssetLoader extends AssetManager {
 	}
 	
 	public void load(File dir,Class<?> Type) {
+		if(dir.isFile() && !contains(dir.getAbsolutePath())){
+			load(dir.getAbsolutePath(),Type);
+			return;
+		}
 		if (!dir.exists() || dir.isFile()) return;
 		
 		File[] listFiles = dir.listFiles();
