@@ -1,12 +1,8 @@
 package com.star4droid.star2d.Helpers;
 
-import android.content.Context;
-import android.net.Uri;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
 import androidx.core.content.FileProvider;
 import com.android.tools.r8.D8;
+import com.badlogic.gdx.Gdx;
 import static com.star4droid.star2d.Helpers.FileUtil.*;
 import com.star4droid.star2d.Utils;
 import java.io.OutputStream;
@@ -28,12 +24,13 @@ public class CompileThread extends Thread {
 	CP_NOT_FOUND="CP_NOT_FOUND";
 	OnStatusChanged onStatusChanged;
 	String filesPath="",dataDir;
-	Context context;
+	//Context context;
 	boolean dx=false;
-	public CompileThread(Context ctx,String path,boolean d){
+	public CompileThread(String path,boolean d){
 		filesPath = path;
-		context = ctx;
-		dataDir = getPackageDataDir(context);
+		//context = ctx;
+		dataDir = Gdx.files.getExternalStoragePath();
+		//Gdx.files.external("logs.txt").writeString(dataDir,false);
 		dx = d;
 	}
 	
@@ -48,7 +45,7 @@ public class CompileThread extends Thread {
 		try {
 		RunEcj();
 		} catch(Exception exception){
-			push(CHANGE_ERROR,Log.getStackTraceString(exception));
+			push(CHANGE_ERROR,Utils.getStackTraceString(exception));
 		}
 	}
 	
@@ -68,9 +65,11 @@ public class CompileThread extends Thread {
 			push(CHANGE_ERROR,CP_NOT_FOUND);
 			return;
 		}
-        Utils.extractAssetFile(context,"java/PlayerItem.java",filesPath+"/com/star4droid/star2d/player/PlayerItem.java");
+        //Utils.extractAssetFile(context,"java/PlayerItem.java",filesPath+"/com/star4droid/star2d/player/PlayerItem.java");
+        Gdx.files.internal("java/PlayerItem.java").copyTo(Gdx.files.absolute(filesPath+"/com/star4droid/star2d/player/PlayerItem.java"));
 		//FileUtil.deleteFile(filesPath+"/com/star4droid/star2d/player/PlayerItem.java");
-		Utils.extractAssetFile(context,"java/game.zip",dataDir+"/bin/addition.jar");
+		//Utils.extractAssetFile(context,"java/game.zip",dataDir+"/bin/addition.jar");
+		Gdx.files.internal("java/game.zip").copyTo(Gdx.files.absolute(dataDir+"/bin/addition.jar"));
 		if(EngineSettings.get().getString("compiler","javac").equals("ecj")){
 			opt.add(jv);
 			opt.add("-nowarn");
@@ -113,8 +112,8 @@ public class CompileThread extends Thread {
 			JavaCompiler compiler= com.sun.tools.javac.api.JavacTool.create();
 			String cp_path=dataDir.concat("/bin/cp.jar"),
 			addition=dataDir.concat("/bin/addition.jar");
-			Uri uri1 = Uri.fromFile(new java.io.File(cp_path)),
-			uri2 = Uri.fromFile(new java.io.File(addition));
+			//Uri uri1 = Uri.fromFile(new java.io.File(cp_path)),
+			//uri2 = Uri.fromFile(new java.io.File(addition));
 			String jc_v=filesPath+"/javac.version",jc_t=filesPath+"/javac.target";
 			if((!FileUtil.isExistFile(jc_v))||(!FileUtil.isExistFile(jc_t))){
 				FileUtil.writeFile(jc_v,"7");
@@ -173,7 +172,7 @@ public class CompileThread extends Thread {
 			
 			).create();
 			} catch (Exception e) {
-			push(CHANGE_ERROR,"Packaging JAR failed: " + Log.getStackTraceString(e));
+			push(CHANGE_ERROR,"Packaging JAR failed: " + Utils.getStackTraceString(e));
 			return;
 		}
 		compile();
@@ -225,7 +224,7 @@ public class CompileThread extends Thread {
 		} catch(Throwable ex){}
 		final String message=m;
 		if(onStatusChanged!=null){
-			new Handler(Looper.getMainLooper()).post(new Runnable(){
+			Gdx.app.postRunnable(new Runnable(){
 				@Override
 				public void run() {
 					switch(type){
