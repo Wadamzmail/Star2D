@@ -17,6 +17,7 @@ getValue(
 .getAngle()
 .getAngleDegrees()
 - body functions
+.getParticleEffect()
 .getBodyX()
 .getBodyY()
 .getActorX()
