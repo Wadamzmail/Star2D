@@ -20,6 +20,8 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -27,8 +29,11 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.badlogic.gdx.backends.android.AndroidFragmentApplication;
+import com.github.anrwatchdog.ANRError;
+import com.github.anrwatchdog.ANRWatchDog;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.star4droid.star2d.Activities.AnimationActivity;
 import com.star4droid.star2d.Activities.FilesManagerActivity;
 import com.star4droid.star2d.Adapters.AddPopup;
 import com.star4droid.star2d.Adapters.AddLightPopup;
@@ -48,6 +53,7 @@ import com.star4droid.star2d.Helpers.JointsHelper;
 import com.star4droid.star2d.Helpers.Project;
 import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Helpers.SwipeHelper;
+import com.star4droid.star2d.Helpers.UriUtils;
 import com.star4droid.star2d.Items.*;
 import com.star4droid.star2d.Items.Editor;
 
@@ -66,6 +72,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
             addBody, deleteBody, save, deleteScene, undo, redo, sceneColor, lock, copyScene, renameScene;
     Spinner scenesSpinner, bodiesSpinner;
     Editor editor;
+	ActivityResultLauncher<String[]> files_picker;
     LinearLayout sceneLinear, propsLinear, right_linear;
     Project project;
     Properties properties;
@@ -124,12 +131,38 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 
     public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+		files_picker =
+        registerForActivityResult(
+            new ActivityResultContracts.OpenMultipleDocuments(),
+            uriList -> {
+				String path = editor.getApp().getFileBrowser().getCurrentDir().file().getAbsolutePath();
+				for(Uri uri:uriList){
+					String last = Uri.fromFile(new java.io.File(FileUtil.convertUriToFilePath(EditorActivity.this,uri))).getLastPathSegment();
+					String to = path+"/"+last;
+					FileUtil.writeFile(to,"");
+					FileUtil.writeFile(getExternalFilesDir("logs")+"/file.txt","to : "+to);
+					UriUtils.copyUriToUri(EditorActivity.this,uri,Uri.fromFile(new java.io.File(to)));
+				}
+				editor.getApp().getFileBrowser().refreshFileList();
+			});
+		/*
+		new ANRWatchDog().setANRListener(new ANRWatchDog.ANRListener() {
+    		@Override
+    		public void onAppNotResponding(ANRError error) {
+        		// Handle the error. For example, log it to HockeyApp:
+				FileUtil.writeFile(getExternalFilesDir("logs")+"/error.txt",Utils.getStackTraceString(error));
+        		//ExceptionHandler.saveException(error, new CrashManager());
+    		}
+		}).start();
+		*/
         EngineSettings.init(this);
         JointsHelper.init(this);
         Utils.setLanguage(this);
         setContentView(R.layout.editor);
+		init();
         // Hide system UI
-        Utils.hideSystemUi(getWindow());
+        
+		Utils.hideSystemUi(getWindow());
         HashMap<String, Object> map;
 
         try {
@@ -141,19 +174,36 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         }
 
         project = new Project(getIntent().getStringExtra("project"));
-        init();
+        
         editor.setProject(project);
+		
         //editor.setScene("scene1");
         //editor.loadFromPath();
 		//editor.setOrienation(editor.getConfig().getString("or").equals("")?Editor.ORIENATION.PORTRAIT:Editor.ORIENATION.LANDSCAPE);
+		
 		editor.setEdtitorReadyAction(()->{
 			new Handler(Looper.getMainLooper()).post(()->continueInit());
 		});
 	}
 	
+	private void openAnimation(String file){
+		Intent intent = new Intent();
+		intent.setClass(getApplicationContext(), AnimationActivity.class);
+		intent.putExtra("path", file);
+		intent.putExtra("imgs", editor.getProject().getImagesPath());
+		startActivity(intent);
+	}
+	
 	private void continueInit(){
         indexFiles();
         refreshBodies();
+		editor.getApp().getFileBrowser().setAnimationOpen(file->{
+			openAnimation(file);
+		});
+		SPNote.show(this);
+		editor.getApp().getFileBrowser().setPickFilesRunnable(()->{
+			files_picker.launch(new String[] {"*/*"});
+		});
         new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
@@ -256,12 +306,12 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                     } else {
                         if (!scenesList.get(position).equalsIgnoreCase(editor.getScene())) {
                             //generate code for the current scene and save it...
-                            CodeGenerator.generateFor(editor, cd -> {
+                            CodeGenerator.generateFor(editor.getLibgdxEditor(), cd -> {
                                 FileUtil.writeFile(project.getCodesPath(editor.getScene()), cd);
                                 editor.setScene(scenesList.get(position));
                                 editor.loadFromPath();
                                 //generate code for the new scene and save it
-                                CodeGenerator.generateFor(editor, code -> {
+                                CodeGenerator.generateFor(editor.getLibgdxEditor(), code -> {
                                     FileUtil.writeFile(project.getCodesPath(editor.getScene()), code);
                                 });
                                 refreshBodies();
@@ -305,7 +355,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         renameScene.setOnClickListener(v -> {
             editScene("rename");
         });
-
+		
         editor.setEditorListener(new Editor.EditorListener() {
             @Override
             public void onUpdateUndoRedo() {
@@ -365,7 +415,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         right_viewPager.setAdapter(new RightFragmentAdapter(this, editor));
         //disable viewpager touch because we don't need it currently...
         right_viewPager.requestDisallowInterceptTouchEvent(true);
-        SPNote.show(this);
+        
     }
     
     private void compileAndRun(boolean window){
@@ -379,11 +429,11 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
             }
             final AlertDialog[] dialog = {Utils.showMessage(EditorActivity.this, "generating java...")};
             dialog[0].setCancelable(false);
-            CodeGenerator.generateFor(editor, new CodeGenerator.GenerateListener() {
+            CodeGenerator.generateFor(editor.getLibgdxEditor(), new CodeGenerator.GenerateListener() {
                 @Override
                 public void onGenerate(String code) {
                     FileUtil.writeFile(project.getCodesPath(editor.getScene()), code);
-                    CompileThread compile = new CompileThread(EditorActivity.this, project.getPath() + "/java/", false);
+                    CompileThread compile = new CompileThread(project.getPath() + "/java/", false);
                     compile.setOnChangeStatus(new CompileThread.OnStatusChanged() {
                         @Override
                         public void onStatus(String s) {
