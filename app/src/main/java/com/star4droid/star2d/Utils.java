@@ -159,7 +159,8 @@ public class Utils {
 		}
 		
 		public static String readAssetFile(String file,Context ctx){
-			try{
+			
+			try {
 				
 				java.io.InputStream In = ctx.getAssets().open(file);
 				int i = In.available();
