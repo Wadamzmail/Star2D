@@ -25,12 +25,11 @@ public class LibgdxFragment extends AndroidFragmentApplication implements Androi
                              @Nullable Bundle savedInstanceState) {
 		View view = initializeForView(applicationListener);
 		//FileUtil.writeFile("logs/check.txt","listener : "+(applicationListener!=null)+", view : "+(view!=null));
-		return view; // Pass the ApplicationListener
+		return view;
     }
 
     @Override
     public void exit() {
-        // Handle exit
 		if(applicationListener instanceof TestApp){
 			TestApp app = ((TestApp)applicationListener);
 			if(app.isPlaying())
