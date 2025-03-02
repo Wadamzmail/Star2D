@@ -1,16 +1,12 @@
 package com.star4droid.star2d.Helpers;
 
-import android.content.Context;
-import android.net.Uri;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
-import android.view.View;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.star4droid.star2d.Items.*;
-import com.star4droid.star2d.Utils;
+import com.star4droid.star2d.editor.LibgdxEditor;
+import com.star4droid.star2d.editor.Utils;
 import com.star4droid.star2d.editor.items.EditorItem;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,18 +40,18 @@ public class CodeGenerator {
 	private static final String fixZIndexDefault =
 	"\n         %1$s.getActor().setZIndex((int)(%1$s_def.z));\n";
 	
-	public static void generateFor(Editor editor,final GenerateListener generateListener){
+	public static void generateFor(LibgdxEditor editor,final GenerateListener generateListener){
 	    ArrayList<PropertySet<String,Object>> properties = new ArrayList<>();
-	    for(Actor actor:editor.getLibgdxEditor().getActors()){
-			if(Utils.isEditorItem(actor)){
+	    for(Actor actor:editor.getActors()){
+			if(actor instanceof EditorItem){
 				PropertySet<String,Object> propertySet=((EditorItem)actor).getPropertySet();
 				properties.add(propertySet);
 			}
 		}
-	    generateFor(editor.getProject(), editor.getScene(),editor.getContext(),properties,generateListener);
+	    generateFor(editor.getProject(), editor.getScene(),properties,generateListener);
 	}
 	
-	public static void generateFor(com.star4droid.star2d.Helpers.editor.Project project,String scene,Context context,ArrayList<PropertySet<String,Object>> properties,final GenerateListener generateListener){
+	public static void generateFor(com.star4droid.star2d.Helpers.editor.Project project,String scene,ArrayList<PropertySet<String,Object>> properties,final GenerateListener generateListener){
 		new Thread(){
 			public void run(){
 				String itemsCode="",fixZ = "";
@@ -77,7 +73,7 @@ public class CodeGenerator {
 				FileUtil.listDir(project.getJoints(scene),joints);
 				
 				for(String path:joints){
-					String p= Uri.parse(path).getLastPathSegment();
+					String p= Gdx.files.absolute(path).file().getName();
 					int shouldSkip = JointsHelper.get(p.split("-")[1],"params").split(",").length;
 					
 					if(p.contains("-")){
@@ -100,7 +96,7 @@ public class CodeGenerator {
 					
 				}
 				
-				String defEvents = Utils.readAssetFile("java/events.java",context);
+				String defEvents = Gdx.files.internal("java/events.java").readString();
 				for(PropertySet<String,Object> propertySet:properties){
 				        boolean isLight = propertySet.getString("TYPE").equals("LIGHT");
 					    String[] eventsList ={"onClick","onTouchStart","onTouchEnd","OnBodyCreated","OnBodyUpdate","onBodyCollided","onBodyCollideEnd",""};
@@ -147,7 +143,7 @@ public class CodeGenerator {
 							vars+=(vars.equals("")?"PlayerItem ":",")+propertySet.getString("name");
 							else lightsVar+=(lightsVar.equals("")?"Light ":",")+propertySet.getString("name");
 						} catch(Exception ex){
-							itemsCode=itemsCode+"\n //error in item at position : "+propertySet.getString("name")+", type : "+propertySet.getString("TYPE")+", \n /*error : \n"+Log.getStackTraceString(ex)+"\n */";
+							itemsCode=itemsCode+"\n //error in item at position : "+propertySet.getString("name")+", type : "+propertySet.getString("TYPE")+", \n /*error : \n"+Utils.getStackTraceString(ex)+"\n */";
 						}
 				}
 				
@@ -163,8 +159,8 @@ public class CodeGenerator {
 				final String variables=vars+"\n"+jointVars+"\n"+lightsVar;
 				final boolean replaceImportOfTheScript = (!thereIsScript);
 				if(generateListener!=null) {
-					new Handler(Looper.getMainLooper()).post(()-> {
-							String playerCode=Utils.readAssetFile("java/Player.java",context);
+					Gdx.app.postRunnable(()-> {
+							String playerCode=Gdx.files.internal("java/Player.java").readString();
 							playerCode=playerCode.replace(script_import,replaceImportOfTheScript?"":String.format("import com.star4droid.Game.Scripts.%1$s.*;",scene.toLowerCase()));
 							generateListener.onGenerate(String.format(playerCode,scene.toLowerCase(),variables,code,project.readEvent(scene,"OnPause"),project.readEvent(scene,"OnResume"),project.readEvent(scene,"OnStep"),project.readEvent(scene,"onCollisionStart"),project.readEvent(scene,"onCollisionEnd"),scriptBuilder.toString()));
 					});
