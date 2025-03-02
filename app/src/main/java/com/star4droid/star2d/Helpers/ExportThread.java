@@ -63,7 +63,7 @@ public class ExportThread extends Thread {
 			onProgress("Extracting template files");
 			//if(!FileUtil.isExistFile(dataDir+"/export.apk")) {
 				FileUtil.writeFile(dataDir+"/export.apk","");
-				Utils.extractAssetFile(context,"files/template.apk",dataDir+"/export.apk");
+				Utils.extractAssetFile(context,"files/template.zip",dataDir+"/export.apk");
                 //Utils.unzipf(dataDir+"/export.apk",export_temp,"");
 			//}
 			
