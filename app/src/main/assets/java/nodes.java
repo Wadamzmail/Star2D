@@ -273,13 +273,13 @@ split
 -color:#4A7814•
 setX body(Body) x
 <<=>>
-%1$s.getBody().setTransform((float)(%2$s),%1$s.getBody().getPosition().y,(float)(%1$s.getView().getRotation()));
+%1$s.getBody().setTransform((float)(%2$s),%1$s.getBody().getPosition().y,(float)(%1$s.getActor().getRotation()));
 %3$s
 split
 -color:#4A7814•
 setY body(Body) y
 <<=>>
-%1$s.getBody().setTransform(%1$s.getBody().getPosition().x,(float)(%2$s),(%1$s).getView().getRotation());
+%1$s.getBody().setTransform(%1$s.getBody().getPosition().x,(float)(%2$s),(%1$s).getActor().getRotation());
 %3$s
 split
 -color:#4A7814•
