@@ -5,6 +5,7 @@ pluginManagement {
     mavenCentral()
   }
 }
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -15,7 +16,9 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Star2D.E"
+rootProject.name = "Star2D"
 
-include(":app")
-include(":Formatter")
+include(
+   ":app",
+   ":formatter"
+)
