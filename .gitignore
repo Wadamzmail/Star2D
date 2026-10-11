@@ -82,6 +82,6 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 .gradle/buildOutputCleanup/buildOutputCleanup.lock
-.gradle/buildOutputCleanup/buildOutputCleanup.lock
 .gradle/buildOutputCleanup/cache.properties
-.gradle/buildOutputCleanup/buildOutputCleanup.lock
+#AndroidIDE
+.androidide/

@@ -6,7 +6,7 @@ plugins {
 android {
     namespace 'com.star4droid.star2d.evo'
     compileSdk 36
-    buildToolsVersion '36.0.0'
+    buildToolsVersion '37.0.0'
     lint {
     disable 'MissingTranslation', 'TypographyFractions'
     checkOnly 'NewApi', 'HandlerLeak'
@@ -79,30 +79,31 @@ android {
 }
 
 ext {
-    gdxVersion = '1.13.1'
+    gdxVersion = '1.14.2'
 }
 
 configurations { natives }
 
 dependencies {
 
-    implementation("com.google.android.material:material:1.11.0")
-    implementation project(':Formatter')
-    implementation 'com.android.billingclient:billing:8.0.0'
+    implementation("com.google.android.material:material:1.14.0")
+    implementation(projects.formatter)
+    implementation("com.android.billingclient:billing:9.1.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation fileTree(dir: 'libs', include: ['*.jar']);
-    implementation fileTree(dir: 'libs', include: ['*.aar']);
-    implementation 'com.github.bumptech.glide:glide:4.16.0'
-    implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'com.google.guava:guava:32.0.1-android'
-  //  implementation 'com.google.guava:guava:guava-33.4.0-jre'
-    implementation 'com.android.tools:r8:8.1.56'
-    implementation platform("io.github.Rosemoe.sora-editor:bom:0.23.6")
-    implementation "io.github.Rosemoe.sora-editor:editor"
-    implementation "io.github.Rosemoe.sora-editor:language-textmate"
-    implementation 'com.badlogicgames.gdx:gdx:$gdxVersion'
-    implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation(fileTree(dir: "libs", include: ["*.jar","*.aar"]))
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.google.guava:guava:32.0.1-android")
+    implementation("com.android.tools:r8:8.1.56")
+    implementation(platform("io.github.rosemoe:editor-bom:0.24.5"))
+    implementation("io.github.rosemoe:editor")
+    implementation("io.github.rosemoe:language-textmate")
+    implementation("com.badlogicgames.gdx:gdx:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-freetype:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-backend-android:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-box2d:$gdxVersion")
+    implementation("com.kotcrab.vis:vis-ui:1.5.9")
     
     natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
     natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
@@ -118,28 +119,20 @@ dependencies {
     natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86_64"
 
     
-    testImplementation 'com.badlogicgames.gdx:gdx-platform:$gdxVersion'
-    // https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-backend-lwjgl
-    testImplementation 'com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion'
-    // https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-backend-android
-    implementation 'com.badlogicgames.gdx:gdx-backend-android:1.13.0'
-    // https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-box2d
-    implementation 'com.badlogicgames.gdx:gdx-box2d:1.13.0'
-    // https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-box2d-platform
-    testImplementation 'com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion'
+    testImplementation("com.badlogicgames.gdx:gdx-platform:$gdxVersion")
+    testImplementation("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")
+    testImplementation("com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion")
+    
     constraints {
-        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0") {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.3.21") {
             because("kotlin-stdlib-jdk7 is now a part of kotlin-stdlib")
         }
-        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.0") {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.21") {
             because("kotlin-stdlib-jdk8 is now a part of kotlin-stdlib")
         }
     }
-// https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-box2d
-    implementation 'com.badlogicgames.gdx:gdx-box2d:$gdxVersion'
     
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
-
     implementation("com.google.firebase:firebase-crashlytics-ndk")
     implementation("com.google.firebase:firebase-analytics")
 

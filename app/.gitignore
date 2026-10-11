@@ -1,2 +1,6 @@
 /build
+/libs/armeabi-v7a
+/libs/arm64-v8a
+/libs/x86_64
+/libs/x86
 /Star4Droid.jks
