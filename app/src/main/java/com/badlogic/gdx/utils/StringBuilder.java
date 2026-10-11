@@ -261,13 +261,13 @@ public class StringBuilder implements Appendable, CharSequence {
 		}
 		if (value.length != 0) {
 			move(value.length, index);
-			System.arraycopy(value, 0, value, index, value.length);
+			System.arraycopy(value, 0, chars, index, value.length);
 			length += value.length;
 		}
 	}
 
 	final void insert0 (int index, char[] value, int start, int length) {
-		if (0 <= index && index <= length) {
+		if (0 <= index && index <= this.length) {
 			// start + length could overflow, start/length maybe MaxInt
 			if (start >= 0 && 0 <= length && length <= value.length - start) {
 				if (length != 0) {
@@ -859,7 +859,7 @@ public class StringBuilder implements Appendable, CharSequence {
 				append(prefix);
 		}
 		if (value >= 10000) {
-			if (value >= 1000000000000000000L) append0(digits[(int)(value % 10000000000000000000D / 1000000000000000000L)]);
+			if (value >= 1000000000000000000L) append0(digits[(int)(value / 1000000000000000000L)]);
 			if (value >= 100000000000000000L) append0(digits[(int)(value % 1000000000000000000L / 100000000000000000L)]);
 			if (value >= 10000000000000000L) append0(digits[(int)(value % 100000000000000000L / 10000000000000000L)]);
 			if (value >= 1000000000000000L) append0(digits[(int)(value % 10000000000000000L / 1000000000000000L)]);
@@ -1012,8 +1012,10 @@ public class StringBuilder implements Appendable, CharSequence {
 	public StringBuilder append (StringBuilder builder, int start, int end) {
 		if (builder == null)
 			appendNull();
-		else
-			append0(builder.chars, start, end);
+		else {
+			if (start < 0 || start > end || end > builder.length) throw new IndexOutOfBoundsException();
+			append0(builder.chars, start, end - start);
+		}
 		return this;
 	}
 
@@ -1236,6 +1238,7 @@ public class StringBuilder implements Appendable, CharSequence {
 	/** Replaces all instances of {@code find} with {@code replace}. */
 	public StringBuilder replace (String find, String replace) {
 		int findLength = find.length(), replaceLength = replace.length();
+        if (findLength == 0) return this;
 		int index = 0;
 		while (true) {
 			index = indexOf(find, index);
