@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Native Android projects home screen (replaces the LibGDX ProjectsListStage UI). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/home_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="@drawable/home_header_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/home_logo_bg"
+            android:gravity="center"
+            android:text="2D"
+            android:textColor="@color/home_text"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="Star2D Engine"
+            android:textColor="@color/home_text"
+            android:textSize="19sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Tabs -->
+    <LinearLayout
+        android:id="@+id/home_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/home_header_bg"
+        android:orientation="horizontal"
+        android:padding="5dp">
+
+        <TextView android:id="@+id/tab_projects" style="@style/HomeTab" android:text="Projects" />
+        <TextView android:id="@+id/tab_templates" style="@style/HomeTab" android:text="Templates" />
+        <TextView android:id="@+id/tab_community" style="@style/HomeTab" android:text="Community" />
+        <TextView android:id="@+id/tab_settings" style="@style/HomeTab" android:text="Settings" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- ===== Projects ===== -->
+        <LinearLayout
+            android:id="@+id/page_projects"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/HomePageTitle" android:text="Projects" />
+
+                    <TextView
+                        android:id="@+id/projects_count"
+                        style="@style/HomePageSubtitle"
+                        android:text="0 project(s) in workspace" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btn_open"
+                    style="@style/HomeButton.Secondary"
+                    android:layout_marginEnd="8dp"
+                    android:text="Open" />
+
+                <TextView
+                    android:id="@+id/btn_new_project"
+                    style="@style/HomeButton.Primary"
+                    android:text="New project" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/projects_search"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/home_input_bg"
+                android:hint="Search projects..."
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:textColor="@color/home_text"
+                android:textColorHint="@color/home_text_muted"
+                android:textSize="15sp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/home_list_bg"
+                android:padding="1dp">
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <LinearLayout
+                        android:id="@+id/projects_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </ScrollView>
+
+                <TextView
+                    android:id="@+id/projects_empty"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="No projects yet"
+                    android:textColor="@color/home_text_muted"
+                    android:textSize="15sp"
+                    android:visibility="gone" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- ===== Templates ===== -->
+        <ScrollView
+            android:id="@+id/page_templates"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/templates_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView style="@style/HomePageTitle" android:text="Templates &amp; Examples" />
+
+                <TextView
+                    style="@style/HomePageSubtitle"
+                    android:layout_marginBottom="6dp"
+                    android:text="Jumpstart your game with ready-to-run starter projects and engine features" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ===== Community ===== -->
+        <ScrollView
+            android:id="@+id/page_community"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/community_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView style="@style/HomePageTitle" android:text="Community &amp; Support" />
+
+                <TextView
+                    style="@style/HomePageSubtitle"
+                    android:text="Connect with the Star2D developer community across the globe" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@drawable/home_donate_bg"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💖 Support Engine Development"
+                            android:textColor="@color/home_text"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Star2D is developed with passion. Help keep updates and features coming!"
+                            android:textColor="@color/home_text_secondary"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/btn_donate"
+                        style="@style/HomeButton.Primary"
+                        android:layout_marginStart="10dp"
+                        android:text="Donate" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ===== Settings ===== -->
+        <ScrollView
+            android:id="@+id/page_settings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView style="@style/HomePageTitle" android:text="Engine Settings" />
+
+                <TextView
+                    style="@style/HomePageSubtitle"
+                    android:text="Configure editor behaviors, code generation, and preferences" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:background="@drawable/home_card_bg"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="EDITOR &amp; COMPILER"
+                        android:textColor="@color/home_text_muted"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView style="@style/HomeFieldLabel" android:text="Interface Language" />
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <Spinner
+                            android:id="@+id/setting_language"
+                            style="@style/HomeSpinner" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="end|center_vertical"
+                            android:layout_marginEnd="14dp"
+                            android:text="▾"
+                            android:textColor="@color/home_text_secondary"
+                            android:textSize="16sp" />
+                    </FrameLayout>
+
+                    <TextView style="@style/HomeFieldLabel" android:text="Java Compiler Backend" />
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <Spinner
+                            android:id="@+id/setting_compiler"
+                            style="@style/HomeSpinner" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="end|center_vertical"
+                            android:layout_marginEnd="14dp"
+                            android:text="▾"
+                            android:textColor="@color/home_text_secondary"
+                            android:textSize="16sp" />
+                    </FrameLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/setting_completion"
+                        style="@style/HomeSwitch"
+                        android:layout_marginTop="18dp"
+                        android:text="Script Code Completion" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/setting_autosave"
+                        style="@style/HomeSwitch"
+                        android:text="Automatic Scene Saving" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/setting_undo"
+                        style="@style/HomeSwitch"
+                        android:text="Persist Undo/Redo History" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+</LinearLayout>

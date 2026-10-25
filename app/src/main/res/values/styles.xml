@@ -5,4 +5,67 @@
     <item name="android:background">@drawable/round_button_background</item>
     <item name="android:scaleType">centerInside</item>
 </style>
+
+    <!-- Projects home screen -->
+    <style name="HomeTab">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/home_text_secondary</item>
+    </style>
+    <style name="HomePageTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/home_text</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="HomePageSubtitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/home_text_secondary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="HomeButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">38dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:textColor">@color/home_text</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+    <style name="HomeButton.Primary">
+        <item name="android:background">@drawable/home_btn_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="HomeButton.Secondary">
+        <item name="android:background">@drawable/home_btn_secondary</item>
+    </style>
+    <style name="HomeFieldLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:layout_marginBottom">6dp</item>
+        <item name="android:textColor">@color/home_text_secondary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="HomeSpinner">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:background">@drawable/home_input_bg</item>
+        <item name="android:popupBackground">@color/home_surface</item>
+    </style>
+    <style name="HomeSwitch">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:textColor">@color/home_text</item>
+        <item name="android:textSize">16sp</item>
+    </style>
 </resources>
