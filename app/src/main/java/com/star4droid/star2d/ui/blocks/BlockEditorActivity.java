@@ -1125,7 +1125,10 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         else if (l.equals("joint")) out.put(Tr.t("blk_joints", "Joints"), hints.get("Joints"));
         else if (l.equals("type") && !t.isEmpty()) { /* nothing */ } else {
             out.put(vars, variables);
-            out.put(elements, items);
+            ArrayList<String> el = new ArrayList<>();
+            el.add("current");
+            el.addAll(items);
+            out.put(elements, el);
             for (Map.Entry<String, ArrayList<String>> e : hints.entrySet())
                 if (e.getKey().startsWith("ƒ")) out.put(e.getKey(), e.getValue());
             if (l.equals("type")) {
