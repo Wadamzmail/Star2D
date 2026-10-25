@@ -31,6 +31,8 @@ import com.star4droid.star2d.Helpers.EngineSettings;
 import com.star4droid.star2d.MainActivity;
 import com.star4droid.star2d.editor.ui.sub.EditorField;
 import com.star4droid.star2d.evo.R;
+import com.star4droid.star2d.ui.Ui;
+import android.view.ViewGroup;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -351,6 +353,26 @@ public class ProjectsHomeView extends FrameLayout {
         bindSwitch(R.id.setting_completion, "Auto Completion");
         bindSwitch(R.id.setting_autosave, "AutoSave");
         bindSwitch(R.id.setting_undo, "SaveUndoRedo");
+
+        // icon size (small / medium / large) used by the editor toolbars
+        LinearLayout card = (LinearLayout) findViewById(R.id.setting_undo).getParent();
+        TextView label = new TextView(activity);
+        label.setText(Ui.isRtl(activity) ? "حجم الأيقونات" : "Icon size");
+        label.setTextColor(color(R.color.home_text_secondary));
+        label.setTextSize(14);
+        label.setPadding(0, dp(14), 0, dp(6));
+        card.addView(label);
+        String[] sizeKeys = {"small", "medium", "large"};
+        String[] sizeNames = Ui.isRtl(activity) ? new String[]{"صغير", "متوسط", "كبير"} : new String[]{"Small", "Medium", "Large"};
+        FrameLayout box = new FrameLayout(activity);
+        Spinner sizes = new Spinner(activity);
+        sizes.setBackgroundResource(R.drawable.home_input_bg);
+        sizes.setAdapter(spinnerAdapter(sizeNames));
+        sizes.setSelection(Math.max(0, Arrays.asList(sizeKeys).indexOf(Ui.iconSize(activity))));
+        sizes.setOnItemSelectedListener(new SimpleSelection(position ->
+                prefs().edit().putString(Ui.PREF_ICON_SIZE, sizeKeys[position]).apply()));
+        box.addView(sizes, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
+        card.addView(box, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
     private void bindSwitch(int id, String key) {

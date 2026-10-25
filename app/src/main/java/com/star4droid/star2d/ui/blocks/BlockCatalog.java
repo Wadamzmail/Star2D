@@ -214,9 +214,9 @@ public final class BlockCatalog {
         def("Motion", motion, "rotateBy", "body(Body) degrees", "|15", false,
                 "%1$s.getBody().setTransform(%1$s.getBody().getPosition(),%1$s.getBody().getAngle()+(float)Math.toRadians(%2$s));\n%3$s");
         def("Motion", motion, "lookAt", "body(Body) target(Body)", "", false,
-                "%1$s.getBody().setTransform(%1$s.getBody().getPosition(),%1$s.angleTo(%2$s));\n%3$s");
+                "%1$s.getBody().setTransform(%1$s.getBody().getPosition(),%2$s.angleTo(%1$s));\n%3$s");
         def("Motion", motion, "moveToward", "body(Body) target(Body) speed", "||3", false,
-                "{\n    float __a = %1$s.angleTo(%2$s);\n    %1$s.getBody().setLinearVelocity((float)Math.cos(__a)*(float)(%3$s),(float)Math.sin(__a)*(float)(%3$s));\n}\n%4$s");
+                "{\n    float __a = %2$s.angleTo(%1$s);\n    %1$s.getBody().setLinearVelocity((float)Math.cos(__a)*(float)(%3$s),(float)Math.sin(__a)*(float)(%3$s));\n}\n%4$s");
         def("Motion", motion, "moveWithJoystick", "body(Body) joystick(Body) speed", "||5", false,
                 "%1$s.getBody().setLinearVelocity(%2$s.getJoyStickX()*(float)(%3$s),%2$s.getJoyStickY()*(float)(%3$s));\n%4$s");
         def("Motion", motion, "walkWithJoystick", "body(Body) joystick(Body) speed", "||5", false,
@@ -303,7 +303,6 @@ public final class BlockCatalog {
         r("Math", "cos ___°", "(float)Math.cos(Math.toRadians(%1$s))");
         r("Text", "join ___ ___", "(String.valueOf(%1$s) + String.valueOf(%2$s))");
         r("Text", "length of ___", "String.valueOf(%1$s).length()");
-        r("Text", "text of ___", "%1$s.getText()");
         r("Elements", "x of ___", "%1$s.getBodyX()");
         r("Elements", "y of ___", "%1$s.getBodyY()");
         r("Elements", "speed x of ___", "%1$s.getBody().getLinearVelocity().x");
