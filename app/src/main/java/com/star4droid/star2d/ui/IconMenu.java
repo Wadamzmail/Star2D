@@ -38,6 +38,26 @@ public final class IconMenu {
     }
 
     public void show(View anchor) {
+        PopupWindow pw = build();
+        pw.showAsDropDown(anchor, 0, Ui.dp(c, 4), Gravity.START);
+    }
+
+    /** Show at a screen position (kept inside the screen). */
+    public void showAt(View parent, float rawX, float rawY) {
+        PopupWindow pw = build();
+        View v = pw.getContentView();
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        v.measure(View.MeasureSpec.makeMeasureSpec(dm.widthPixels, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec((int) (dm.heightPixels * 0.7f), View.MeasureSpec.AT_MOST));
+        int w = v.getMeasuredWidth(), h = pw.getHeight() > 0 ? pw.getHeight() : v.getMeasuredHeight();
+        int m = Ui.dp(c, 8);
+        int x = (int) Math.max(m, Math.min(rawX, dm.widthPixels - w - m));
+        int y = (int) rawY + Ui.dp(c, 12);
+        if (y + h > dm.heightPixels - m) y = Math.max(m, (int) rawY - h - Ui.dp(c, 12));
+        pw.showAtLocation(parent, Gravity.NO_GRAVITY, x, y);
+    }
+
+    private PopupWindow build() {
         LinearLayout col = Ui.column(c);
         col.setPadding(0, Ui.dp(c, 6), 0, Ui.dp(c, 6));
         PopupWindow[] pw = new PopupWindow[1];
@@ -73,6 +93,6 @@ public final class IconMenu {
         int maxH = (int) (c.getResources().getDisplayMetrics().heightPixels * 0.7f);
         sv.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED), View.MeasureSpec.makeMeasureSpec(maxH, View.MeasureSpec.AT_MOST));
         if (sv.getMeasuredHeight() >= maxH) pw[0].setHeight(maxH);
-        pw[0].showAsDropDown(anchor, 0, Ui.dp(c, 4), Gravity.START);
+        return pw[0];
     }
 }

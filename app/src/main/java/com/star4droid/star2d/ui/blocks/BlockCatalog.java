@@ -62,6 +62,7 @@ public final class BlockCatalog {
             byte[] b = readAll(in);
             parseDsl(new String(b, StandardCharsets.UTF_8), null);
         } catch (Exception ignored) {}
+        overrideOriginals();
         addExtras();
         // user custom nodes / blocks (same files as the LibGDX node library)
         File base = c.getExternalFilesDir(null);
@@ -169,6 +170,71 @@ public final class BlockCatalog {
         d.isIf = isIf;
         d.code = code;
         add(d);
+    }
+
+    /** Find an original block by title and change it (new blocks only; saved blocks keep their own code). */
+    private static void override(String title, String fields, boolean isIf, String code) {
+        Def d = find(title);
+        if (d == null) return;
+        d.fields = fields.isEmpty() ? new String[0] : fields.split(" ");
+        d.isIf = isIf;
+        d.code = code;
+    }
+
+    /** try / timers / functions become C-blocks: their body goes inside, the next blocks run after. */
+    private static void overrideOriginals() {
+        override("try", "", true, "try {\n%1$s\n} catch(Throwable e){\n%2$s\n}\n%3$s");
+        override("void", "name", true, "public void %1$s {\n%2$s\n}\n%4$s");
+        override("_DoAfter", "delay name", true,
+                "Timer.Task %2$s = Timer.schedule(new Timer.Task(){\n    public void run(){\n%3$s\n    }\n},(float)(%1$s));\n%5$s");
+        override("_repeatEvery", "delay name", true,
+                "Timer.Task %2$s = Timer.schedule(new Timer.Task(){\n    public void run(){\n%3$s\n    }\n},(float)(%1$s),(float)(%1$s));\n%5$s");
+        override("cancelTimer", "name", false, "%1$s.cancel();\n%2$s");
+    }
+
+    // ------------------------------------------------------------------ value block shapes / colors
+
+    private static final HashMap<String, String> GROUP_OF = new HashMap<>();
+
+    public static boolean isBooleanTemplate(String t) {
+        if (t == null) return false;
+        return t.contains("==") || t.contains("!=") || t.contains(" < ") || t.contains(" > ") || t.contains("<=") || t.contains(">=")
+                || t.contains("&&") || t.contains("||") || t.startsWith("(!(") || t.contains("checkCollision") || t.contains("isTouched")
+                || t.contains("isVisible()") || t.equals("true") || t.equals("false");
+    }
+
+    public static boolean isTextTemplate(String t) {
+        if (t == null || t.endsWith(".length()")) return false;
+        return t.startsWith("String.valueOf(") || t.contains("getName()") || t.startsWith("getValue(") || t.startsWith("(String.valueOf(") || t.startsWith("\"");
+    }
+
+    public static int groupColor(String g) {
+        if (g == null) return 0xFF00838F;
+        if (g.startsWith("★")) return 0xFF6D4C41;
+        switch (g) {
+            case "Operators": return 0xFF43A047;
+            case "Math": return 0xFF2E7D32;
+            case "Logic": return 0xFF3F51B5;
+            case "Convert": return 0xFF8D6E63;
+            case "Text": return 0xFF8E24AA;
+            case "Elements":
+            case "PlayerItem": return 0xFF1E88E5;
+            case "Box2D Body": return 0xFF00897B;
+            case "Stage / Scene": return 0xFF546E7A;
+            case "Joystick": return 0xFF7B1FA2;
+            case "Input": return 0xFF3949AB;
+            case "Data": return 0xFFEF6C00;
+            case "Variables": return 0xFFE65100;
+        }
+        return 0xFF00838F;
+    }
+
+    public static String groupOf(String template) {
+        return GROUP_OF.get(template);
+    }
+
+    public static int reporterColor(String template) {
+        return groupColor(GROUP_OF.get(template));
     }
 
     // ------------------------------------------------------------------ extra built-in blocks
@@ -325,10 +391,14 @@ public final class BlockCatalog {
         r("Input", "camera y", "getCameraY()");
         r("Data", "saved text ___", "getValue(\"%1$s\")");
         r("Data", "saved number ___", "getNumber(\"%1$s\")");
+        r("Logic", "true", "true");
+        r("Logic", "false", "false");
+        r("Text", "\"___\"", "\"%1$s\"");
     }
 
     private static void r(String g, String d, String t) {
         REPORTERS.add(new Reporter(g, d, t));
+        if (!GROUP_OF.containsKey(t)) GROUP_OF.put(t, g);
     }
 
     // ------------------------------------------------------------------ user libraries
