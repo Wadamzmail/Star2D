@@ -103,8 +103,87 @@ public class ElementsPanel implements PanelHost.Panel {
         shown.clear();
         for (Bridge.ItemInfo i : all)
             if (q.isEmpty() || i.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(i);
+        computeTree(q.isEmpty());
         adapter.notifyDataSetChanged();
         empty.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    /** Per shown row: bit L set = draw a vertical guide in column L; bit 31 = last child. */
+    private int[] guides = new int[0];
+
+    private void computeTree(boolean tree) {
+        int n = shown.size();
+        guides = new int[n];
+        if (!tree) return;
+        boolean[] last = new boolean[n];
+        for (int k = 0; k < n; k++) {
+            int d = shown.get(k).depth;
+            last[k] = true;
+            for (int j = k + 1; j < n; j++) {
+                int dj = shown.get(j).depth;
+                if (dj < d) break;
+                if (dj == d) { last[k] = false; break; }
+            }
+        }
+        boolean[] open = new boolean[64]; // open[L] = ancestor at depth L+1 still has siblings below
+        for (int k = 0; k < n; k++) {
+            int d = Math.min(shown.get(k).depth, 30);
+            int g = 0;
+            for (int L = 0; L < d - 1; L++) if (open[L]) g |= 1 << L;
+            if (d > 0) {
+                if (last[k]) g |= 1 << 31;
+                open[d - 1] = !last[k];
+            }
+            guides[k] = g;
+        }
+    }
+
+    /** Draws "│ ├── └──" connectors from parents to children. */
+    static class TreeLines extends View {
+        int depth, bits;
+        final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        final int step;
+        TreeLines(Context c) {
+            super(c);
+            step = Ui.dp(c, 18);
+            p.setColor(0x66A0A8B4);
+            p.setStrokeWidth(Ui.dp(c, 1.5f));
+            p.setStyle(android.graphics.Paint.Style.STROKE);
+            p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+        }
+        void set(int depth, int bits) {
+            this.depth = depth;
+            this.bits = bits;
+            getLayoutParams().width = step * depth;
+            requestLayout();
+            invalidate();
+        }
+        @Override
+        protected void onDraw(android.graphics.Canvas cv) {
+            if (depth == 0) return;
+            boolean rtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
+            float h = getHeight(), mid = h / 2f, r = Ui.dp(getContext(), 5);
+            float top = 0, bottom = h;
+            int w = getWidth();
+            for (int L = 0; L < depth; L++) {
+                float x = L * step + step / 2f;
+                if (rtl) x = w - x;
+                if (L < depth - 1) {
+                    if ((bits & (1 << L)) != 0) cv.drawLine(x, top, x, bottom, p);
+                    continue;
+                }
+                boolean isLast = (bits & (1 << 31)) != 0;
+                float end = rtl ? 0 : w;
+                float dir = rtl ? -1 : 1;
+                android.graphics.Path path = new android.graphics.Path();
+                path.moveTo(x, top);
+                path.lineTo(x, mid - r);
+                path.quadTo(x, mid, x + dir * r, mid);
+                path.lineTo(end - dir * Ui.dp(getContext(), 2), mid);
+                cv.drawPath(path, p);
+                if (!isLast) cv.drawLine(x, mid - r, x, bottom, p);
+            }
+        }
     }
 
     public static int typeIcon(String type) {
@@ -149,45 +228,31 @@ public class ElementsPanel implements PanelHost.Panel {
 
     private void menu(View anchor, Bridge.ItemInfo info) {
         Context c = anchor.getContext();
-        PopupMenu m = new PopupMenu(c, anchor);
-        m.getMenu().add(0, 1, 0, Tr.t("properties", "Properties"));
-        m.getMenu().add(0, 2, 1, Tr.t("events", "Events"));
-        m.getMenu().add(0, 3, 2, Tr.t("rename", "Rename"));
-        m.getMenu().add(0, 4, 3, Tr.t("ui_duplicate", "Duplicate"));
-        m.getMenu().add(0, 5, 4, Tr.t("ui_bring_forward", "Bring forward"));
-        m.getMenu().add(0, 6, 5, Tr.t("ui_send_backward", "Send backward"));
-        m.getMenu().add(0, 7, 6, Tr.t("delete", "Delete"));
-        m.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: select(info.name); shell.panels.show(shell.properties); break;
-                case 2: select(info.name); shell.panels.show(shell.events); break;
-                case 3:
-                    Dialogs.input(c, Tr.t("rename", "Rename"), Tr.t("name", "Name"), info.name, Dialogs::checkName, v ->
-                            Bridge.query(() -> {
-                                Actor a = Bridge.actor(info.name);
-                                return a == null ? "?" : ItemActions.rename(Bridge.app(), a, v);
-                            }, err -> { if (err != null) Ui.toast(c, err); refresh(); }));
-                    break;
-                case 4:
-                    Bridge.gl(() -> {
-                        try { ItemActions.duplicate(Bridge.app(), Bridge.actor(info.name)); } catch (Exception e) { throw new RuntimeException(e); }
-                    });
-                    refreshLater();
-                    break;
-                case 5: Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), 1)); refreshLater(); break;
-                case 6: Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), -1)); refreshLater(); break;
-                case 7:
-                    Dialogs.confirm(c, Tr.t("delete", "Delete"), Tr.t("areYouSure", "Are you sure?") + "\n" + info.name, Tr.t("delete", "Delete"),
-                            () -> Bridge.gl(() -> {
-                                Actor a = Bridge.actor(info.name);
-                                if (a != null) ItemActions.delete(Bridge.app(), a);
-                            }));
-                    refreshLater();
-                    break;
-            }
-            return true;
+        com.star4droid.star2d.ui.IconMenu m = new com.star4droid.star2d.ui.IconMenu(c);
+        m.add(R.drawable.ic_s2_properties, Ui.ACCENT, Tr.t("properties", "Properties"), () -> { select(info.name); shell.panels.show(shell.properties); });
+        m.add(R.drawable.ic_s2_code, 0xFFAB47BC, Tr.t("events", "Events"), () -> { select(info.name); shell.panels.show(shell.events); });
+        m.add(R.drawable.ic_s2_edit, 0xFFFFB74D, Tr.t("rename", "Rename"), () ->
+                Dialogs.input(c, Tr.t("rename", "Rename"), Tr.t("name", "Name"), info.name, Dialogs::checkName, v ->
+                        Bridge.query(() -> {
+                            Actor a = Bridge.actor(info.name);
+                            return a == null ? "?" : ItemActions.rename(Bridge.app(), a, v);
+                        }, err -> { if (err != null) Ui.toast(c, err); refresh(); })));
+        m.add(R.drawable.ic_s2_copy, Tr.t("ui_duplicate", "Duplicate"), () -> {
+            Bridge.gl(() -> {
+                try { ItemActions.duplicate(Bridge.app(), Bridge.actor(info.name)); } catch (Exception e) { throw new RuntimeException(e); }
+            });
+            refreshLater();
         });
-        m.show();
+        m.add(R.drawable.ic_s2_arrow_up, Tr.t("ui_bring_forward", "Bring forward"), () -> { Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), 1)); refreshLater(); });
+        m.add(R.drawable.ic_s2_arrow_down, Tr.t("ui_send_backward", "Send backward"), () -> { Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), -1)); refreshLater(); });
+        m.divider();
+        m.add(R.drawable.ic_s2_delete, 0xFFFF8A80, Tr.t("delete", "Delete"), () ->
+                Dialogs.confirm(c, Tr.t("delete", "Delete"), Tr.t("areYouSure", "Are you sure?") + "\n" + info.name, Tr.t("delete", "Delete"),
+                        () -> { Bridge.gl(() -> {
+                            Actor a = Bridge.actor(info.name);
+                            if (a != null) ItemActions.delete(Bridge.app(), a);
+                        }); refreshLater(); }));
+        m.show(anchor);
     }
 
     private void refreshLater() {
@@ -200,8 +265,8 @@ public class ElementsPanel implements PanelHost.Panel {
         final LinearLayout row;
         final ImageView icon, eye, lock, more;
         final TextView name, type;
-        final View indent;
-        Holder(LinearLayout row, View indent, ImageView icon, TextView name, TextView type, ImageView eye, ImageView lock, ImageView more) {
+        final TreeLines indent;
+        Holder(LinearLayout row, TreeLines indent, ImageView icon, TextView name, TextView type, ImageView eye, ImageView lock, ImageView more) {
             super(row);
             this.row = row; this.indent = indent; this.icon = icon; this.name = name; this.type = type;
             this.eye = eye; this.lock = lock; this.more = more;
@@ -214,11 +279,11 @@ public class ElementsPanel implements PanelHost.Panel {
         public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             Context c = parent.getContext();
             LinearLayout row = Ui.row(c);
-            row.setPadding(Ui.dp(c, 6), Ui.dp(c, 4), Ui.dp(c, 2), Ui.dp(c, 4));
-            row.setMinimumHeight(Ui.dp(c, 48));
+            row.setPadding(Ui.dp(c, 6), 0, Ui.dp(c, 2), 0);
+            row.setMinimumHeight(Ui.dp(c, 50));
             row.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            View indent = new View(c);
-            row.addView(indent, new LinearLayout.LayoutParams(0, 1));
+            TreeLines indent = new TreeLines(c);
+            row.addView(indent, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
             ImageView icon = Ui.smallIcon(c, R.drawable.ic_s2_square, Ui.ACCENT, 22);
             icon.setBackground(Ui.rounded(0x22FFFFFF, Ui.dp(c, 7)));
             icon.setPadding(Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5));
@@ -256,14 +321,13 @@ public class ElementsPanel implements PanelHost.Panel {
         public void onBindViewHolder(@NonNull Holder h, int position) {
             Bridge.ItemInfo i = shown.get(position);
             Context c = h.row.getContext();
-            h.indent.getLayoutParams().width = Ui.dp(c, 16 * i.depth);
-            h.indent.requestLayout();
+            h.indent.set(i.depth, position < guides.length ? guides[position] : 0);
             h.icon.setImageResource(typeIcon(i.type));
             h.icon.setImageTintList(android.content.res.ColorStateList.valueOf(typeColor(i.type)));
             h.name.setText(i.name);
             h.name.setAlpha(i.visible ? 1f : 0.5f);
             String typeLabel = i.type == null ? "" : Tr.t("ui_type_" + i.type.toLowerCase(Locale.ROOT), i.type);
-            h.type.setText(i.depth > 0 ? "↳ " + i.parent + " · " + typeLabel : typeLabel);
+            h.type.setText(typeLabel);
             h.row.setBackground(i.selected ? Ui.rounded(Ui.ACCENT_SOFT, Ui.dp(c, 8), Ui.ACCENT, Ui.dp(c, 1)) : Ui.ripple(0, Ui.dp(c, 8)));
             h.eye.setImageResource(i.visible ? R.drawable.ic_s2_visible : R.drawable.ic_s2_visible_off);
             h.lock.setImageResource(i.locked ? R.drawable.ic_s2_lock : R.drawable.ic_s2_lock_open);
