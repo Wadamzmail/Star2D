@@ -163,7 +163,12 @@ public class EventsPanel implements PanelHost.Panel {
                         v -> VisualScriptingDialog.showFor(e[0], true, false)));
             View bs = row(c, R.drawable.ic_s2_script, 0xFF7E57C2, Tr.t("bodyScript", "Body Script"),
                     ar ? "كود جافا خاص بهذا العنصر (للمحترفين)." : "Java code just for this element (advanced).", withCode.contains("Body Script"),
-                    v -> VisualScriptingDialog.openCodeEditor());
+                    v -> {
+                        com.star4droid.star2d.Items.Editor le = com.star4droid.star2d.Items.Editor.getCurrentEditor();
+                        if (le != null && le.getIndexer() != null && le.getIndexer().isIndexing())
+                            Ui.toast(c, Tr.t("ui_wait_indexing", "Please wait, indexing files for code completion..."));
+                        else VisualScriptingDialog.openCodeEditor();
+                    });
             bs.setOnLongClickListener(v -> {
                 Dialogs.confirm(c, Tr.t("delete", "Delete"), Tr.t("bodyScript", "Body Script") + " · " + sel + "\n" + Tr.t("areYouSure", "Are you sure?"),
                         Tr.t("delete", "Delete"), () -> Bridge.gl(() -> {
