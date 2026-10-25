@@ -48,6 +48,8 @@ public class TestApp implements ApplicationListener {
 	Stage UiStage;
 	FilePicker filePicker;
 	public Runnable openDonate;
+	/** Called (on the GL thread) when a project starts opening / after it was closed. Used by the Android home screen. */
+	public Runnable onProjectOpening, onProjectClosed;
 	ControlLayer controlLayer;
 	Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
 	public Preferences preferences;
@@ -189,6 +191,8 @@ public class TestApp implements ApplicationListener {
 	
 	public void openProject(Project project,PropertySet<String,Object> propertySet){
 	    this.project = project;
+		if(onProjectOpening!=null)
+			onProjectOpening.run();
 		canExitFromProject = false;
 		landscape = true;
 		if(fileBrowser!=null)
@@ -421,6 +425,8 @@ public class TestApp implements ApplicationListener {
 		Gdx.input.setCatchKey(4,false);
 		Gdx.input.setInputProcessor(projectsListStage);
 		if(changeOrienation) orienationChangeListener.onChange(false);
+		if(onProjectClosed!=null)
+			onProjectClosed.run();
 	}
 	
 	public void updateFont(String path){

@@ -42,6 +42,8 @@ import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Helpers.UriUtils;
 import com.star4droid.star2d.Items.*;
 import com.star4droid.star2d.Items.Editor;
+import com.star4droid.star2d.Views.ProjectsHomeView;
+import com.star4droid.star2d.editor.TestApp;
 
 import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.evo.R;
@@ -53,8 +55,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
 
-public class EditorActivity extends AppCompatActivity implements AndroidFragmentApplication.Callbacks {
+public class EditorActivity extends AppCompatActivity implements AndroidFragmentApplication.Callbacks, ProjectsHomeView.Host {
     Editor editor;
+    ProjectsHomeView homeView;
+    volatile boolean appReady = false;
 	ActivityResultLauncher<String[]> files_picker;
 	ActivityResultLauncher saveFile;
     Project project;
@@ -138,7 +142,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
     					UriUtils.copyUriToUri(EditorActivity.this,uri,Uri.fromFile(new java.io.File(to)));
 						editor.getApp().getFileBrowser().refreshFileList();
     				} else if(filePickerAction.equals("import")){
-						Gdx.app.postRunnable(()->editor.getApp().toast("Restoring..."));
+						if(homeView!=null) homeView.toast("Restoring...");
     				    try {
 							restoreProject(getContentResolver().openInputStream(uri));
 						} catch(Exception e){}
@@ -201,11 +205,14 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 			 public void run(){
 				 try {
 				 Utils.unzipf(inputStream,getFilesDir()+"/projects/","");
-				 Gdx.app.postRunnable(()->{
-					 editor.getApp().toast("project restored...");
-				 	editor.getApp().getProjectsStage().refresh();
-				 });
-				 } catch(Exception ex){}
+				 if(homeView!=null){
+					 homeView.toast("Project restored.");
+					 homeView.refresh();
+				 }
+				 Gdx.app.postRunnable(()->editor.getApp().getProjectsStage().refresh());
+				 } catch(Exception ex){
+					 if(homeView!=null) homeView.toast("Restore failed : "+ex);
+				 }
 			 }
 		 }.start();
     }
@@ -251,39 +258,73 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 			//String ex = android.util.Log.getStackTraceString(new Exception("Landscape : "+landscape+"\n"))+"\n"+"__".repeat(10)+"\n";
 			//Gdx.files.external("logs/landscape.txt").writeString(ex,true);
 		});
-		editor.getApp().openDonate = ()->{
-		    Intent intent = new Intent();
-    		intent.setClass(getApplicationContext(), com.star4droid.star2d.Activities.DonateActivity.class);
-    		startActivity(intent);
-		};
-		editor.getApp().getProjectsStage().setExportRunnable(()->{
-			exported_project = editor.getApp().getProjectsStage().getSelectedProject().file().getAbsolutePath();
-			saveType = "export";
-			String name = editor.getApp().getProjectsStage().getSelectedProject().name();
-			Utils.saveFile(name+".apk",saveFile);
+		TestApp app = editor.getApp();
+		app.openDonate = this::openDonate;
+		// show / hide the Android home screen together with the LibGDX editor
+		app.onProjectOpening = ()->runOnUiThread(()->homeView.setVisibility(View.GONE));
+		app.onProjectClosed = ()->runOnUiThread(()->{
+			homeView.setVisibility(View.VISIBLE);
+			homeView.refresh();
 		});
-		editor.getApp().getProjectsStage().setBackupRunnable(()->{
-			saveType = "backup";
-			String name = editor.getApp().getProjectsStage().getSelectedProject().name();
-			String exportPath = Gdx.files.external("Star2D/backups/"+name+".zip").file().getAbsolutePath();
-			String path = editor.getApp().getProjectsStage().getSelectedProject().file().getAbsolutePath();
-			editor.getApp().toast("Please wait...");
-			Executors.newSingleThreadExecutor().execute(()->{
-				try {
-					Utils.createEmptyZipFile(exportPath);
-					Utils.zipf(path,exportPath,"");
-					source = Uri.fromFile(new java.io.File(exportPath));
-					Utils.saveFile(name+".zip",saveFile);
-				} catch(Exception e){
-					
-				}
-			});
+		app.getProjectsStage().setExportRunnable(()->exportProject(app.getProjectsStage().getSelectedProject().file()));
+		app.getProjectsStage().setBackupRunnable(()->backupProject(app.getProjectsStage().getSelectedProject().file()));
+		app.getProjectsStage().setImportRunnable(this::importProject);
+		appReady = true;
+	}
+
+	// ---- ProjectsHomeView.Host ----
+
+	@Override
+	public void openProject(java.io.File projectDir) {
+		TestApp app = editor == null ? null : editor.getApp();
+		if(!appReady || app == null){
+			homeView.toast("Engine is still loading, try again in a moment...");
+			return;
+		}
+		homeView.setVisibility(View.GONE);
+		String path = projectDir.getAbsolutePath();
+		Gdx.app.postRunnable(()->app.openProject(new Project(path)));
+	}
+
+	@Override
+	public void exportProject(java.io.File projectDir) {
+		exported_project = projectDir.getAbsolutePath();
+		saveType = "export";
+		Utils.saveFile(projectDir.getName()+".apk",saveFile);
+	}
+
+	@Override
+	public void backupProject(java.io.File projectDir) {
+		saveType = "backup";
+		String name = projectDir.getName();
+		java.io.File backups = new java.io.File(getExternalFilesDir(null),"Star2D/backups");
+		backups.mkdirs();
+		String exportPath = new java.io.File(backups,name+".zip").getAbsolutePath();
+		String path = projectDir.getAbsolutePath();
+		homeView.toast("Please wait...");
+		Executors.newSingleThreadExecutor().execute(()->{
+			try {
+				Utils.createEmptyZipFile(exportPath);
+				Utils.zipf(path,exportPath,"");
+				source = Uri.fromFile(new java.io.File(exportPath));
+				Utils.saveFile(name+".zip",saveFile);
+			} catch(Exception e){
+				homeView.toast("Backup failed : "+e);
+			}
 		});
-		editor.getApp().getProjectsStage().setImportRunnable(()->{
-		    filePickerAction = "import";
-		    files_picker.launch(new String[] {"application/zip"});
-		});
-		
+	}
+
+	@Override
+	public void importProject() {
+		filePickerAction = "import";
+		files_picker.launch(new String[] {"application/zip"});
+	}
+
+	@Override
+	public void openDonate() {
+		Intent intent = new Intent();
+		intent.setClass(getApplicationContext(), com.star4droid.star2d.Activities.DonateActivity.class);
+		startActivity(intent);
 	}
 	
 	private void continueInit(){
@@ -308,6 +349,10 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 
     public void init() {
         editor = findViewById(R.id.editor);
+        // Native Android projects screen on top of the LibGDX surface
+        homeView = new ProjectsHomeView(this,this);
+        ((ViewGroup) findViewById(R.id.frame)).addView(homeView,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
     private static int id = 0;
     public void indexFiles() {
