@@ -89,7 +89,7 @@ public final class Bridge {
 
     /** One row of the elements list. */
     public static class ItemInfo {
-        public String name, type, parent;
+        public String name, type, parent, image;
         public boolean visible, locked, selected, isLight;
         public int depth;
     }
@@ -130,6 +130,7 @@ public final class Bridge {
         i.name = name;
         i.type = types.get(name);
         i.parent = ps.getString("parent");
+        i.image = ps.containsKey("image") ? ps.getString("image") : "";
         i.visible = !"false".equals(ps.getString("Visible"));
         i.locked = "true".equals(ps.getString("lock"));
         i.selected = sel != null && name.equals(sel.getName());

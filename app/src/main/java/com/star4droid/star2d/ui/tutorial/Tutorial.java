@@ -56,6 +56,8 @@ public final class Tutorial {
     private static int index = -1;
     private static File project;
     private static boolean running, paused, auto, ready, ending, resumed;
+    /** Auto explain speed (1, 2 or 3). */
+    private static int speed = 1;
     private static Activity act;
     private static Shade shade;
     private static Bubble bubble;
@@ -172,8 +174,19 @@ public final class Tutorial {
         try {
             WindowManager wm = act.getWindowManager();
             if (paused) {
-                if (shadeAdded) { wm.removeViewImmediate(shade); shadeAdded = false; }
+                // paused: the editor stays locked (only "Continue" / "End" work) so nothing gets broken
                 if (bubbleAdded) { wm.removeViewImmediate(bubble); bubbleAdded = false; }
+                if (shade == null || shade.getContext() != act) {
+                    if (shadeAdded) { wm.removeViewImmediate(shade); shadeAdded = false; }
+                    shade = new Shade(act);
+                    bubble = new Bubble(act);
+                }
+                shade.set(null, null, false, false);
+                shadeTouchable = true;
+                if (!shadeAdded) {
+                    wm.addView(shade, params(true, true));
+                    shadeAdded = true;
+                }
                 if (pauseChip == null || pauseChip.getContext() != act) pauseChip = buildChip(act);
                 if (!chipAdded) {
                     WindowManager.LayoutParams lp = params(false, true);
@@ -303,7 +316,8 @@ public final class Tutorial {
             raise();
         } else if (root == null || root == decor) lastRoot = null;
 
-        boolean free = s.free || (f == null && !s.isInfo() && waitingTooLong());
+        // touches pass everywhere only in steps made for it (playing the game)
+        boolean free = s.free;
         setTouchable(!free);
         shade.set(f, f2, free, s.drag);
         bubble.place(f, f2);
@@ -320,7 +334,7 @@ public final class Tutorial {
         }
         if (auto && !stepCompleted && bubble.typed()) {
             if (typedAt == 0) typedAt = now;
-            long read = Math.max(1600, s.text.length() * 38L);
+            long read = Math.max(1600, s.text.length() * 38L) / speed;
             if (now - typedAt < read) return;
             if (s.isInfo()) {
                 go(index + 1);
@@ -330,7 +344,7 @@ public final class Tutorial {
                 if (autoAt == 0) {
                     autoAt = now;
                     shade.tapNow();
-                } else if (now - autoAt > 900) {
+                } else if (now - autoAt > 900 / speed) {
                     autoDone = true;
                     perform(s, f);
                 }
@@ -475,7 +489,12 @@ public final class Tutorial {
 
     /** Back key: offer to pause. Returns true when consumed. */
     public static boolean onBack(Activity a) {
-        if (!running || paused) return false;
+        if (!running) return false;
+        if (paused) {
+            // the editor is locked while paused: Back continues the lesson
+            resume();
+            return true;
+        }
         Step s = step();
         if (s != null && s.allowBack) return false;
         if (!ready) return false;
@@ -504,6 +523,15 @@ public final class Tutorial {
         go.setBackground(Ui.ripple(Ui.ACCENT, Ui.dp(c, 16)));
         go.setOnClickListener(v -> resume());
         row.addView(go);
+        ImageView end = Ui.smallIcon(c, R.drawable.ic_s2_close, Ui.TEXT_2, 18);
+        int p = Ui.dp(c, 8);
+        end.setPadding(p, p, p, p);
+        end.setBackground(Ui.ripple(0, Ui.dp(c, 17)));
+        end.setContentDescription(t("end", "End lesson"));
+        end.setOnClickListener(v -> askEnd());
+        LinearLayout.LayoutParams el = new LinearLayout.LayoutParams(Ui.dp(c, 34), Ui.dp(c, 34));
+        el.setMarginStart(Ui.dp(c, 6));
+        row.addView(end, el);
         return row;
     }
 
@@ -691,9 +719,9 @@ public final class Tutorial {
         final Runnable typer = new Runnable() {
             @Override public void run() {
                 if (shown >= full.length()) return;
-                shown = Math.min(full.length(), shown + (full.length() > 160 ? 2 : 1));
+                shown = Math.min(full.length(), shown + (full.length() > 160 ? 2 : 1) * speed);
                 text.setText(full.substring(0, shown));
-                if (shown < full.length()) H.postDelayed(this, 24);
+                if (shown < full.length()) H.postDelayed(this, Math.max(8, 24 / speed));
             }
         };
 
@@ -788,6 +816,15 @@ public final class Tutorial {
             if (!full.equals(s.text)) type(s.text);
             buttons.removeAllViews();
             buttons.addView(button(auto ? "■ " + t("stop", "Stop") : "▶▶ " + t("auto", "Auto explain"), false, v -> toggleAuto()));
+            if (auto) {
+                // speed of the automatic explanation: ×1 → ×2 → ×3
+                TextView sp1 = button("×" + speed, true, v -> {
+                    speed = speed >= 3 ? 1 : speed + 1;
+                    show(step(), index);
+                });
+                Tut.tag(sp1, "tut:speed");
+                buttons.addView(sp1);
+            }
             View sp = new View(c);
             // a plain View measures to the whole available height when WRAP_CONTENT: keep it 1px tall
             buttons.addView(sp, new LinearLayout.LayoutParams(0, 1, 1));

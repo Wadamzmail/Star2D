@@ -86,9 +86,15 @@ public class ElementsPanel implements PanelHost.Panel {
         if (shell.panels.isShowing(this)) refresh();
     }
 
+    private String imagesPath;
+
     public void refresh() {
         if (!Bridge.ready() || pending) return;
         pending = true;
+        if (imagesPath == null) Bridge.query(() -> Bridge.editor().getProject().getImagesPath(), p -> {
+            imagesPath = p;
+            adapter.notifyDataSetChanged();
+        });
         Bridge.query(Bridge::items, items -> {
             pending = false;
             all.clear();
@@ -322,8 +328,14 @@ public class ElementsPanel implements PanelHost.Panel {
             Bridge.ItemInfo i = shown.get(position);
             Context c = h.row.getContext();
             h.indent.set(i.depth, position < guides.length ? guides[position] : 0);
+            h.icon.setTag(null);
             h.icon.setImageResource(typeIcon(i.type));
             h.icon.setImageTintList(android.content.res.ColorStateList.valueOf(typeColor(i.type)));
+            // elements with a picture show it
+            if (imagesPath != null && i.image != null && !i.image.isEmpty()) {
+                java.io.File img = new java.io.File((imagesPath + "/" + i.image).replace("//", "/"));
+                if (img.isFile()) com.star4droid.star2d.ui.FilePickerDialog.thumb(h.icon, img, Ui.dp(c, 32));
+            }
             h.name.setText(i.name);
             h.name.setAlpha(i.visible ? 1f : 0.5f);
             String typeLabel = i.type == null ? "" : Tr.t("ui_type_" + i.type.toLowerCase(Locale.ROOT), i.type);

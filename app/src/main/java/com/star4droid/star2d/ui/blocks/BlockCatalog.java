@@ -315,7 +315,7 @@ public final class BlockCatalog {
         def("Physics", phys, "spawnCopy", "body(Body) var newName x y", "|bullet|\"bullet\"|0|0", false,
                 "PlayerItem %2$s = %1$s.getClone(%3$s);\n%2$s.getBody().setTransform((float)(%4$s)*" + ws + ",(float)(%5$s)*" + ws + ",0);\n%6$s");
         def("Physics", phys, "setWorldGravity", "strength", "600", false,
-                "setGravity(0f,-(float)(%1$s)*" + ws + ");\n%2$s");
+                "setSteps(1);\nsetGravity(0f,-(float)(%1$s)*" + ws + ");\n%2$s");
 
         // Debug
         def("Debug", dbg, "toastValue", "value", "", false, "toast(String.valueOf(%1$s));\n%2$s");

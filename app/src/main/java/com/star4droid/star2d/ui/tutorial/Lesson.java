@@ -87,6 +87,7 @@ public class Lesson {
     /** Open the add sheet and add an element type; the new element is selected. */
     Lesson addElement(String typeTag, String typeName, int pos, String key, String en) {
         add(new Step(t("add_open", "Tap the blue + button to add a new element.")).at("tool:add")
+                .onEnter(() -> { if (L.shell() != null && !L.panelIs(L.shell().addItem) && !L.noPanel()) L.hidePanel(); })
                 .until(() -> L.shell() != null && L.panelIs(L.shell().addItem))
                 .auto(() -> L.show(L.shell().addItem)));
         final String cnt = "count_" + typeName + "_" + steps.size();
@@ -146,9 +147,14 @@ public class Lesson {
 
     /** Events panel -> an element event (opens the block editor). */
     Lesson elementEvent(String name, String event, String key, String en) {
+        return elementEventAs(name, name, event, key, en);
+    }
+
+    /** Same, for an element whose events are shared under another script name. */
+    Lesson elementEventAs(String name, String script, String event, String key, String en) {
         openPanel("rail:events", () -> L.shell().events, "open_events", "Open the Events panel. Events are moments in the game: a tap, a hit, every frame…");
         return add(new Step(f(key, en, name)).at("event:" + event)
-                .until(() -> L.blocksOpen(name, event))
+                .until(() -> L.blocksOpen(script, event))
                 .auto(() -> L.openEvent(name, event)));
     }
 

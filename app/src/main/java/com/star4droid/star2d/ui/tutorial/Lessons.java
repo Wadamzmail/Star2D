@@ -81,12 +81,19 @@ final class Lessons {
         l.closePanel();
     }
 
-    static void props(Lesson l, String name, String image, float x, float y) {
+    static void props(Lesson l, String name, String image, float x, float y, float w, float h) {
         l.openProperties();
         l.rename(name);
         l.image(name, image);
+        size(l, name, w, h);
         l.number(name, "x", fmt(x), "set_x", "Set x to %1$s (pixels from the left of the screen).");
         l.number(name, "y", fmt(y), "set_y", "Set y to %1$s (pixels from the bottom).");
+    }
+
+    /** New elements are 50×50: give them a size that shows the picture well. */
+    static void size(Lesson l, String name, float w, float h) {
+        l.number(name, "width", fmt(w), "set_w", "New elements are small. Set width to %1$s.");
+        l.number(name, "height", fmt(h), "set_h", "Set height to %1$s.");
     }
 
     static String fmt(float v) {
@@ -117,8 +124,12 @@ final class Lessons {
     }
 
     static void restartOnHit(Lesson l, String who, String key, String en) {
+        restartOnHitAs(l, who, who, key, en);
+    }
+
+    static void restartOnHitAs(Lesson l, String who, String script, String key, String en) {
         l.selectFromList(who);
-        l.elementEvent(who, "onBodyCollided", key, en);
+        l.elementEventAs(who, script, "onBodyCollided", key, en);
         l.category("main");
         l.block("OpenScene", "add_open_scene", "Add \"%1$s\".");
         l.value("OpenScene", 0, "scene1", "open_scene1", "Choose %1$s: opening the same scene again restarts the game.");
@@ -136,7 +147,7 @@ final class Lessons {
         l.sceneJson = scene(box("sky", "UI", "/night_bg.png", 0, 0, 720, 1280, 0, "lock", "true"));
         welcomeAndFiles(l, "first_welcome", "Welcome! You will make your first game: a star appears, you tap it, you get a point and it jumps to another place. I placed a night sky for you.");
         l.addElement("box", "Box", 0, "add_box_star", "Choose Box: an element that can show any picture.");
-        props(l, "star", "star.png", 296, 600);
+        props(l, "star", "star.png", 300, 640, 120, 120);
         l.type("star", "STATIC", "type_static", "Our star must not fall. Tap type and choose STATIC: it stays where you put it.");
         l.closePanel();
         addVariable(l, "score");
@@ -179,14 +190,14 @@ final class Lessons {
                 box("ground", "STATIC", "/ground_strip.png", 0, 0, 720, 140, 5, "lock", "true"));
         welcomeAndFiles(l, "flappy_welcome", "Let's make Flappy Bird: tap to fly up and don't touch the pipe! I placed the sky, the ground and a pipe for you.");
         l.addElement("box", "Box", 0, "add_box_bird", "Choose Box for our bird.");
-        props(l, "bird", "bird.png", 150, 700);
+        props(l, "bird", "bird.png", 180, 700, 90, 72);
         l.check("bird", "Fixed Rotation", "fixed_rot", "Turn on Fixed Rotation so the bird never spins.");
         l.closePanel();
         l.info("gravity_info", "Gravity pulls bodies down. Let's make it stronger: the game feels faster and more fun.");
         l.sceneEvent("OnCreate", "scene_oncreate", "Tap OnCreate in Scene events: it runs once when the game starts.");
         l.category("Physics");
         l.block("setWorldGravity", "add_gravity", "Add \"%1$s\" under the yellow block.");
-        l.value("setWorldGravity", 0, "900", "gravity_val", "Tap strength and type %1$s.");
+        l.value("setWorldGravity", 0, "1300", "gravity_val", "Tap strength and type %1$s.");
         l.saveBlocks();
         l.closeBlocks();
         l.info("flap_info", "Now the flap: the sky covers the whole screen, so a touch on the sky makes the bird jump.");
@@ -195,7 +206,7 @@ final class Lessons {
         l.category("Motion");
         l.block("jump", "add_jump", "Add \"%1$s\".");
         l.value("jump", 0, "bird", "jump_bird", "It jumps \"current\" (the sky!). Tap the element field and choose %1$s.");
-        l.value("jump", 1, "420", "jump_power", "Set the power to %1$s.");
+        l.value("jump", 1, "470", "jump_power", "Set the power to %1$s.");
         l.saveBlocks();
         l.closeBlocks();
         l.info("pipe_info", "The pipe must go to the left, and come back from the right again and again.");
@@ -203,7 +214,7 @@ final class Lessons {
         l.elementEvent("pipe", "OnBodyCreated", "pipe_created", "Tap OnBodyCreated: it runs once, when the pipe appears.");
         l.category("Motion");
         l.block("setVelocityX", "add_velx", "Add \"%1$s\".");
-        l.value("setVelocityX", 1, "-200", "velx_left", "Set the speed to %1$s (minus = to the left, in pixels per second).");
+        l.value("setVelocityX", 1, "-180", "velx_left", "Set the speed to %1$s (minus = to the left, in pixels per second).");
         l.saveBlocks();
         l.closeBlocks();
         l.elementEvent("pipe", "OnBodyUpdate", "pipe_update", "Now tap OnBodyUpdate: it runs every frame for the pipe.");
@@ -220,21 +231,25 @@ final class Lessons {
     // ================================================================ 3. racing
 
     static Lesson racing() {
-        Lesson l = new Lesson("racing", t("racing_title", "Racing"), t("racing_tag", "Racing · 15 min"),
-                t("racing_desc", "Drive with a joystick and dodge the other cars. Joystick, zero gravity, speed and random positions."));
+        Lesson l = new Lesson("racing", t("racing_title", "Racing"), t("racing_tag", "Racing · 20 min"),
+                t("racing_desc", "Drive with a joystick on a moving road and dodge the cars. Joystick, endless scrolling, shared events and random positions."));
         l.startImages = new String[]{"racing/road.png", "racing/car_red.png", "racing/car_blue.png", "racing/car_yellow.png"};
         l.sceneJson = scene(
-                box("road", "UI", "/road.png", 0, 0, 720, 1280, 0, "lock", "true"),
-                box("rival", "KINAMATIC", "/car_blue.png", 420, 1400, 96, 168, 3));
-        welcomeAndFiles(l, "racing_welcome", "A racing game! You drive the red car with a joystick and dodge the blue one. I placed the road and the rival car.");
+                box("road1", "KINAMATIC", "/road.png", 0, 0, 720, 1280, 0, "lock", "true", "isSensor", "true", "Script", "road"),
+                box("road2", "KINAMATIC", "/road.png", 0, 1280, 720, 1280, 0, "lock", "true", "isSensor", "true", "Script", "road"),
+                box("rival1", "KINAMATIC", "/car_blue.png", 150, 1400, 80, 140, 3, "Script", "rival"),
+                box("rival2", "KINAMATIC", "/car_yellow.png", 430, 1950, 80, 140, 3, "Script", "rival"),
+                box("rival3", "KINAMATIC", "/car_blue.png", 280, 2500, 80, 140, 3, "Script", "rival"));
+        welcomeAndFiles(l, "racing_welcome", "A racing game! You drive the red car with a joystick on a moving road and dodge the other cars. I placed two road pieces and three rival cars for you.");
         l.addElement("box", "Box", 0, "add_box_car", "Choose Box for your car.");
-        props(l, "car", "car_red.png", 200, 160);
+        props(l, "car", "car_red.png", 320, 180, 80, 140);
         l.check("car", "Fixed Rotation", "fixed_rot_car", "Turn on Fixed Rotation so the car stays straight.");
         l.addElement("joystick", "Joystick", 3, "add_joystick", "Now choose Joystick: the player drives with it.");
         l.openProperties();
         l.rename("stick");
-        l.number("stick", "x", "480", "set_x", "Set x to %1$s (pixels from the left of the screen).");
-        l.number("stick", "y", "60", "set_y", "Set y to %1$s (pixels from the bottom).");
+        size(l, "stick", 190, 190);
+        l.number("stick", "x", "500", "set_x", "Set x to %1$s (pixels from the left of the screen).");
+        l.number("stick", "y", "40", "set_y", "Set y to %1$s (pixels from the bottom).");
         l.closePanel();
         l.sceneEvent("OnCreate", "scene_oncreate", "Tap OnCreate in Scene events: it runs once when the game starts.");
         l.category("Physics");
@@ -247,23 +262,47 @@ final class Lessons {
         l.category("Motion");
         l.block("moveWithJoystick", "add_joy_move", "Add \"%1$s\".");
         l.value("moveWithJoystick", 1, "stick", "joy_field", "Tap the joystick field and choose %1$s.");
-        l.value("moveWithJoystick", 2, "350", "joy_speed", "Set the speed to %1$s.");
+        l.value("moveWithJoystick", 2, "260", "joy_speed", "Set the speed to %1$s.");
         l.saveBlocks();
         l.closeBlocks();
-        l.selectFromList("rival");
-        l.elementEvent("rival", "OnBodyCreated", "rival_created", "Tap OnBodyCreated for the rival car.");
+        // the road: two pieces that move down; the one that leaves at the bottom goes back on top of the other
+        l.info("road_info", "Now the road. road1 and road2 share the same events (their Script is road), so the blocks we add work for both pieces.");
+        l.selectFromList("road1");
+        l.elementEventAs("road1", "road", "OnBodyCreated", "road_created", "Tap OnBodyCreated: it runs once for each road piece.");
         l.category("Motion");
         l.block("setVelocityY", "add_vely", "Add \"%1$s\".");
-        l.value("setVelocityY", 1, "-450", "vely_down", "Set the speed to %1$s (minus = down).");
+        l.value("setVelocityY", 1, "-320", "road_speed", "Set the speed to %1$s: the road moves down, so the car seems to drive forward.");
         l.saveBlocks();
         l.closeBlocks();
-        l.elementEvent("rival", "OnBodyUpdate", "rival_update", "Tap OnBodyUpdate: we check every frame if the car went out at the bottom.");
-        wrapAround(l, "y", "-200", "y", true, "140", "560", "1450");
+        l.elementEventAs("road1", "road", "OnBodyUpdate", "road_update", "Tap OnBodyUpdate: when a piece leaves the screen at the bottom, it jumps on top of the other piece.");
+        l.category("main");
+        l.block("if", "add_if", "Add the \"%1$s\" block: blocks inside it run only when its condition is true.");
+        l.valueBlock("if", 0, "Operators", "___ < ___", "cond_less", "Tap the condition and choose %1$s from Operators.");
+        l.valueBlock("if", 0, "Elements", "y of ___", "cond_axis", "Tap the first circle and choose %1$s from Elements.", 0);
+        l.value("if", 0, "current", "cond_current", "Tap the small circle and choose %1$s (this element).", 0, 0);
+        l.value("if", 0, "-640", "road_limit", "Type %1$s in the second circle: the middle of the piece is half a screen below the bottom, so it is out of sight.", 1);
+        l.category("Motion");
+        l.blockInside("moveBy", "if", 1, "moveby_inside", "Drag \"%1$s\" inside \"%2$s\": it moves an element by a distance.");
+        l.value("moveBy", 1, "0", "moveby_dx", "Set dx to %1$s (no sideways move).");
+        l.value("moveBy", 2, "2560", "moveby_dy", "Set dy to %1$s: two road pieces up, right on top of the other one.");
         l.saveBlocks();
         l.closeBlocks();
-        restartOnHit(l, "car", "car_hit", "Tap onBodyCollided: it runs when your car hits the rival.");
-        l.play("play_racing", "Play! Drive with the joystick and dodge the blue car. Press Back to come back.");
-        l.info("racing_end", "Vroom! 🏁 Ideas: use car_yellow.png for a second rival, or count dodged cars with a variable.");
+        // rival cars: slower than the road, so they come towards you
+        l.info("rival_info", "The three rival cars also share their events (Script: rival). They move down more slowly than the road, so they look like slower cars you overtake.");
+        l.selectFromList("rival1");
+        l.elementEventAs("rival1", "rival", "OnBodyCreated", "rival_created", "Tap OnBodyCreated for the rival cars.");
+        l.category("Motion");
+        l.block("setVelocityY", "add_vely", "Add \"%1$s\".");
+        l.value("setVelocityY", 1, "-170", "vely_down", "Set the speed to %1$s (minus = down).");
+        l.saveBlocks();
+        l.closeBlocks();
+        l.elementEventAs("rival1", "rival", "OnBodyUpdate", "rival_update", "Tap OnBodyUpdate: we check every frame if a car went out at the bottom.");
+        wrapAround(l, "y", "-200", "y", true, "140", "580", "1500");
+        l.saveBlocks();
+        l.closeBlocks();
+        restartOnHitAs(l, "rival1", "rival", "car_hit", "Tap onBodyCollided: it runs when a rival car hits your car.");
+        l.play("play_racing", "Play! Drive with the joystick and dodge the cars. Press Back to come back.");
+        l.info("racing_end", "Vroom! 🏁 Ideas: add a third road piece (then move by 3840), count overtaken cars with a variable, or speed up over time.");
         return l;
     }
 
@@ -280,7 +319,7 @@ final class Lessons {
                 box("fire", "UI", "/btn_fire.png", 560, 40, 130, 130, 6));
         welcomeAndFiles(l, "shooter_welcome", "Space shooter! Move the ship with your finger and shoot the rocks. I placed space, a rock, a laser (hidden below the screen) and the fire button.");
         l.addElement("box", "Box", 0, "add_box_ship", "Choose Box for the ship.");
-        props(l, "ship", "ship.png", 300, 140);
+        props(l, "ship", "ship.png", 360, 150, 100, 106);
         l.check("ship", "Fixed Rotation", "fixed_rot_ship", "Turn on Fixed Rotation.");
         l.closePanel();
         l.sceneEvent("OnCreate", "scene_oncreate", "Tap OnCreate in Scene events: it runs once when the game starts.");
@@ -311,14 +350,14 @@ final class Lessons {
         l.category("Motion");
         l.block("setVelocityY", "add_vely", "Add \"%1$s\".");
         l.value("setVelocityY", 0, "bullet", "vely_bullet", "Type %1$s in the element field: the copy we just made.");
-        l.value("setVelocityY", 1, "700", "vely_up", "Set the speed to %1$s (up).");
+        l.value("setVelocityY", 1, "480", "vely_up", "Set the speed to %1$s (up).");
         l.saveBlocks();
         l.closeBlocks();
         l.selectFromList("rock");
         l.elementEvent("rock", "OnBodyCreated", "rock_created", "Tap OnBodyCreated for the rock.");
         l.category("Motion");
         l.block("setVelocityY", "add_vely", "Add \"%1$s\".");
-        l.value("setVelocityY", 1, "-250", "vely_down", "Set the speed to %1$s (minus = down).");
+        l.value("setVelocityY", 1, "-200", "vely_down", "Set the speed to %1$s (minus = down).");
         l.saveBlocks();
         l.closeBlocks();
         l.elementEvent("rock", "OnBodyUpdate", "rock_update", "Tap OnBodyUpdate: when the rock leaves the screen at the bottom, it comes back from the top.");
@@ -362,22 +401,23 @@ final class Lessons {
         l.sceneJson = scene(
                 box("hills", "UI", "/hills_bg.png", 0, 0, 1280, 720, 0, "lock", "true"),
                 box("ground", "STATIC", "/grass_ground.png", -200, 0, 2560, 128, 2, "lock", "true", "tileX", "5"),
-                box("crate1", "STATIC", "/crate.png", 700, 128, 100, 100, 3),
-                box("crate2", "STATIC", "/crate.png", 1000, 128, 100, 100, 3),
-                box("crate3", "STATIC", "/crate.png", 1000, 228, 100, 100, 3),
-                box("coin", "STATIC", "/coin.png", 1015, 400, 70, 70, 4, "isSensor", "true"),
+                box("crate1", "STATIC", "/crate.png", 700, 128, 80, 80, 3),
+                box("crate2", "STATIC", "/crate.png", 1000, 128, 80, 80, 3),
+                box("crate3", "STATIC", "/crate.png", 1000, 208, 80, 80, 3),
+                box("coin", "STATIC", "/coin.png", 1010, 330, 60, 60, 4, "isSensor", "true"),
                 box("left", "UI", "/btn_left.png", 40, 30, 130, 130, 8),
                 box("right", "UI", "/btn_right.png", 190, 30, 130, 130, 8),
                 box("jump", "UI", "/btn_jump.png", 1110, 30, 130, 130, 8));
         welcomeAndFiles(l, "plat_welcome", "A platformer! Walk with the arrows, jump on the crates and grab the coin. I placed the hills, the ground, crates, a coin and the buttons.");
         l.addElement("box", "Box", 0, "add_box_hero", "Choose Box for our hero.");
-        props(l, "hero", "hero.png", 200, 300);
+        props(l, "hero", "hero.png", 200, 300, 70, 90);
+        l.number("hero", "restitution", "0", "bounce_zero", "Set restitution (bounce) to %1$s so the hero lands without bouncing.");
         l.check("hero", "Fixed Rotation", "fixed_rot_hero", "Turn on Fixed Rotation so the hero doesn't fall over.");
         l.closePanel();
         l.sceneEvent("OnCreate", "scene_oncreate", "Tap OnCreate in Scene events: it runs once when the game starts.");
         l.category("Physics");
         l.block("setWorldGravity", "add_gravity", "Add \"%1$s\" under the yellow block.");
-        l.value("setWorldGravity", 0, "900", "gravity_val", "Tap strength and type %1$s.");
+        l.value("setWorldGravity", 0, "800", "gravity_val", "Tap strength and type %1$s.");
         l.saveBlocks();
         l.closeBlocks();
         l.sceneEvent("OnStep", "scene_onstep", "Tap OnStep: it runs every frame, about 60 times per second.");
@@ -386,8 +426,8 @@ final class Lessons {
         l.value("cameraFollow", 0, "hero", "camera_hero", "Choose %1$s.");
         l.saveBlocks();
         l.closeBlocks();
-        walkButton(l, "right", "300", "right_start");
-        walkButton(l, "left", "-300", "left_start");
+        walkButton(l, "right", "220", "right_start");
+        walkButton(l, "left", "-220", "left_start");
         l.selectFromList("jump");
         l.elementEvent("jump", "onClick", "jump_click", "Tap onClick of the jump button.");
         l.category("main");

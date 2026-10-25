@@ -211,7 +211,7 @@ public final class BlockInfo {
         b("setGravityScaleOf", "Gravity scale", "مقياس الجاذبية", "0 = floats, 1 = normal, 2 = heavy.", "0 = يطفو، 1 = طبيعي، 2 = ثقيل.");
         b("destroyAfter", "Destroy after", "احذف بعد", "Removes the element after some seconds (bullets).", "يحذف العنصر بعد عدة ثوانٍ (الرصاص).");
         b("spawnCopy", "Spawn copy at", "أنشئ نسخة عند", "Clones an element at x, y. newName needs quotes.", "ينسخ العنصر عند x و y. الاسم الجديد يحتاج علامات تنصيص.");
-        b("setWorldGravity", "Set gravity", "اضبط الجاذبية", "How fast things fall, in pixels per second² (600 = normal, 0 = space).", "سرعة سقوط الأشياء بالبكسل/ثانية² (600 = عادي، 0 = فضاء).");
+        b("setWorldGravity", "Set gravity", "اضبط الجاذبية", "How fast things fall, in pixels per second² (800 = normal, 0 = space). Also makes the physics run in real time, so the speeds in blocks match pixels per second.", "سرعة سقوط الأشياء بالبكسل/ثانية² (800 = عادي، 0 = فضاء). وتجعل الفيزياء تعمل بالوقت الحقيقي لتطابق السرعات في البلوكات بكسل/ثانية.");
         b("toastValue", "Show value", "أظهر قيمة", "Shows any value as a message (no quotes needed).", "يعرض أي قيمة كرسالة (بدون علامات تنصيص).");
         b("logValue", "Log value", "سجّل قيمة", "Writes any value to the debug log.", "يكتب أي قيمة في سجل التصحيح.");
     }
