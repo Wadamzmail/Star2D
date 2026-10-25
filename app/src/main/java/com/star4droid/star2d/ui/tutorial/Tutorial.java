@@ -132,6 +132,7 @@ public final class Tutorial {
     }
 
     public static void stop(boolean message) {
+        if (running && ready) saveScene();
         running = false;
         auto = false;
         H.removeCallbacks(TICK);
@@ -392,7 +393,15 @@ public final class Tutorial {
         if (bubble != null) bubble.show(s, index);
     }
 
+    /** Save the open scene (so the lesson's work is kept). */
+    private static void saveScene() {
+        try {
+            if (Bridge.ready()) Bridge.gl(() -> Bridge.controls().actionSave());
+        } catch (Throwable ignored) {}
+    }
+
     private static void finish() {
+        saveScene();
         running = false;
         H.removeCallbacks(TICK);
         detach();

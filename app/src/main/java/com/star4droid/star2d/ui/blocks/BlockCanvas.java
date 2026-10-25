@@ -337,7 +337,7 @@ public class BlockCanvas extends View {
         float paramsW = 0;
         if (n.isRoot())
             for (String pn : rootParams) {
-                float w = paramText.measureText(pn) + 22 * d;
+                float w = paramText.measureText(BlockInfo.reporter(pn)) + 22 * d;
                 b.params.add(new RectF(x + PAD + labelW + PAD + paramsW, 0, x + PAD + labelW + PAD + paramsW + w, 0));
                 b.paramNames.add(pn);
                 paramsW += w + 6 * d;
@@ -675,7 +675,7 @@ public class BlockCanvas extends View {
             stroke.setColor(0x99FFFFFF);
             stroke.setStrokeWidth(1.2f * d);
             c.drawRoundRect(pr, pr.height() / 2, pr.height() / 2, stroke);
-            c.drawText(b.paramNames.get(i), pr.left + 11 * d, pr.centerY() + 4.3f * d, paramText);
+            c.drawText(BlockInfo.reporter(b.paramNames.get(i)), pr.left + 11 * d, pr.centerY() + 4.3f * d, paramText);
         }
         for (Slot s : b.slots) drawSlot(c, s, ghost);
         if (!ghost) {

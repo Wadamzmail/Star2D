@@ -61,6 +61,10 @@ public class Lesson {
         return add(new Step(t(key, en)));
     }
 
+    Lesson infoF(String key, String en, Object... args) {
+        return add(new Step(f(key, en, args)));
+    }
+
     Lesson infoAt(String key, String en, String tag) {
         return add(new Step(t(key, en)).at(tag));
     }
@@ -69,6 +73,8 @@ public class Lesson {
 
     Lesson openPanel(String railTag, P panel, String key, String en) {
         return add(new Step(t(key, en)).at(railTag)
+                // another open panel can cover the side rail: close it first
+                .onEnter(() -> { if (!L.panelIs(panel.get()) && !L.noPanel()) L.hidePanel(); })
                 .until(() -> L.panelIs(panel.get()))
                 .auto(() -> L.show(panel.get())));
     }
@@ -199,7 +205,7 @@ public class Lesson {
 
     /** Long-press an event parameter on the first block and drag a copy into a field. */
     Lesson param(String title, int index, String name, String key, String en, int... path) {
-        return add(new Step(f(key, en, name)).at(Targets.rootParam(name)).dragTo(Targets.path(title, index, path))
+        return add(new Step(f(key, en, BlockInfo.reporter(name))).at(Targets.rootParam(name)).dragTo(Targets.path(title, index, path))
                 .until(() -> L.fieldIs(title, index, name, path))
                 .auto(() -> L.setField(title, index, name, path)));
     }

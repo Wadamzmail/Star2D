@@ -5,6 +5,7 @@ import android.graphics.Typeface;
 import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ScrollView;
@@ -129,6 +130,38 @@ public class JointsPanel implements PanelHost.Panel {
         try { Bridge.controls().getJointsList().refresh(); } catch (Throwable ignored) {}
     }
 
+    /** {icon, color} for a joint type. */
+    static int[] look(String t) {
+        switch (t) {
+            case "RevoluteJoint": return new int[]{R.drawable.ic_s2_rotate, 0xFF4FC3F7};
+            case "PrismaticJoint": return new int[]{R.drawable.ic_s2_move, 0xFFAED581};
+            case "DistanceJoint": return new int[]{R.drawable.ic_s2_link, 0xFFFFB74D};
+            case "PulleyJoint": return new int[]{R.drawable.ic_s2_sort, 0xFFBA68C8};
+            case "MouseJoint": return new int[]{R.drawable.ic_s2_touch, 0xFFF06292};
+            case "WheelJoint": return new int[]{R.drawable.ic_s2_circle, 0xFF4DB6AC};
+            case "WeldJoint": return new int[]{R.drawable.ic_s2_lock, 0xFFE57373};
+            case "FrictionJoint": return new int[]{R.drawable.ic_s2_grid, 0xFF90A4AE};
+            case "RopeJoint": return new int[]{R.drawable.ic_s2_drag, 0xFFDCE775};
+            case "MotorJoint": return new int[]{R.drawable.ic_s2_refresh, 0xFF7986CB};
+        }
+        return new int[]{R.drawable.ic_s2_joint, 0xFF4DB6AC};
+    }
+
+    static String describe(String t, boolean ar) {
+        for (String[] in : INFO) if (in[0].equals(t)) return Tr.t("ui_joint_desc_" + t, ar ? in[2] : in[1]);
+        return "";
+    }
+
+    /** A rounded icon badge. */
+    static View badge(Context c, int icon, int color, int sizeDp) {
+        ImageView iv = Ui.smallIcon(c, icon, color, (int) (sizeDp * 0.55f));
+        iv.setScaleType(ImageView.ScaleType.CENTER);
+        iv.setBackground(Ui.rounded((color & 0x00FFFFFF) | 0x2E000000, Ui.dp(c, sizeDp / 3f), (color & 0x00FFFFFF) | 0x80000000, Ui.dp(c, 1.5f)));
+        iv.setLayoutParams(new LinearLayout.LayoutParams(Ui.dp(c, sizeDp), Ui.dp(c, sizeDp)));
+        return iv;
+    }
+
+    /** Joint types as cards with an icon, a clear border and a short explanation. */
     private void chooseType(Context c) {
         Bridge.query(() -> {
             JointsHelper.init();
@@ -140,14 +173,43 @@ public class JointsPanel implements PanelHost.Panel {
             return types;
         }, types -> {
             boolean ar = Ui.isRtl(c);
-            String[] labels = new String[types.size()];
-            for (int i = 0; i < labels.length; i++) {
-                String t = types.get(i).replace("Def", "");
-                String d = "";
-                for (String[] in : INFO) if (in[0].equals(t)) d = ar ? in[2] : in[1];
-                labels[i] = t + (d.isEmpty() ? "" : "\n   " + d);
+            android.widget.GridLayout g = new android.widget.GridLayout(c);
+            g.setColumnCount(Ui.isLandscape(c) ? 3 : 2);
+            g.setPadding(Ui.dp(c, 12), Ui.dp(c, 4), Ui.dp(c, 12), Ui.dp(c, 8));
+            AlertDialog[] dlg = new AlertDialog[1];
+            for (String full : types) {
+                String t = full.replace("Def", "");
+                int[] lk = look(t);
+                LinearLayout card = Ui.column(c);
+                card.setPadding(Ui.dp(c, 12), Ui.dp(c, 12), Ui.dp(c, 12), Ui.dp(c, 12));
+                card.setBackground(Ui.ripple(Ui.SURFACE_2, Ui.dp(c, 14)));
+                card.setForeground(Ui.rounded(0, Ui.dp(c, 14), (lk[1] & 0x00FFFFFF) | 0x66000000, Ui.dp(c, 1.5f)));
+                card.addView(badge(c, lk[0], lk[1], 40));
+                TextView name = Ui.text(c, Tr.t("ui_joint_" + t, t.replace("Joint", "")), 14.5f, Ui.TEXT);
+                name.setTypeface(Typeface.DEFAULT_BOLD);
+                name.setPadding(0, Ui.dp(c, 8), 0, Ui.dp(c, 2));
+                card.addView(name);
+                TextView d = Ui.text(c, describe(t, ar), 11.5f, Ui.TEXT_3);
+                d.setMaxLines(3);
+                card.addView(d);
+                card.setOnClickListener(v -> {
+                    if (dlg[0] != null) dlg[0].dismiss();
+                    edit(c, t, "", null);
+                });
+                android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams(
+                        android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED), android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f));
+                lp.width = 0;
+                lp.setMargins(Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5));
+                g.addView(card, lp);
             }
-            Dialogs.choose(c, Tr.t("addJoint", "Add joint"), labels, i -> edit(c, types.get(i).replace("Def", ""), "", null));
+            ScrollView sv = new ScrollView(c);
+            sv.addView(g);
+            dlg[0] = new AlertDialog.Builder(c)
+                    .setTitle(Tr.t("addJoint", "Add joint"))
+                    .setIcon(R.drawable.ic_s2_joint)
+                    .setView(sv)
+                    .setNegativeButton(Tr.t("cancel", "Cancel"), null)
+                    .show();
         });
     }
 
@@ -246,29 +308,72 @@ public class JointsPanel implements PanelHost.Panel {
         }, r -> showForm(c, type, name, file, (LinkedHashMap<String, String[]>) r[0], (String) r[1], (ArrayList<String>) r[2]));
     }
 
+    private static LinearLayout section(Context c, LinearLayout parent, int icon, String title) {
+        LinearLayout card = Ui.column(c);
+        card.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 12), Ui.BORDER, Ui.dp(c, 1)));
+        card.setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 10));
+        LinearLayout h = Ui.row(c);
+        h.addView(Ui.smallIcon(c, icon, Ui.TEXT_2, 16));
+        TextView t = Ui.text(c, title, 12.5f, Ui.TEXT_2);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setPadding(Ui.dp(c, 6), 0, 0, 0);
+        h.addView(t);
+        card.addView(h, Ui.matchWrap());
+        parent.addView(card, Ui.margins(Ui.matchWrap(), c, 0, 10, 0, 0));
+        return card;
+    }
+
+    private static void numberField(Context c, EditText e, String title, boolean allowText) {
+        e.setFocusable(false);
+        e.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_s2_dialpad, 0);
+        e.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(Ui.TEXT_3));
+        e.setOnClickListener(v -> com.star4droid.star2d.ui.NumberPad.show(c, title, e.getText().toString(), e::setText,
+                allowText ? () -> {
+                    e.setFocusableInTouchMode(true);
+                    e.setFocusable(true);
+                    e.setOnClickListener(null);
+                    e.requestFocus();
+                } : null));
+    }
+
     private void showForm(Context c, String type, String name, String file, LinkedHashMap<String, String[]> fields, String saved, ArrayList<String> bodies) {
+        boolean ar = Ui.isRtl(c);
+        String t = type.replace("Def", "");
+        int[] lk = look(t);
         LinearLayout col = Ui.column(c);
-        col.setPadding(Ui.dp(c, 18), Ui.dp(c, 6), Ui.dp(c, 18), Ui.dp(c, 6));
-        TextView nl = Ui.text(c, Tr.t("name", "Name"), 12.5f, Ui.TEXT_2);
-        col.addView(nl);
+        col.setPadding(Ui.dp(c, 16), Ui.dp(c, 4), Ui.dp(c, 16), Ui.dp(c, 8));
+        // header: icon + description
+        LinearLayout head = Ui.row(c);
+        head.addView(badge(c, lk[0], lk[1], 44));
+        TextView desc = Ui.text(c, describe(t, ar), 12.5f, Ui.TEXT_2);
+        desc.setPadding(Ui.dp(c, 12), 0, 0, 0);
+        head.addView(desc, Ui.weight(1));
+        col.addView(head, Ui.matchWrap());
+
+        LinearLayout nameCard = section(c, col, R.drawable.ic_s2_edit, Tr.t("name", "Name"));
         EditText nameField = Ui.input(c, name, "joint1");
         nameField.setEnabled(file == null);
-        col.addView(nameField, Ui.matchWrap());
+        nameCard.addView(nameField, Ui.margins(Ui.matchWrap(), c, 0, 6, 0, 0));
 
+        LinearLayout bodiesCard = null, pointsCard = null, settingsCard = null;
         ArrayList<FieldRow> rows = new ArrayList<>();
         final AlertDialog[] dialogRef = new AlertDialog[1];
         for (java.util.Map.Entry<String, String[]> e : fields.entrySet()) {
             FieldRow fr = new FieldRow();
             fr.name = e.getKey();
             fr.kind = e.getValue()[0];
-            TextView l = Ui.text(c, e.getKey(), 12.5f, Ui.TEXT_2);
-            l.setPadding(0, Ui.dp(c, 10), 0, Ui.dp(c, 4));
+            TextView l = Ui.text(c, e.getKey(), 12, Ui.TEXT_3);
+            l.setPadding(0, Ui.dp(c, 8), 0, Ui.dp(c, 4));
             switch (fr.kind) {
                 case "body": {
-                    col.addView(l);
+                    if (bodiesCard == null) bodiesCard = section(c, col, R.drawable.ic_s2_layers, Tr.t("ui_joint_bodies", "Connected elements"));
+                    bodiesCard.addView(l);
                     fr.body = Ui.text(c, "—", 14, Ui.TEXT);
-                    fr.body.setPadding(Ui.dp(c, 10), Ui.dp(c, 9), Ui.dp(c, 10), Ui.dp(c, 9));
-                    fr.body.setBackground(Ui.ripple(0xFF121417, Ui.dp(c, 7)));
+                    fr.body.setPadding(Ui.dp(c, 10), Ui.dp(c, 10), Ui.dp(c, 10), Ui.dp(c, 10));
+                    fr.body.setBackground(Ui.rounded(0xFF121417, Ui.dp(c, 8), Ui.BORDER, Ui.dp(c, 1)));
+                    fr.body.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_s2_square, 0, R.drawable.ic_s2_expand_more, 0);
+                    fr.body.setCompoundDrawablePadding(Ui.dp(c, 8));
+                    fr.body.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
                     fr.body.setOnClickListener(v -> Dialogs.choose(c, fr.name, bodies.toArray(new String[0]), i -> {
                         fr.bodyValue = bodies.get(i);
                         fr.body.setText(fr.bodyValue);
@@ -278,43 +383,48 @@ public class JointsPanel implements PanelHost.Panel {
                         fr.bodyValue = bodies.get(Math.max(0, idx));
                         fr.body.setText(fr.bodyValue);
                     }
-                    col.addView(fr.body, Ui.matchWrap());
+                    bodiesCard.addView(fr.body, Ui.matchWrap());
                     break;
                 }
                 case "vec2": {
-                    col.addView(l);
+                    if (pointsCard == null) pointsCard = section(c, col, R.drawable.ic_s2_touch, Tr.t("ui_joint_points", "Points"));
+                    pointsCard.addView(l);
                     LinearLayout r = Ui.row(c);
                     fr.a = Ui.input(c, "0", "x");
                     fr.b = Ui.input(c, "0", "y");
-                    int num = InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED;
-                    fr.b.setInputType(num);
+                    numberField(c, fr.a, fr.name + " · x", true);
+                    numberField(c, fr.b, fr.name + " · y", false);
                     r.addView(fr.a, Ui.weight(1));
                     LinearLayout.LayoutParams bl = Ui.weight(1);
                     bl.setMarginStart(Ui.dp(c, 6));
                     r.addView(fr.b, bl);
-                    TextView pick = Ui.text(c, Tr.t("ui_pick", "Pick"), 13, Ui.ACCENT);
-                    pick.setTypeface(Typeface.DEFAULT_BOLD);
-                    pick.setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 6), Ui.dp(c, 8));
-                    pick.setOnClickListener(v -> pickPoint(c, dialogRef[0], fr));
-                    r.addView(pick);
-                    col.addView(r, Ui.matchWrap());
+                    ImageView pick = Ui.iconButton(c, R.drawable.ic_s2_touch, Tr.t("ui_pick", "Pick"), v -> pickPoint(c, dialogRef[0], fr));
+                    pick.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));
+                    pick.setBackground(Ui.ripple(Ui.ACCENT_SOFT, Ui.dp(c, 10)));
+                    LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-2, -2);
+                    pl.setMarginStart(Ui.dp(c, 6));
+                    r.addView(pick, pl);
+                    pointsCard.addView(r, Ui.matchWrap());
                     TextView hint = Ui.text(c, Tr.t("ui_vec_hint", "Numbers, or an element name in X to use its center"), 11, Ui.TEXT_3);
-                    col.addView(hint);
+                    hint.setPadding(0, Ui.dp(c, 3), 0, 0);
+                    pointsCard.addView(hint);
                     break;
                 }
                 case "float": {
-                    col.addView(l);
+                    if (settingsCard == null) settingsCard = section(c, col, R.drawable.ic_s2_settings, Tr.t("settings", "Settings"));
+                    settingsCard.addView(l);
                     fr.a = Ui.input(c, "0", "0");
-                    fr.a.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
-                    col.addView(fr.a, Ui.matchWrap());
+                    numberField(c, fr.a, fr.name, false);
+                    settingsCard.addView(fr.a, Ui.matchWrap());
                     break;
                 }
                 default: {
+                    if (settingsCard == null) settingsCard = section(c, col, R.drawable.ic_s2_settings, Tr.t("settings", "Settings"));
                     fr.check = new SwitchCompat(c);
                     fr.check.setText(e.getKey());
                     fr.check.setTextColor(Ui.TEXT);
                     fr.check.setMinHeight(Ui.dp(c, 44));
-                    col.addView(fr.check, Ui.matchWrap());
+                    settingsCard.addView(fr.check, Ui.matchWrap());
                 }
             }
             if (!e.getValue()[1].isEmpty()) fr.set(e.getValue()[1]);
@@ -333,7 +443,7 @@ public class JointsPanel implements PanelHost.Panel {
         ScrollView sv = new ScrollView(c);
         sv.addView(col);
         AlertDialog d = new AlertDialog.Builder(c)
-                .setTitle((file == null ? Tr.t("addJoint", "Add joint") : Tr.t("edit", "Edit")) + " · " + type)
+                .setTitle((file == null ? Tr.t("addJoint", "Add joint") : Tr.t("edit", "Edit")) + " · " + Tr.t("ui_joint_" + t, t.replace("Joint", "")))
                 .setView(sv)
                 .setPositiveButton(file == null ? Tr.t("ui_add", "Add") : Tr.t("save", "Save"), null)
                 .setNegativeButton(Tr.t("cancel", "Cancel"), null)

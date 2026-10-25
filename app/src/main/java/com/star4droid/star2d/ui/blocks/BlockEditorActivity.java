@@ -139,7 +139,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         canvas = new BlockCanvas(this, this, rtl);
         canvas.setMirror(mirror);
         canvas.setRootParams(eventParams(file));
-        canvas.setModel(model, BlockInfo.label("First >", rtl) + " · " + eventName);
+        canvas.setModel(model, rootLabel());
         if (!BlockCatalog.CATEGORIES.isEmpty()) currentCategory = BlockCatalog.CATEGORIES.keySet().iterator().next();
         build();
         canvas.post(canvas::home);
@@ -1155,6 +1155,13 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         Snack.show(name + " = " + what + ". " + Tr.t("blk_p_drag", "Long-press it and drag a copy into any field."));
     }
 
+    /** Title of the first block: the translated event name ("When tapped"…). */
+    private String rootLabel() {
+        String ev = Tr.t(eventName);
+        if (ev == null || ev.isEmpty()) ev = eventName;
+        return "▶ " + ev;
+    }
+
     /** Parameters of an event, from its file name (element events live in /private/). */
     static String[] eventParams(File f) {
         String e = f.getName().replace(".visual", "");
@@ -1210,7 +1217,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             tmp.delete();
             // keep positions as they are on screen (load() normalizes file coordinates)
             model = m;
-            canvas.setModel(model, BlockInfo.label("First >", rtl) + " · " + eventName);
+            canvas.setModel(model, rootLabel());
             onSelect(null);
         } catch (Exception e) {
             Snack.show(e.toString());

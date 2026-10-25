@@ -15,10 +15,22 @@ import com.star4droid.star2d.ui.blocks.BlockModel;
 public final class Targets {
     private Targets() {}
 
+    /** Screen rectangle of a view; flips (scaleX = -1 on RTL arrows) and scales are applied properly. */
     static RectF screenRect(View v) {
-        int[] l = new int[2];
-        v.getLocationOnScreen(l);
-        return new RectF(l[0], l[1], l[0] + v.getWidth(), l[1] + v.getHeight());
+        RectF r = new RectF(0, 0, v.getWidth(), v.getHeight());
+        v.getMatrix().mapRect(r);
+        r.offset(v.getLeft(), v.getTop());
+        if (v.getParent() instanceof View) {
+            View p = (View) v.getParent();
+            int[] l = new int[2];
+            p.getLocationOnScreen(l);
+            r.offset(l[0] - p.getScrollX(), l[1] - p.getScrollY());
+        } else {
+            int[] l = new int[2];
+            v.getLocationOnScreen(l);
+            r.offsetTo(l[0], l[1]);
+        }
+        return r;
     }
 
     /** A tagged view (see {@link Tut#tag}). */

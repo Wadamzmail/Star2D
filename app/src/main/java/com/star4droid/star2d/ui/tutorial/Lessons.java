@@ -1,6 +1,7 @@
 package com.star4droid.star2d.ui.tutorial;
 
 import android.view.View;
+import com.star4droid.star2d.ui.Tr;
 import android.widget.EditText;
 
 import java.util.ArrayList;
@@ -121,6 +122,7 @@ final class Lessons {
         l.category("main");
         l.block("OpenScene", "add_open_scene", "Add \"%1$s\".");
         l.value("OpenScene", 0, "scene1", "open_scene1", "Choose %1$s: opening the same scene again restarts the game.");
+        l.block("finish", "add_finish", "Add \"%1$s\" under it: it closes the old scene, so only the new one keeps running.");
         l.saveBlocks();
         l.closeBlocks();
     }
@@ -141,7 +143,8 @@ final class Lessons {
         l.selectFromList("star");
         l.elementEvent("star", "onClick", "event_click_star", "Tap onClick: these blocks run when the player taps the star.");
         l.info("blocks_intro", "This is the block editor. The yellow block is the start; blocks under it run one after another. Long-press a block for its options, (!) explains any block.");
-        l.info("params_intro", "See \"current\" on the yellow block? It is an input of this event: this element. Long-press it and drag it into any field to use it.");
+        l.infoF("params_intro", "The yellow block shows the event (%1$s) and its inputs. \"%2$s\" is this element: long-press it and drag it into any field to use it.",
+                Tr.t("onClick"), com.star4droid.star2d.ui.blocks.BlockInfo.reporter("current"));
         l.category("Variables");
         l.block("changeVariable", "drag_first", "Hold \"%1$s\" for a moment and drag it under the yellow block (or just tap it).");
         l.value("changeVariable", 0, "score", "field_var", "Tap the variable field and choose %1$s. \"by 1\" means +1 point.");
@@ -340,6 +343,7 @@ final class Lessons {
         l.category("main");
         l.blockInside("OpenScene", "if", 2, "else_restart", "Drag \"%1$s\" into the else opening: anything else that hits the rock is the ship, so the game restarts.");
         l.value("OpenScene", 0, "scene1", "open_scene1", "Choose %1$s: opening the same scene again restarts the game.");
+        l.blockInside("finish", "if", 2, "finish_inside", "Drag \"%1$s\" into the else opening too, under \"%2$s\": it closes the old scene so only the new one runs.");
         l.saveBlocks();
         l.closeBlocks();
         l.play("play_shooter", "Play! Drag your finger to move and tap the red button to fire. Press Back to come back.");
