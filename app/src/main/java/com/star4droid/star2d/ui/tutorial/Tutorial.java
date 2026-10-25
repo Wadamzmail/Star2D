@@ -55,7 +55,7 @@ public final class Tutorial {
     private static Lesson lesson;
     private static int index = -1;
     private static File project;
-    private static boolean running, paused, auto, ready, ending;
+    private static boolean running, paused, auto, ready, ending, resumed;
     private static Activity act;
     private static Shade shade;
     private static Bubble bubble;
@@ -78,10 +78,14 @@ public final class Tutorial {
             @Override public void onActivityStarted(Activity a) {}
             @Override public void onActivityResumed(Activity a) {
                 act = a;
+                resumed = true;
                 if (running) H.post(Tutorial::attach);
             }
             @Override public void onActivityPaused(Activity a) {
-                if (a == act) detach();
+                if (a == act) {
+                    resumed = false;
+                    detach();
+                }
             }
             @Override public void onActivityStopped(Activity a) {}
             @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
@@ -98,6 +102,11 @@ public final class Tutorial {
     }
 
     public static boolean isRunning() { return running; }
+
+    /** The editor closed its project: a started lesson ends (the project stays). */
+    public static void onProjectClosed() {
+        if (running && ready) stop(true);
+    }
     public static Activity activity() { return act; }
     public static File project() { return project; }
     public static ArrayList<Bridge.ElemState> elements() { return elems; }
@@ -143,18 +152,22 @@ public final class Tutorial {
                 full ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT,
                 full ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                         | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                         | (full ? 0 : WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
                         | (touchable ? 0 : WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE),
                 PixelFormat.TRANSLUCENT);
         lp.gravity = Gravity.TOP | Gravity.LEFT;
         lp.windowAnimations = 0;
+        if (android.os.Build.VERSION.SDK_INT >= 28)
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        if (android.os.Build.VERSION.SDK_INT >= 30) lp.setFitInsetsTypes(0);
         return lp;
     }
 
     private static void attach() {
-        if (!running || act == null || act.isFinishing()) return;
+        if (!running || !resumed || act == null || act.isFinishing()) return;
         try {
             WindowManager wm = act.getWindowManager();
             if (paused) {
@@ -234,8 +247,15 @@ public final class Tutorial {
         if (!Bridge.ready()) return;
         glPending = true;
         glAsked = now;
-        Bridge.query(() -> new Object[]{Bridge.elements(), Bridge.editor().getProject().getPath()}, r -> {
+        Bridge.query(() -> {
+            try {
+                return new Object[]{Bridge.elements(), Bridge.editor().getProject().getPath()};
+            } catch (Throwable t) {
+                return null;
+            }
+        }, r -> {
             glPending = false;
+            if (r == null) return;
             //noinspection unchecked
             elems = (ArrayList<Bridge.ElemState>) r[0];
             glProject = (String) r[1];
@@ -250,7 +270,7 @@ public final class Tutorial {
     }
 
     private static void tick() {
-        if (act == null || paused) return;
+        if (act == null || paused || !resumed) return;
         refreshGl();
         if (!shadeAdded) attach();
         if (shade == null || bubble == null) return;

@@ -258,7 +258,7 @@ public final class BlockCatalog {
 
         // Variables & data
         def("Variables", vars, "setVariable", "variable value", "score|0", false, "%1$s = %2$s;\n%3$s");
-        def("Variables", vars, "changeVariable", "variable by", "score|1", false, "%1$s += %2$s;\n%3$s");
+        def("Variables", vars, "changeVariable", "variable by", "|1", false, "%1$s += %2$s;\n%3$s");
         def("Variables", vars, "newVariable", "type name value", "int|count|0", false, "%1$s %2$s = %3$s;\n%4$s");
         def("Variables", vars, "saveData", "key value", "best|score", false, "setValue(\"%1$s\",String.valueOf(%2$s));\n%3$s");
 
@@ -318,7 +318,7 @@ public final class BlockCatalog {
                 "setGravity(0f,-(float)(%1$s)*" + ws + ");\n%2$s");
 
         // Debug
-        def("Debug", dbg, "toastValue", "value", "score", false, "toast(String.valueOf(%1$s));\n%2$s");
+        def("Debug", dbg, "toastValue", "value", "", false, "toast(String.valueOf(%1$s));\n%2$s");
         def("Debug", dbg, "logValue", "value", "score", false, "debug(String.valueOf(%1$s));\n%2$s");
     }
 

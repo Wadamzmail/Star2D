@@ -1249,6 +1249,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         canvas.changed();
         afterChange();
         if (f == editField && valueInput != null) valueInput.setText(value);
+        else if (editField != null && valueInput != null) valueInput.setText(editField.value);
     }
 
     /** Put a value block into a field; returns it. */
@@ -1261,6 +1262,12 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
                 f.value = "";
                 canvas.changed();
                 afterChange();
+                if (f == editField) {
+                    // keep the value pane in sync (else its old text would replace the block)
+                    if (!f.block.inner.isEmpty()) editField = f.block.inner.get(0);
+                    canvas.setActiveField(editField);
+                    showValuePane();
+                }
                 return f.block;
             }
         return null;

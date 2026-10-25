@@ -738,6 +738,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     /** Called by the activity when the project is closed. */
     public void onProjectClosed() {
+        com.star4droid.star2d.ui.tutorial.Tutorial.onProjectClosed();
         projectOpen = false;
         panels.hide();
         updateVisibility();
@@ -779,6 +780,12 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         post(this::build);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (current == this && activity.isFinishing()) current = null;
     }
 
     /** True when the Gdx context is alive. */

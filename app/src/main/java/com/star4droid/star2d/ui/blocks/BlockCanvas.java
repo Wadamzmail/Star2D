@@ -973,6 +973,16 @@ public class BlockCanvas extends View {
                 float dd = (float) Math.hypot(t.x - dragX, t.y - dragY);
                 if (dd < best) { best = dd; hover = t; }
             }
+            if (hover == null) {
+                // finger over the drop zone just after a target (where the tutorial hand points)
+                float fx = wx(sx), fy = wy(sy), dir = mirror ? -1 : 1;
+                float best2 = 52 * d / scale;
+                for (Target t : targets) {
+                    if (t.slot == -1) continue;
+                    float dd = (float) Math.hypot(t.x + dir * 60 * d - fx, t.y + 15 * d - fy);
+                    if (dd < best2) { best2 = dd; hover = t; }
+                }
+            }
         }
         autoScroll(sx, sy);
         invalidate();
@@ -1274,7 +1284,7 @@ public class BlockCanvas extends View {
     public RectF viewDropAfter(BlockModel.Node n) {
         Box b = n == null ? null : boxOf(n.tail());
         if (b == null) return null;
-        float w = 150 * d;
+        float w = 120 * d;
         RectF r = mirror ? new RectF(b.header.right - w, b.all.bottom, b.header.right, b.all.bottom + 30 * d)
                 : new RectF(b.header.left, b.all.bottom, b.header.left + w, b.all.bottom + 30 * d);
         return toView(r);
@@ -1284,17 +1294,22 @@ public class BlockCanvas extends View {
     public RectF viewMouth(BlockModel.Node n, int slot) {
         Box b = n == null ? null : boxOf(n);
         if (b == null) return null;
-        return toView(slot == 2 ? b.noMouth : b.yesMouth);
+        RectF m = slot == 2 ? b.noMouth : b.yesMouth;
+        if (m == null) return null;
+        float w = Math.min(120 * d, m.width());
+        RectF r = mirror ? new RectF(m.right - w, m.top, m.right, m.top + 30 * d) : new RectF(m.left, m.top, m.left + w, m.top + 30 * d);
+        return toView(r);
     }
 
     /** Scroll so this view rectangle is inside the canvas. */
     public void reveal(RectF v) {
         if (v == null || getWidth() == 0) return;
-        float m = 24 * d;
+        float m = 24 * d, side = 72 * d, bottom = 72 * d; // keep clear of the zoom column and selection bar
+        float left = mirror ? side : m, right = mirror ? m : side;
         float dx = 0, dy = 0;
-        if (v.right > getWidth() - m) dx = getWidth() - m - v.right;
-        if (v.left + dx < m) dx = m - v.left;
-        if (v.bottom > getHeight() - m) dy = getHeight() - m - v.bottom;
+        if (v.right > getWidth() - right) dx = getWidth() - right - v.right;
+        if (v.left + dx < left) dx = left - v.left;
+        if (v.bottom > getHeight() - bottom) dy = getHeight() - bottom - v.bottom;
         if (v.top + dy < m) dy = m - v.top;
         if (dx != 0 || dy != 0) {
             tx += dx;
