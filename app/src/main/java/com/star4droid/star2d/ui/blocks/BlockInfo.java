@@ -58,6 +58,14 @@ public final class BlockInfo {
         f("variable", "variable", "المتغير");
         f("by", "by", "بمقدار");
         f("message", "message", "الرسالة");
+        f("x", "x", "س");
+        f("y", "y", "ص");
+        f("dx", "dx", "إزاحة س");
+        f("dy", "dy", "إزاحة ص");
+        f("strength", "strength", "القوة");
+        f("joystick", "joystick", "عصا التحكم");
+        f("newName", "new name", "الاسم الجديد");
+        f("var", "var", "المتغير");
         f("joystick", "joystick", "عصا التحكم");
         f("degrees", "degrees", "درجات");
         f("visibility", "visible", "ظاهر");

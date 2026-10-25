@@ -97,7 +97,7 @@ final class Lessons {
         l.category("main");
         l.block("if", "add_if", "Add the \"%1$s\" block: blocks inside it run only when its condition is true.");
         l.valueBlock("if", 0, "Operators", "___ < ___", "cond_less", "Tap the condition and choose %1$s from Operators.");
-        l.valueBlock("if", 0, "Elements", axis + " of ___", "cond_" + keyAxis, "Tap the first circle and choose %1$s from Elements.", 0);
+        l.valueBlock("if", 0, "Elements", axis + " of ___", "cond_axis", "Tap the first circle and choose %1$s from Elements.", 0);
         l.value("if", 0, "current", "cond_current", "Tap the small circle and choose %1$s (this element).", 0, 0);
         l.value("if", 0, limit, "cond_limit", "Tap the second circle and type %1$s: now it means \"this element left the screen\".", 1);
         l.category("Motion");
