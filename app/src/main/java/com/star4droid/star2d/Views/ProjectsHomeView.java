@@ -142,7 +142,7 @@ public class ProjectsHomeView extends FrameLayout {
         }
         File[] files = projectsDir.listFiles(File::isDirectory);
         List<File> all = files == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(files));
-        all.sort((a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        java.util.Collections.sort(all, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
         projectsCount.setText(all.size() + " project(s) in workspace");
 
         String query = search.getText().toString().trim().toLowerCase(Locale.ROOT);

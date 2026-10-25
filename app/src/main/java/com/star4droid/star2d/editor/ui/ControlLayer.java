@@ -80,6 +80,27 @@ public class ControlLayer extends Table {
 	public TabsItem tabsItem;
 	VisImageButton gridBtn,backBtn,sceneActionsBtn,moveBtn,rotateBtn,lockBtn,scaleBtn,undoBtn,redoBtn;
 
+	/**
+	 * Native (Android) editor UI. When set, the LibGDX bars/panels are hidden and every
+	 * action below is driven from Android through the public action methods.
+	 * Callbacks are invoked on the GL thread.
+	 */
+	public interface NativeUi {
+		void onSelectionChanged();
+		void onUndoRedoChanged();
+		void onScenesChanged();
+		void onIndexing(boolean indexing);
+		/** Compile/run progress. state: 0 = status text, 1 = error, 2 = finished, 3 = started playing. */
+		void onPlayStatus(int state, String text);
+		/** Show a long text (compiler output / errors). */
+		void onShowText(String title, String text);
+	}
+	public static NativeUi nativeUi;
+
+	public static boolean isNativeUi(){
+		return nativeUi != null;
+	}
+
     public ControlLayer(TestApp testApp) {
         super(VisUI.getSkin());
 		this.app = testApp;
@@ -98,6 +119,8 @@ public class ControlLayer extends Table {
         setupStyles();
         createLayout();
 		init();
+		// LibGDX bars stay alive (other code relies on them) but are hidden when the Android UI is active.
+		setVisible(nativeUi == null);
     }
 
     private void setupStyles() {
@@ -285,19 +308,7 @@ public class ControlLayer extends Table {
 			public void changed (ChangeEvent event, Actor actor) {
 				if(!app.getEditor().getScene().toLowerCase().equals("scene1")){
 					ConfirmDialog.confirmDeleteDialog((ok)->{
-						if(ok){
-							app.getEditor().getProject().deleteScene(app.getEditor().getScene());
-							for(int i = 0; i < app.editors.size; i++){
-								if(app.editors.get(i).getScene().toLowerCase().equals(app.getEditor().getScene().toLowerCase())){
-									app.editors.removeIndex(i);
-									break;
-								}
-							}
-							app.openSceneInNewEditor("scene1");
-							//updateScenes();
-							bodiesList.update();
-							tabsItem.refresh();
-						}
+						if(ok) actionDeleteCurrentScene();
 					}).show(getStage());
 				} else app.toast(getTrans("deleteMainScene"));
 			}
@@ -348,7 +359,7 @@ public class ControlLayer extends Table {
 		addIconToTop("rotate",drawable("rotate-dev.png"),(btn)->{
 			new ConfirmDialog(getTrans("changeOrienation"),getTrans("editorRestartNote"),ok->{
 				if(ok)
-					app.setOrienation(!app.getEditor().isLandscape());
+					actionToggleOrientation();
 			}).show(getStage());
 		});
 		
@@ -367,19 +378,7 @@ public class ControlLayer extends Table {
 			sceneActions.showMenu(getStage(),sceneActionsBtn);
 		});
 		
-		addIconToTop("save",drawable("save.png"),(btn)->{
-			if(app.getEditor()==null) {
-				app.toast("editor returns null!!");
-				return;
-			}
-			app.getEditor().getProject().save(app.getEditor());
-			CodeGenerator.generateFor(app.getEditor(), cd -> {
-    			Gdx.files.absolute(app.getEditor().getProject().getCodesPath(app.getEditor().getScene())).writeString(cd,false);
-    		});
-			//btn.setScale(0);
-			//btn.addAction(Actions.scaleTo(1,1,300));
-			app.toast(getTrans("saved"));
-		});
+		addIconToTop("save",drawable("save.png"),(btn)->actionSave());
 		addIconToTop("files",drawable("file-white.png"),(btn)->{
 			if(fileBroweserDir!=null){
 				app.getFileBrowser().setRootDir(app.getEditor().getProject().getPath());
@@ -407,18 +406,14 @@ public class ControlLayer extends Table {
 				Timer.schedule(new Timer.Task(){
 					@Override
 					public void run() {
-						app.getEditor().setSceneColor(sceneColorBeforePick.toString().toUpperCase());
+						cancelSceneColor();
 					}
-					
 				},800);
 			}
 
 			@Override
 			public void changed(Color color) {
-				if(app.getEditor()==null) return;
-				//String hex = String.format("#%06X", (0xFFFFFF & color.toIntBits()));
-				String hex = color.toString().toUpperCase();
-				app.getEditor().setSceneColor(hex);
+				previewSceneColor(color.toString().toUpperCase());
 			}
 
 			@Override
@@ -428,12 +423,8 @@ public class ControlLayer extends Table {
 			public void finished(Color color) {
 				if(app.getEditor()==null) return;
 				colorPicker.setListener(null);
-				EditorAction.sceneConfigChanged(app.getEditor(),oldSceneConfig,app.getEditor().getConfig().toString());
-				//String hex = String.format("#%06X", (0xFFFFFF & color.toIntBits()));
-				//String hex = color.toString().toUpperCase();
-				//app.getEditor().setSceneColor(hex);
+				finishSceneColor();
 			}
-			
 		};
 		
 		addIconToTop("scene-color",drawable("color-pal.png"),(btn)->{
@@ -443,20 +434,14 @@ public class ControlLayer extends Table {
 				colorPicker.remove();
 				return;
 			}
-			//app.getEditor().updateConfig();
-			sceneColorBeforePick = app.getEditor().backgroundColor;//app.getEditor().getConfig().containsKey("sceneColor")?app.getEditor().getConfig().getString("sceneColor"):"#263238";
-			oldSceneConfig = app.getEditor().getConfig().toString();
+			beginSceneColor();
 			getStage().addActor(colorPicker);
 			colorPicker.toFront();
 		});
 		lockBtn = addIconToTop("lock-item",drawable("lock.png"),(btn)->{
-			if(app.getEditor()==null) return;
-			if (app.getEditor().getSelectedActor() != null) {
-                PropertySet<String, Object> propertySet = PropertySet.getPropertySet(app.getEditor().getSelectedActor());
-                boolean isLock = propertySet.getString("lock").equals("true") ? false : true;
-                btn.getStyle().imageUp = drawable(isLock?"lock.png":"unlock.png");
-                propertySet.put("lock", String.valueOf(isLock));
-            }
+			Boolean isLock = actionToggleLock();
+			if(isLock != null)
+				btn.getStyle().imageUp = drawable(isLock?"lock.png":"unlock.png");
 		});
 		indexingLabel = new VisLabel(getTrans("indexing"));
 		topContainer.add(indexingLabel).padLeft(5).padRight(5).growX();
@@ -473,86 +458,7 @@ public class ControlLayer extends Table {
 		//bottom buttons
 		addIconToBottom("play",drawable("play.png"),(btn)->{
 			btn.setDisabled(true);
-			String path = app.getEditor().getProject().getPath();
-			// get project name...
-			final String projectName = path.contains("/") ? path.substring(path.lastIndexOf("/"),path.length()) : path;
-			final FileHandle errorLog = Gdx.files.external("logs/"+projectName+"/compile error.txt");
-			
-			/*
-			cancelBtn.setDisabled(true);
-			copyBtn.setDisabled(true);
-			compileDialog.show(getStage());
-			*/
-			textShow.setEnabled(false);
-			textShow.setText(getTrans("generatingCode"));
-			textShow.toFront();
-			textShow.show(getStage());
-			getStage().addActor(textShow);
-			final InputProcessor inputProcessor = Gdx.input.getInputProcessor();
-			//disable all inputs...
-			Gdx.input.setInputProcessor(null);
-			CodeGenerator.generateFor(app.getEditor(),(code)->{
-				FileHandle sceneFile = Gdx.files.absolute(app.getEditor().getProject().getCodesPath(app.getEditor().getScene()));
-				CompileThread compileThread = new CompileThread(app.getEditor().getProject().get("java"),false);
-				compileThread.setOnChangeStatus(new CompileThread.OnStatusChanged(){
-					@Override
-					public void onStatus(String s) {
-						textShow.setText(s);
-					}
-
-					@Override
-					public void onEnd(String message) {
-						Gdx.input.setInputProcessor(inputProcessor);
-						textShow.setEnabled(true);
-					}
-
-					@Override
-					public void onError(String error) {
-						textShow.setText(error);
-						errorLog.writeString(error,false);
-					}
-
-					@Override
-					public void onSuccess(String message) {
-						if(errorLog.exists()) errorLog.delete();
-						textShow.remove();
-						FileHandle fileHandle = new FileHandle(app.getEditor().getProject().getDex());
-						
-						if(fileHandle.exists())
-							fileHandle.file().setWritable(true);
-						fileHandle.writeString("", false);
-						Gdx.files.absolute(app.getEditor().getProject().getPath()+"/java/classes.dex").moveTo(fileHandle);
-						
-						app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
-					}
-					
-				});
-				
-				if((sceneFile.exists() &&!sceneFile.readString().equals(code))||!sceneFile.exists()){
-				    compileThread.start();
-					sceneFile.writeString(code,false);
-				} else {
-					textShow.setText(getTrans("checkJavaFilesChanges"));
-					Executors.newSingleThreadExecutor().execute(()->{
-						try {
-							boolean filesChanged = FilesChangeDetector.detect(Gdx.files.absolute(app.getEditor().getProject().get("java")).file().toPath(),Gdx.files.absolute(app.getEditor().getProject().getChangesJson()).file().toPath());
-							if(!filesChanged){
-							    textShow.remove();
-								Gdx.app.postRunnable(()->{
-									if(errorLog.exists())
-										textShow.setText(errorLog.readString());
-									else
-										app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
-								});
-								
-							} else compileThread.start();
-						} catch(Exception e){
-							compileThread.start();
-						}
-					});
-				}
-				
-			});
+			actionPlay();
 		});
 		
 		gridBtn = addIconToBottom("grid",drawable("grid-icon.png"),(btn)->{
@@ -560,82 +466,356 @@ public class ControlLayer extends Table {
 				showXYMenu(btn,"");
 				return;
 			}
-			gridBtn.setColor(Color.YELLOW);
-			moveBtn.setColor(Color.WHITE);
-			scaleBtn.setColor(Color.WHITE);
-			rotateBtn.setColor(Color.WHITE);
-			clickedAction = "grid";
-			app.getEditor().setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.GRID);
+			actionSetTouchMode("grid");
 		});
 		gridBtn.setColor(Color.YELLOW);
 		
 		moveBtn = addIconToBottom("move",drawable("move-icon.png"),(btn)->{
-			if(app.getEditor().setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.MOVE)){
-				if(clickedAction.equals("move")){
-					showXYMenu(btn,"move");
-				} else {
-					moveBtn.setColor(Color.YELLOW);
-					gridBtn.setColor(Color.WHITE);
-					scaleBtn.setColor(Color.WHITE);
-					rotateBtn.setColor(Color.WHITE);
-					clickedAction = "move";
-				}
-			}
+			if(clickedAction.equals("move") && app.getEditor().getSelectedActor()!=null) showXYMenu(btn,"move");
+			else actionSetTouchMode("move");
 		});
 		
 		scaleBtn = addIconToBottom("scale",drawable("scale-icon.png"),(btn)->{
-			if(app.getEditor().setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.SCALE)){
-				if(clickedAction.equals("scale")){
-					showXYMenu(btn,"scale");
-				} else {
-					scaleBtn.setColor(Color.YELLOW);
-					gridBtn.setColor(Color.WHITE);
-					moveBtn.setColor(Color.WHITE);
-					rotateBtn.setColor(Color.WHITE);
-					clickedAction = "scale";
-				}
-			}
+			if(clickedAction.equals("scale") && app.getEditor().getSelectedActor()!=null) showXYMenu(btn,"scale");
+			else actionSetTouchMode("scale");
 		});
 		
-		rotateBtn = addIconToBottom("rotate",drawable("rotate-icon.png"),(btn)->{
-			if(app.getEditor().setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.ROTATE)){
-				rotateBtn.setColor(Color.YELLOW);
-				gridBtn.setColor(Color.WHITE);
-				scaleBtn.setColor(Color.WHITE);
-				moveBtn.setColor(Color.WHITE);
-				clickedAction = "";
-			}
-		});
+		rotateBtn = addIconToBottom("rotate",drawable("rotate-icon.png"),(btn)->actionSetTouchMode("rotate"));
 		
-		addIconToBottom("delete",drawable("delete.png"),(btn)->{
-			if(app.getEditor().getSelectedActor()==null) return;
-			app.getEditor().getProject().deleteBody(PropertySet.getPropertySet(app.getEditor().getSelectedActor()).get("name").toString(), app.getEditor().getScene());
-            Actor actor = app.getEditor().getSelectedActor();
-			actor.remove();
-			EditorAction.itemRemoved(app.getEditor(),actor);
-            app.getEditor().selectActor(null);
-			bodiesList.update();
-		});
+		addIconToBottom("delete",drawable("delete.png"),(btn)->actionDeleteSelected());
 		
-		undoBtn = addIconToBottom("undo",drawable("undo.png"),(btn)->{
-			if(app.getEditor().canUndo())
-				app.getEditor().undo();
-		});
+		undoBtn = addIconToBottom("undo",drawable("undo.png"),(btn)->actionUndo());
 		
-		redoBtn = addIconToBottom("redo",drawable("redo.png"),(btn)->{
-			if(app.getEditor().canRedo())
-				app.getEditor().redo();
-		});
+		redoBtn = addIconToBottom("redo",drawable("redo.png"),(btn)->actionRedo());
 		
-		addIconToBottom("center-camera",drawable("center-camera.png"),(btn)->{
-			app.getEditor().centerCamera();
-		});
+		addIconToBottom("center-camera",drawable("center-camera.png"),(btn)->app.getEditor().centerCamera());
 		
 		addIconToBottom("settings",drawable("events/properties.png"),btn->{
 			app.getProjectsStage().settingsDialog.show(getStage());
 		});
 	}
 	
+
+	// =====================================================================
+	// Actions (shared by the LibGDX bars and the native Android UI).
+	// All of them must be called on the GL thread.
+	// =====================================================================
+
+	/** Switch portrait/landscape (restarts the scene editors). */
+	public void actionToggleOrientation(){
+		app.setOrienation(!app.getEditor().isLandscape());
+	}
+
+	/** Save the scene and regenerate its code. */
+	public void actionSave(){
+		if(app.getEditor()==null) {
+			app.toast("editor returns null!!");
+			return;
+		}
+		app.getEditor().getProject().save(app.getEditor());
+		CodeGenerator.generateFor(app.getEditor(), cd -> {
+			Gdx.files.absolute(app.getEditor().getProject().getCodesPath(app.getEditor().getScene())).writeString(cd,false);
+		});
+		if(nativeUi == null) app.toast(getTrans("saved"));
+	}
+
+	private void playStatus(int state, String text){
+		if(nativeUi != null){
+			nativeUi.onPlayStatus(state, text);
+			return;
+		}
+		if(state == 0 || state == 1) textShow.setText(text);
+		if(state == 2) textShow.setEnabled(true);
+	}
+
+	/** Generate code, compile when needed, then run the current scene. */
+	public void actionPlay(){
+		String path = app.getEditor().getProject().getPath();
+		// get project name...
+		final String projectName = path.contains("/") ? path.substring(path.lastIndexOf("/"),path.length()) : path;
+		final FileHandle errorLog = Gdx.files.external("logs/"+projectName+"/compile error.txt");
+		if(nativeUi == null){
+			textShow.setEnabled(false);
+			textShow.setText(getTrans("generatingCode"));
+			textShow.toFront();
+			textShow.show(getStage());
+			getStage().addActor(textShow);
+		} else playStatus(0, getTrans("generatingCode"));
+		final InputProcessor inputProcessor = Gdx.input.getInputProcessor();
+		//disable all inputs...
+		Gdx.input.setInputProcessor(null);
+		CodeGenerator.generateFor(app.getEditor(),(code)->{
+			FileHandle sceneFile = Gdx.files.absolute(app.getEditor().getProject().getCodesPath(app.getEditor().getScene()));
+			CompileThread compileThread = new CompileThread(app.getEditor().getProject().get("java"),false);
+			compileThread.setOnChangeStatus(new CompileThread.OnStatusChanged(){
+				@Override
+				public void onStatus(String s) {
+					playStatus(0, s);
+				}
+
+				@Override
+				public void onEnd(String message) {
+					Gdx.input.setInputProcessor(inputProcessor);
+					playStatus(2, message);
+				}
+
+				@Override
+				public void onError(String error) {
+					playStatus(1, error);
+					errorLog.writeString(error,false);
+				}
+
+				@Override
+				public void onSuccess(String message) {
+					if(errorLog.exists()) errorLog.delete();
+					textShow.remove();
+					FileHandle fileHandle = new FileHandle(app.getEditor().getProject().getDex());
+					
+					if(fileHandle.exists())
+						fileHandle.file().setWritable(true);
+					fileHandle.writeString("", false);
+					Gdx.files.absolute(app.getEditor().getProject().getPath()+"/java/classes.dex").moveTo(fileHandle);
+					
+					playStatus(3, "");
+					app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
+				}
+				
+			});
+			
+			if((sceneFile.exists() &&!sceneFile.readString().equals(code))||!sceneFile.exists()){
+			    compileThread.start();
+				sceneFile.writeString(code,false);
+			} else {
+				playStatus(0, getTrans("checkJavaFilesChanges"));
+				Executors.newSingleThreadExecutor().execute(()->{
+					try {
+						boolean filesChanged = FilesChangeDetector.detect(Gdx.files.absolute(app.getEditor().getProject().get("java")).file().toPath(),Gdx.files.absolute(app.getEditor().getProject().getChangesJson()).file().toPath());
+						if(!filesChanged){
+						    textShow.remove();
+							Gdx.app.postRunnable(()->{
+								if(errorLog.exists()){
+									Gdx.input.setInputProcessor(inputProcessor);
+									if(nativeUi != null){
+										nativeUi.onPlayStatus(1, errorLog.readString());
+										nativeUi.onPlayStatus(2, "");
+									} else textShow.setText(errorLog.readString());
+								} else {
+									playStatus(3, "");
+									app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
+								}
+							});
+							
+						} else compileThread.start();
+					} catch(Exception e){
+						compileThread.start();
+					}
+				});
+			}
+			
+		});
+	}
+
+	/**
+	 * Change the canvas touch mode: "grid", "move", "scale" or "rotate".
+	 * Returns false when the mode needs a selected item (the editor then falls back to grid).
+	 */
+	public boolean actionSetTouchMode(String mode){
+		com.star4droid.star2d.editor.LibgdxEditor ed = app.getEditor();
+		if(ed == null) return false;
+		boolean ok;
+		switch(mode){
+			case "grid":
+				ed.setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.GRID);
+				ok = true;
+				clickedAction = "grid";
+				break;
+			case "move":
+				ok = ed.setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.MOVE);
+				if(ok) clickedAction = "move";
+				break;
+			case "scale":
+				ok = ed.setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.SCALE);
+				if(ok) clickedAction = "scale";
+				break;
+			default:
+				ok = ed.setTouchMode(com.star4droid.star2d.editor.LibgdxEditor.TOUCHMODE.ROTATE);
+				if(ok) clickedAction = "";
+				break;
+		}
+		if(!ok) clickedAction = "grid";
+		if(gridBtn != null){
+			gridBtn.setColor(clickedAction.equals("grid") ? Color.YELLOW : Color.WHITE);
+			moveBtn.setColor(clickedAction.equals("move") ? Color.YELLOW : Color.WHITE);
+			scaleBtn.setColor(clickedAction.equals("scale") ? Color.YELLOW : Color.WHITE);
+			rotateBtn.setColor(clickedAction.equals("") ? Color.YELLOW : Color.WHITE);
+		}
+		return ok;
+	}
+
+	/** Lock dragging to an axis: "none", "x" or "y". */
+	public void actionSetAxisLock(String axis){
+		if(app.getEditor()==null) return;
+		app.getEditor().setLockX(axis.equals("x"));
+		app.getEditor().setLockY(axis.equals("y"));
+	}
+
+	/** Toggle the selected item's lock. Returns the new state, or null when nothing is selected. */
+	public Boolean actionToggleLock(){
+		if(app.getEditor()==null || app.getEditor().getSelectedActor() == null) return null;
+		PropertySet<String, Object> propertySet = PropertySet.getPropertySet(app.getEditor().getSelectedActor());
+		boolean isLock = !propertySet.getString("lock").equals("true");
+		propertySet.put("lock", String.valueOf(isLock));
+		return isLock;
+	}
+
+	/** Delete the selected item (undoable). */
+	public void actionDeleteSelected(){
+		if(app.getEditor()==null || app.getEditor().getSelectedActor()==null) return;
+		app.getEditor().getProject().deleteBody(PropertySet.getPropertySet(app.getEditor().getSelectedActor()).get("name").toString(), app.getEditor().getScene());
+		Actor actor = app.getEditor().getSelectedActor();
+		actor.remove();
+		EditorAction.itemRemoved(app.getEditor(),actor);
+		app.getEditor().selectActor(null);
+		bodiesList.update();
+		if(nativeUi != null) nativeUi.onSelectionChanged();
+	}
+
+	public void actionUndo(){
+		if(app.getEditor()!=null && app.getEditor().canUndo())
+			app.getEditor().undo();
+	}
+
+	public void actionRedo(){
+		if(app.getEditor()!=null && app.getEditor().canRedo())
+			app.getEditor().redo();
+	}
+
+	/** Add a body: 0 Box, 1 Circle, 2 Text, 3 Joystick, 4 Progress, 5 Custom, 6 Particle, 7 Camera, 8 TiledMap. */
+	public void actionAddBody(int pos){
+		try {
+			EditorItem item = getItem(pos);
+			app.getEditor().addActor((Actor)item);
+			((Actor)item).setName(app.getEditor().getName((Actor)item));
+			try {
+				java.lang.reflect.Method method = item.getClass().getMethod("setDefault");
+				Object[] objs = null;
+				method.invoke(item,objs);
+			} catch(Exception e){}
+			item.getPropertySet().put("z",app.getEditor().getActors().size);
+			app.getEditor().selectActor((Actor)item);
+			EditorAction.itemAdded(app.getEditor(),(Actor)item);
+			item.update();
+		} catch(Error error){
+			showError("Error :\n"+Utils.getStackTraceString(error));
+		}
+	}
+
+	/** Add a light: 0 point, 1 directional, 2 cone. */
+	public void actionAddLight(int pos){
+		try {
+			LightItem lightItem = new LightItem(app.getEditor());
+			app.getEditor().addActor(lightItem);
+			lightItem.setName(app.getEditor().getName(lightItem));
+			lightItem.setDefault(getLightType(pos));
+			lightItem.getPropertySet().put("z",app.getEditor().getActors().size);
+			app.getEditor().selectActor(lightItem);
+			lightItem.update();
+			EditorAction.itemAdded(app.getEditor(),lightItem);
+		} catch(Error error){
+			showError("Error :\n"+Utils.getStackTraceString(error));
+		}
+	}
+
+	/** Light settings dialog (LibGDX). */
+	public void actionLightSettings(){
+		LightSettingsDialog.showFor(new Project(app.getEditor().getProject().getPath()),app.getEditor().getScene());
+	}
+
+	private void showError(String text){
+		if(nativeUi != null){
+			nativeUi.onShowText("Error", text);
+			return;
+		}
+		textShow.setText(text);
+		textShow.show(getStage());
+		textShow.toFront();
+	}
+
+	// ---- scene color (live preview + one undo entry)
+
+	public void beginSceneColor(){
+		if(app.getEditor()==null) return;
+		sceneColorBeforePick = app.getEditor().backgroundColor;
+		oldSceneConfig = app.getEditor().getConfig().toString();
+	}
+
+	public void previewSceneColor(String hex){
+		if(app.getEditor()==null) return;
+		app.getEditor().setSceneColor(hex);
+	}
+
+	public void cancelSceneColor(){
+		if(app.getEditor()==null) return;
+		app.getEditor().setSceneColor(sceneColorBeforePick.toString().toUpperCase());
+	}
+
+	public void finishSceneColor(){
+		if(app.getEditor()==null) return;
+		EditorAction.sceneConfigChanged(app.getEditor(),oldSceneConfig,app.getEditor().getConfig().toString());
+	}
+
+	public String getSceneColorHex(){
+		if(app.getEditor()==null) return "#263238FF";
+		return app.getEditor().backgroundColor.toString().toUpperCase();
+	}
+
+	// ---- scenes
+
+	/** Names of all scenes of the project. */
+	public java.util.ArrayList<String> listScenes(){
+		java.util.ArrayList<String> list = new java.util.ArrayList<>();
+		FileHandle scH = Gdx.files.absolute(app.getEditor().getProject().getScenesPath());
+		for(FileHandle fileHandle:scH.list())
+			if(!fileHandle.isDirectory()) list.add(fileHandle.name());
+		java.util.Collections.sort(list, String.CASE_INSENSITIVE_ORDER);
+		return list;
+	}
+
+	/** Open a scene (saves the current scene's code first). */
+	public void actionOpenScene(String name){
+		openScene(name);
+	}
+
+	/** Delete the current scene (scene1 can't be deleted). Returns an error or null. */
+	public String actionDeleteCurrentScene(){
+		if(app.getEditor().getScene().toLowerCase().equals("scene1"))
+			return getTrans("deleteMainScene");
+		app.getEditor().getProject().deleteScene(app.getEditor().getScene());
+		for(int i = 0; i < app.editors.size; i++){
+			if(app.editors.get(i).getScene().toLowerCase().equals(app.getEditor().getScene().toLowerCase())){
+				app.editors.removeIndex(i);
+				break;
+			}
+		}
+		app.openSceneInNewEditor("scene1");
+		bodiesList.update();
+		tabsItem.refresh();
+		if(nativeUi != null) nativeUi.onScenesChanged();
+		return null;
+	}
+
+	/** Close an open scene tab. Returns false when it is the last one. */
+	public boolean actionCloseSceneTab(int index){
+		if(app.editors.size <= 1) return false;
+		boolean wasCurrent = app.editors.get(index) == app.getEditor();
+		app.editors.get(index).dispose();
+		app.editors.removeIndex(index);
+		if(wasCurrent) app.setCurrentEditor(0);
+		tabsItem.refresh();
+		if(nativeUi != null) nativeUi.onScenesChanged();
+		return true;
+	}
+
 	public void showXYMenu(Actor actor,String action){
 		xyMenu.showMenu(getStage(),actor);
 	}
@@ -648,11 +828,13 @@ public class ControlLayer extends Table {
 		CodeGenerator.generateFor(app.getEditor(), cd -> {
 			Gdx.files.absolute(app.getEditor().getProject().getCodesPath(app.getEditor().getScene())).writeString(cd,false);
 			app.openSceneInNewEditor(name);
+			if(nativeUi != null) nativeUi.onScenesChanged();
 		});
 	}
 	
 	public void setIndexing(boolean b){
 		indexingLabel.setVisible(b);
+		if(nativeUi != null) nativeUi.onIndexing(b);
 	}
 	
 	public CustomColliderEditor getCustomColliderEditor(){
@@ -660,26 +842,26 @@ public class ControlLayer extends Table {
 	}
 	
 	public void editScene(String name,SceneAction sceneAction){
-		String path = app.getEditor().getProject().getScenesPath()+name;
-		if (name.equals("")) {
-			app.toast(getTrans("emptyError"));
+		String error = applySceneAction(name, sceneAction);
+		if(error != null){
+			app.toast(error);
 			dialogForScene(sceneAction,name);
-			return;
 		}
+	}
+
+	/** Create / copy / rename a scene. Returns an error message or null on success. */
+	public String applySceneAction(String name,SceneAction sceneAction){
+		String path = app.getEditor().getProject().getScenesPath()+name;
+		if (name.equals(""))
+			return getTrans("emptyError");
 		for (char c : name.toCharArray()) {
 			//only possible chars...to prevent writing strange chars :|
-			if (!(chars.contains("" + c))) {
-				app.toast("Not Allowed char : " + c);
-				dialogForScene(sceneAction,name);
-				return;
-			}
+			if (!(chars.contains("" + c)))
+				return "Not Allowed char : " + c;
 		}
 		FileHandle fhandle = Gdx.files.absolute(path);
-		if (fhandle.exists()) {
-			app.toast(getTrans("sceneConflict"));
-			dialogForScene(sceneAction,name);
-			return;
-		}
+		if (fhandle.exists())
+			return getTrans("sceneConflict");
 		fhandle.writeString("",false);
 		if (sceneAction == SceneAction.CREATE) {
 			//nothing to do...
@@ -694,7 +876,6 @@ public class ControlLayer extends Table {
 		if (fhandle.exists()) {
 			if(sceneAction == SceneAction.RENAME){
 				app.getEditor().setScene(name);
-				//app.getEditor().loadFromPath();
 			} else if(sceneAction == SceneAction.COPY || sceneAction == SceneAction.CREATE){
 			    com.star4droid.star2d.editor.LibgdxEditor prev = app.getEditor();
 				app.openSceneInNewEditor(name);
@@ -704,12 +885,10 @@ public class ControlLayer extends Table {
 				app.openSceneInNewEditor("scene1");
 			}
 			tabsItem.refresh();
-			//updateScenes();
-		} else {
-			app.toast("Failed to create the path..");
-			dialogForScene(sceneAction,name);
-			return;
+			if(nativeUi != null) nativeUi.onScenesChanged();
+			return null;
 		}
+		return "Failed to create the path..";
 	}
 	
 	public void dialogForScene(SceneAction sceneAction,String initial){
@@ -732,6 +911,7 @@ public class ControlLayer extends Table {
 		
 		redoBtn.setDisabled(!app.getEditor().canRedo());
 		redoBtn.setColor(app.getEditor().canRedo()?Color.YELLOW:Color.WHITE);
+		if(nativeUi != null) nativeUi.onUndoRedoChanged();
 	}
 	
 	public void bodySelected(){
@@ -745,6 +925,7 @@ public class ControlLayer extends Table {
 		} catch(Exception e){
 			Gdx.files.external("logs/app_logs.txt").writeString("error on control layer code for refreshing : "+e.toString()+"\n",true);
 		}
+		if(nativeUi != null) nativeUi.onSelectionChanged();
 	}
 	
 	private Drawable drawable(String name){
@@ -772,24 +953,7 @@ public class ControlLayer extends Table {
 				        app.toast("sorry, not ready yet...");
 				        return;
 				    }*/
-					try {
-						EditorItem item = getItem(pos);
-                		app.getEditor().addActor((Actor)item);
-                		((Actor)item).setName(app.getEditor().getName((Actor)item));
-                		try {
-							java.lang.reflect.Method method = item.getClass().getMethod("setDefault");
-							Object[] objs = null;
-							method.invoke(item,objs);
-						} catch(Exception e){}
-                		item.getPropertySet().put("z",app.getEditor().getActors().size);
-                		app.getEditor().selectActor((Actor)item);
-						EditorAction.itemAdded(app.getEditor(),(Actor)item);
-                		item.update();
-					} catch(Error error){
-						textShow.setText("Error :\n"+Utils.getStackTraceString(error));
-						textShow.show(getStage());
-						textShow.toFront();
-					}
+					actionAddBody(pos);
 				}
 			});
 			item.pad(5);
@@ -828,22 +992,7 @@ public class ControlLayer extends Table {
 				public void changed (ChangeEvent event, Actor actor) {
 					if(pos == 3){
 						LightSettingsDialog.showFor(new Project(app.getEditor().getProject().getPath()),app.getEditor().getScene());
-					} else {
-						try {
-							LightItem lightItem = new LightItem(app.getEditor());
-            				app.getEditor().addActor(lightItem);
-            				lightItem.setName(app.getEditor().getName(lightItem));
-            				lightItem.setDefault(getLightType(pos));
-            				lightItem.getPropertySet().put("z",app.getEditor().getActors().size);
-            				app.getEditor().selectActor(lightItem);
-            				lightItem.update();
-							EditorAction.itemAdded(app.getEditor(),lightItem);
-						} catch(Error error){
-							textShow.setText("Error :\n"+Utils.getStackTraceString(error));
-							textShow.show(getStage());
-							textShow.toFront();
-						}
-					}
+					} else actionAddLight(pos);
 				}
 			}));
 		}
