@@ -38,20 +38,28 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Tabs -->
-    <LinearLayout
-        android:id="@+id/home_tabs"
+    <!-- Tabs (scrollable so they never get squeezed) -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/home_header_bg"
-        android:orientation="horizontal"
-        android:padding="5dp">
+        android:fillViewport="true"
+        android:scrollbars="none">
 
-        <TextView android:id="@+id/tab_projects" style="@style/HomeTab" android:text="Projects" />
-        <TextView android:id="@+id/tab_templates" style="@style/HomeTab" android:text="Templates" />
-        <TextView android:id="@+id/tab_community" style="@style/HomeTab" android:text="Community" />
-        <TextView android:id="@+id/tab_settings" style="@style/HomeTab" android:text="Settings" />
-    </LinearLayout>
+        <LinearLayout
+            android:id="@+id/home_tabs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="5dp">
+
+            <TextView android:id="@+id/tab_projects" style="@style/HomeTab" android:text="Projects" />
+            <TextView android:id="@+id/tab_learn" style="@style/HomeTab" android:text="Learn" />
+            <TextView android:id="@+id/tab_templates" style="@style/HomeTab" android:text="Templates" />
+            <TextView android:id="@+id/tab_community" style="@style/HomeTab" android:text="Community" />
+            <TextView android:id="@+id/tab_settings" style="@style/HomeTab" android:text="Settings" />
+        </LinearLayout>
+    </HorizontalScrollView>
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -163,6 +171,29 @@
                     style="@style/HomePageSubtitle"
                     android:layout_marginBottom="6dp"
                     android:text="Jumpstart your game with ready-to-run starter projects and engine features" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ===== Learn (interactive tutorials) ===== -->
+        <ScrollView
+            android:id="@+id/page_learn"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/learn_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView style="@style/HomePageTitle" android:text="Learn by making games" />
+
+                <TextView
+                    style="@style/HomePageSubtitle"
+                    android:layout_marginBottom="6dp"
+                    android:text="Interactive tutorials guide every tap, step by step" />
             </LinearLayout>
         </ScrollView>
 

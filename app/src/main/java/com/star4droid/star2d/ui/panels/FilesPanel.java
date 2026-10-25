@@ -512,7 +512,7 @@ public class FilesPanel implements PanelHost.Panel {
         m.show();
     }
 
-    static void copy(File from, File to) throws Exception {
+    public static void copy(File from, File to) throws Exception {
         if (from.isDirectory()) {
             to.mkdirs();
             File[] l = from.listFiles();

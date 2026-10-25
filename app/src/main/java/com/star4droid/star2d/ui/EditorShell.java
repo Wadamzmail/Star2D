@@ -24,6 +24,7 @@ import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.editor.TestApp;
 import com.star4droid.star2d.editor.ui.ControlLayer;
 import com.star4droid.star2d.evo.R;
+import com.star4droid.star2d.ui.tutorial.Tut;
 import com.star4droid.star2d.ui.panels.AddItemPanel;
 import com.star4droid.star2d.ui.panels.AiPanel;
 import com.star4droid.star2d.ui.panels.ElementsPanel;
@@ -126,7 +127,13 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         chrome.addView(root, Ui.match());
 
         root.addView(buildTopBar(c, land), Ui.matchWrap());
-        if (!land) root.addView(buildTabsBar(c), Ui.matchWrap());
+        if (!land) {
+            LinearLayout tools = bar(c);
+            tools.setBackgroundColor(0xEC1C1F24);
+            addSceneTools(c, tools);
+            root.addView(wrapScroll(c, tools, false), Ui.matchWrap());
+            root.addView(buildTabsBar(c), Ui.matchWrap());
+        }
 
         // middle: canvas is visible through here; rails float on the sides
         FrameLayout middle = new FrameLayout(c);
@@ -183,7 +190,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     private LinearLayout buildTopBar(Context c, boolean land) {
         LinearLayout top = bar(c);
-        top.addView(Ui.iconButton(c, R.drawable.ic_s2_arrow_back, Tr.t("exit", "Exit"), v -> exitProject()));
+        ImageView back = Ui.iconButton(c, R.drawable.ic_s2_arrow_back, Tr.t("exit", "Exit"), v -> exitProject());
+        back.setScaleX(Ui.isRtl(c) ? -1 : 1);
+        Tut.tag(back, "top:exit");
+        top.addView(back);
 
         LinearLayout titleBox = Ui.column(c);
         titleBox.setPadding(Ui.dp(c, 6), 0, Ui.dp(c, 6), 0);
@@ -192,33 +202,59 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         titleView.setMaxLines(1);
         titleBox.addView(titleView);
         if (land) {
-            // tabs inline in landscape
+            // tabs + scene tools inline (scrollable) in landscape
             top.addView(titleBox);
+            LinearLayout inline = Ui.row(c);
+            tabsRow = Ui.row(c);
+            inline.addView(tabsRow);
+            inline.addView(gap(c, false));
+            addSceneTools(c, inline);
             HorizontalScrollView hs = new HorizontalScrollView(c);
             hs.setHorizontalScrollBarEnabled(false);
-            tabsRow = Ui.row(c);
-            hs.addView(tabsRow);
+            hs.addView(inline);
             top.addView(hs, Ui.weight(1));
         } else {
             top.addView(titleBox, Ui.weight(1));
         }
         undoBtn = Ui.iconButton(c, R.drawable.ic_s2_undo, Tr.t("undo", "Undo"), v -> Bridge.gl(() -> Bridge.controls().actionUndo()));
         redoBtn = Ui.iconButton(c, R.drawable.ic_s2_redo, Tr.t("redo", "Redo"), v -> Bridge.gl(() -> Bridge.controls().actionRedo()));
+        Tut.tag(undoBtn, "top:undo");
+        Tut.tag(redoBtn, "top:redo");
         top.addView(undoBtn);
         top.addView(redoBtn);
-        top.addView(Ui.iconButton(c, R.drawable.ic_s2_save, Tr.t("save", "Save"), v -> save()));
+        ImageView save = Ui.iconButton(c, R.drawable.ic_s2_save, Tr.t("save", "Save"), v -> save());
+        Tut.tag(save, "top:save");
+        top.addView(save);
 
         // Play: accent pill
         ImageView play = Ui.iconButton(c, R.drawable.ic_s2_play, Tr.t("ui_play", "Play"), v -> play());
         play.setBackground(Ui.ripple(Ui.SUCCESS, Ui.dp(c, 10)));
         LinearLayout.LayoutParams plp = (LinearLayout.LayoutParams) play.getLayoutParams();
         plp.setMargins(Ui.dp(c, 4), 0, Ui.dp(c, 4), 0);
+        Tut.tag(play, "top:play");
         top.addView(play);
-
-        ImageView more = Ui.iconButton(c, R.drawable.ic_s2_more, Tr.t("ui_more", "More"), null);
-        more.setOnClickListener(v -> showMoreMenu(more));
-        top.addView(more);
         return top;
+    }
+
+    /** Scene tools as icon buttons: color, lights, orientation, logs, settings, help. */
+    private void addSceneTools(Context c, LinearLayout into) {
+        ImageView color = Ui.iconButton(c, R.drawable.ic_s2_palette, Tr.t("ui_scene_color", "Scene background color"), v -> sceneColor());
+        color.setImageTintList(ColorStateList.valueOf(0xFFFFB74D));
+        Tut.tag(color, "tool:color");
+        into.addView(color);
+        ImageView light = Ui.iconButton(c, R.drawable.ic_s2_light, Tr.t("lightSettings", "Light settings"), v -> LightSettings.show(activity));
+        light.setImageTintList(ColorStateList.valueOf(0xFFFFEE58));
+        into.addView(light);
+        ImageView rot = Ui.iconButton(c, R.drawable.ic_s2_screen_rotation, Tr.t("changeOrienation", "Switch portrait / landscape"), v ->
+                Dialogs.confirm(activity, Tr.t("changeOrienation", "Change orientation"),
+                        Tr.t("editorRestartNote", "The scenes will be saved and reopened."), null,
+                        () -> Bridge.gl(() -> Bridge.controls().actionToggleOrientation())));
+        into.addView(rot);
+        into.addView(Ui.iconButton(c, R.drawable.ic_s2_logs, Tr.t("ui_logs", "Logs"), v -> { files.openLogs(); panels.show(files); }));
+        ImageView set = Ui.iconButton(c, R.drawable.ic_s2_settings, Tr.t("settings", "Settings"), v -> panels.show(settings));
+        Tut.tag(set, "tool:settings");
+        into.addView(set);
+        into.addView(Ui.iconButton(c, R.drawable.ic_s2_help, Tr.t("ui_help", "Help"), v -> Help.show(activity)));
     }
 
     private LinearLayout buildTabsBar(Context c) {
@@ -414,34 +450,24 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     private void showScenesMenu(View anchor) {
         Bridge.query(() -> Bridge.controls().listScenes(), scenes -> {
-            PopupMenu m = new PopupMenu(activity, anchor);
-            m.getMenu().add(0, 1, 0, Tr.t("newScene", "New scene"));
-            m.getMenu().add(0, 2, 1, Tr.t("copyScene", "Copy scene"));
-            m.getMenu().add(0, 3, 2, Tr.t("renameScene", "Rename scene"));
-            m.getMenu().add(0, 4, 3, Tr.t("deleteScene", "Delete scene"));
-            android.view.SubMenu open = m.getMenu().addSubMenu(0, 5, 4, Tr.t("openScene", "Open scene"));
-            for (int i = 0; i < scenes.size(); i++) open.add(1, 100 + i, i, scenes.get(i));
-            m.setOnMenuItemClickListener(item -> {
-                int id = item.getItemId();
-                if (id >= 100) {
-                    String name = scenes.get(id - 100);
-                    Bridge.gl(() -> Bridge.controls().actionOpenScene(name));
-                } else if (id == 1) sceneDialog(ControlLayer.SceneAction.CREATE, "Scene");
-                else if (id == 2) sceneDialog(ControlLayer.SceneAction.COPY, titleView.getText().toString() + "_copy");
-                else if (id == 3) {
-                    if (titleView.getText().toString().equalsIgnoreCase("scene1"))
-                        Ui.toast(activity, Tr.t("renameMainScene", "The main scene can't be renamed"));
-                    else sceneDialog(ControlLayer.SceneAction.RENAME, titleView.getText().toString());
-                } else if (id == 4) {
-                    if (titleView.getText().toString().equalsIgnoreCase("scene1"))
-                        Ui.toast(activity, Tr.t("deleteMainScene", "The main scene can't be deleted"));
-                    else Dialogs.confirm(activity, Tr.t("deleteScene", "Delete scene"),
-                            Tr.t("areYouSure", "Are you sure?") + "\n" + titleView.getText(), Tr.t("delete", "Delete"),
-                            () -> Bridge.query(() -> Bridge.controls().actionDeleteCurrentScene(), err -> { if (err != null) Ui.toast(activity, err); }));
-                }
-                return true;
+            String cur = titleView.getText().toString();
+            IconMenu m = new IconMenu(activity);
+            m.add(R.drawable.ic_s2_add, Ui.SUCCESS, Tr.t("newScene", "New scene"), () -> sceneDialog(ControlLayer.SceneAction.CREATE, "Scene"));
+            m.add(R.drawable.ic_s2_copy, Ui.ACCENT, Tr.t("copyScene", "Copy scene"), () -> sceneDialog(ControlLayer.SceneAction.COPY, cur + "_copy"));
+            m.add(R.drawable.ic_s2_edit, 0xFFFFB74D, Tr.t("renameScene", "Rename scene"), () -> {
+                if (cur.equalsIgnoreCase("scene1")) Ui.toast(activity, Tr.t("renameMainScene", "The main scene can't be renamed"));
+                else sceneDialog(ControlLayer.SceneAction.RENAME, cur);
             });
-            m.show();
+            m.add(R.drawable.ic_s2_delete, 0xFFFF8A80, Tr.t("deleteScene", "Delete scene"), () -> {
+                if (cur.equalsIgnoreCase("scene1")) Ui.toast(activity, Tr.t("deleteMainScene", "The main scene can't be deleted"));
+                else Dialogs.confirm(activity, Tr.t("deleteScene", "Delete scene"), Tr.t("areYouSure", "Are you sure?") + "\n" + cur, Tr.t("delete", "Delete"),
+                        () -> Bridge.query(() -> Bridge.controls().actionDeleteCurrentScene(), err -> { if (err != null) Ui.toast(activity, err); }));
+            });
+            m.divider();
+            for (String name : scenes)
+                m.add(name.equals(cur) ? R.drawable.ic_s2_check : R.drawable.ic_s2_scenes, name.equals(cur) ? Ui.ACCENT : Ui.TEXT_2,
+                        Tr.t("openScene", "Open") + ": " + name, () -> Bridge.gl(() -> Bridge.controls().actionOpenScene(name)));
+            m.show(anchor);
         });
     }
 
@@ -510,32 +536,6 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             Dialogs.confirm(activity, Tr.t("delete", "Delete"), Tr.t("areYouSure", "Are you sure?") + "\n" + name,
                     Tr.t("delete", "Delete"), () -> Bridge.gl(() -> Bridge.controls().actionDeleteSelected()));
         });
-    }
-
-    private void showMoreMenu(View anchor) {
-        PopupMenu m = new PopupMenu(activity, anchor);
-        m.getMenu().add(0, 1, 0, Tr.t("ui_scene_color", "Scene background color"));
-        m.getMenu().add(0, 2, 1, Tr.t("lightSettings", "Light settings"));
-        m.getMenu().add(0, 3, 2, Tr.t("changeOrienation", "Switch portrait / landscape"));
-        m.getMenu().add(0, 4, 3, Tr.t("ui_logs", "Logs folder"));
-        m.getMenu().add(0, 5, 4, Tr.t("settings", "Settings"));
-        m.getMenu().add(0, 6, 5, Tr.t("ui_help", "Help & tips"));
-        m.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: sceneColor(); break;
-                case 2: Bridge.gl(() -> Bridge.controls().actionLightSettings()); break;
-                case 3:
-                    Dialogs.confirm(activity, Tr.t("changeOrienation", "Change orientation"),
-                            Tr.t("editorRestartNote", "The scenes will be saved and reopened."), null,
-                            () -> Bridge.gl(() -> Bridge.controls().actionToggleOrientation()));
-                    break;
-                case 4: files.openLogs(); panels.show(files); break;
-                case 5: panels.show(settings); break;
-                case 6: Help.show(activity); break;
-            }
-            return true;
-        });
-        m.show();
     }
 
     private void sceneColor() {

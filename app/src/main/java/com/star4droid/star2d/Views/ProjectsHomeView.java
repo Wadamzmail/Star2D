@@ -84,8 +84,12 @@ public class ProjectsHomeView extends FrameLayout {
         this.activity = activity;
         this.host = host;
         this.projectsDir = new File(activity.getFilesDir(), "projects");
+        com.star4droid.star2d.ui.Tr.init(activity);
         LayoutInflater.from(activity).inflate(R.layout.home_screen, this, true);
+        translateTree(this);
+        setLayoutDirection(Ui.isRtl(activity) ? LAYOUT_DIRECTION_RTL : LAYOUT_DIRECTION_LTR);
         setupTabs();
+        setupLearn();
         setupProjects();
         setupTemplates();
         setupCommunity();
@@ -95,14 +99,70 @@ public class ProjectsHomeView extends FrameLayout {
         askLanguageOnFirstRun();
     }
 
+
+    // ---------------------------------------------------------------- i18n
+
+    static String T(String key, String def) {
+        return com.star4droid.star2d.ui.Tr.t(key, def);
+    }
+
+    /** XML texts -> translated (keys derived from the English text). */
+    private static final String[][] XML_KEYS = {
+            {"Projects", "home_tab_projects"}, {"Learn", "home_tab_learn"}, {"Templates", "home_tab_templates"},
+            {"Community", "home_tab_community"}, {"Settings", "home_tab_settings"}, {"Open", "home_open"},
+            {"New project", "home_new_project"}, {"Search projects...", "home_search"}, {"No projects yet", "home_no_projects"},
+            {"Templates & Examples", "home_templates_title"}, {"Jumpstart your game with ready-to-run starter projects and engine features", "home_templates_sub"},
+            {"Learn by making games", "home_learn_title"}, {"Interactive tutorials guide every tap, step by step", "home_learn_sub"},
+            {"Community & Support", "home_community_title"}, {"Connect with the Star2D developer community across the globe", "home_community_sub"},
+            {"💖 Support Engine Development", "home_support"}, {"Star2D is developed with passion. Help keep updates and features coming!", "home_support_sub"},
+            {"Donate", "home_donate"}, {"Engine Settings", "home_settings_title"}, {"Configure editor behaviors, code generation, and preferences", "home_settings_sub"},
+            {"EDITOR & COMPILER", "home_editor_compiler"}, {"Interface Language", "home_language"}, {"Java Compiler Backend", "home_compiler"},
+            {"Script Code Completion", "codeCompletion"}, {"Automatic Scene Saving", "autoSave"}, {"Persist Undo/Redo History", "saveUndoRedo"},
+            {"+ Use Template", "home_use_template"}, {"Join", "home_join"},
+    };
+
+    static void translateTree(View v) {
+        if (v instanceof TextView) {
+            String t = ((TextView) v).getText().toString();
+            for (String[] k : XML_KEYS) if (k[0].equals(t)) { ((TextView) v).setText(T(k[1], t)); break; }
+            if (v instanceof EditText) {
+                CharSequence h = ((EditText) v).getHint();
+                if (h != null) for (String[] k : XML_KEYS) if (k[0].contentEquals(h)) ((EditText) v).setHint(T(k[1], k[0]));
+            }
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) translateTree(g.getChildAt(i));
+        }
+    }
+
+    // ---------------------------------------------------------------- learn (interactive tutorials)
+
+    private void setupLearn() {
+        LinearLayout list = findViewById(R.id.learn_list);
+        for (com.star4droid.star2d.ui.tutorial.TutorialCatalog.Info t : com.star4droid.star2d.ui.tutorial.TutorialCatalog.all(activity)) {
+            View card = LayoutInflater.from(activity).inflate(R.layout.home_item_template, list, false);
+            ((TextView) card.findViewById(R.id.template_title)).setText(t.title);
+            ((TextView) card.findViewById(R.id.template_tag)).setText(t.tag);
+            ((TextView) card.findViewById(R.id.template_desc)).setText(t.description);
+            TextView start = card.findViewById(R.id.template_use);
+            start.setText(T("home_start_lesson", "▶ Start lesson"));
+            start.setOnClickListener(v -> com.star4droid.star2d.ui.tutorial.TutorialCatalog.start(activity, t.id, projectsDir, dir -> {
+                refresh();
+                host.openProject(dir);
+            }));
+            list.addView(card);
+        }
+    }
+
     // ---------------------------------------------------------------- tabs
 
     private void setupTabs() {
         tabs = new TextView[]{
-                findViewById(R.id.tab_projects), findViewById(R.id.tab_templates),
+                findViewById(R.id.tab_projects), findViewById(R.id.tab_learn), findViewById(R.id.tab_templates),
                 findViewById(R.id.tab_community), findViewById(R.id.tab_settings)};
         pages = new View[]{
-                findViewById(R.id.page_projects), findViewById(R.id.page_templates),
+                findViewById(R.id.page_projects), findViewById(R.id.page_learn), findViewById(R.id.page_templates),
                 findViewById(R.id.page_community), findViewById(R.id.page_settings)};
         for (int i = 0; i < tabs.length; i++) {
             final int index = i;
@@ -145,7 +205,7 @@ public class ProjectsHomeView extends FrameLayout {
         File[] files = projectsDir.listFiles(File::isDirectory);
         List<File> all = files == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(files));
         java.util.Collections.sort(all, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
-        projectsCount.setText(all.size() + " project(s) in workspace");
+        projectsCount.setText(String.format(T("home_count", "%d project(s) in workspace"), all.size()));
 
         String query = search.getText().toString().trim().toLowerCase(Locale.ROOT);
         projectsList.removeAllViews();
@@ -163,7 +223,7 @@ public class ProjectsHomeView extends FrameLayout {
             projectsList.addView(row);
             shown++;
         }
-        projectsEmpty.setText(all.isEmpty() ? "No projects yet" : "No matching projects");
+        projectsEmpty.setText(all.isEmpty() ? T("home_no_projects", "No projects yet") : T("home_no_match", "No matching projects"));
         projectsEmpty.setVisibility(shown == 0 ? VISIBLE : GONE);
     }
 
@@ -174,12 +234,16 @@ public class ProjectsHomeView extends FrameLayout {
 
     private void showProjectMenu(File project, View anchor) {
         PopupMenu menu = new PopupMenu(activity, anchor);
-        menu.getMenu().add(0, 1, 0, "Open");
-        menu.getMenu().add(0, 2, 1, "Export");
-        menu.getMenu().add(0, 3, 2, "Backup");
-        menu.getMenu().add(0, 4, 3, "Delete");
+        menu.getMenu().add(0, 1, 0, T("open", "Open"));
+        menu.getMenu().add(0, 5, 1, T("home_edit_project", "Edit project"));
+        menu.getMenu().add(0, 6, 2, T("ui_duplicate", "Duplicate"));
+        menu.getMenu().add(0, 2, 3, T("home_export", "Export APK"));
+        menu.getMenu().add(0, 3, 4, T("home_backup", "Backup"));
+        menu.getMenu().add(0, 4, 5, T("delete", "Delete"));
         menu.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
+                case 5: ProjectDialogs.edit(activity, project, this::refresh); break;
+                case 6: ProjectDialogs.duplicate(activity, project, this::refresh); break;
                 case 1: openProject(project); break;
                 case 2: host.exportProject(project); break;
                 case 3: host.backupProject(project); break;
@@ -192,27 +256,21 @@ public class ProjectsHomeView extends FrameLayout {
 
     private void confirmDelete(File project) {
         new AlertDialog.Builder(activity)
-                .setTitle("Delete project")
-                .setMessage("Are you sure you want to delete \"" + project.getName() + "\"? This can't be undone.")
-                .setPositiveButton("Delete", (d, w) -> io.execute(() -> {
+                .setTitle(T("home_delete_project", "Delete project"))
+                .setMessage(String.format(T("home_delete_msg", "Delete \"%s\"? This can't be undone."), project.getName()))
+                .setPositiveButton(T("delete", "Delete"), (d, w) -> io.execute(() -> {
                     boolean ok = deleteRecursive(project);
                     ui.post(() -> {
-                        toast(ok ? "Project deleted." : "Failed to delete project.");
+                        toast(ok ? T("home_deleted", "Project deleted.") : T("ui_failed", "Failed"));
                         refresh();
                     });
                 }))
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(T("cancel", "Cancel"), null)
                 .show();
     }
 
     private void createNewProject() {
-        askProjectName("New project", "NewProject", name -> {
-            File dir = new File(projectsDir, name);
-            if (!dir.mkdirs()) {
-                toast("Couldn't create the project folder.");
-                return;
-            }
-            createDefaultPaths(dir);
+        ProjectDialogs.create(activity, projectsDir, dir -> {
             refresh();
             host.openProject(dir);
         });
@@ -241,9 +299,10 @@ public class ProjectsHomeView extends FrameLayout {
         for (String folder : sorted) {
             String[] info = templateInfo(folder);
             View card = inflater.inflate(R.layout.home_item_template, list, false);
-            ((TextView) card.findViewById(R.id.template_title)).setText(info[0]);
-            ((TextView) card.findViewById(R.id.template_tag)).setText(info[1]);
-            ((TextView) card.findViewById(R.id.template_desc)).setText(info[2]);
+            ((TextView) card.findViewById(R.id.template_title)).setText(T("tpl_" + folder + "_title", info[0]));
+            ((TextView) card.findViewById(R.id.template_tag)).setText(T("tpl_" + folder + "_tag", info[1]));
+            ((TextView) card.findViewById(R.id.template_desc)).setText(T("tpl_" + folder + "_desc", info[2]));
+            ((TextView) card.findViewById(R.id.template_use)).setText(T("home_use_template", "+ Use Template"));
             card.findViewById(R.id.template_use).setOnClickListener(v -> useTemplate(folder));
             list.addView(card);
         }
@@ -273,15 +332,15 @@ public class ProjectsHomeView extends FrameLayout {
     }
 
     private void useTemplate(String folder) {
-        askProjectName("Use template", folder, name -> {
+        askProjectName(T("home_use_template", "Use template"), folder, name -> {
             File target = new File(projectsDir, name);
-            toast("Creating project...");
+            toast(T("home_creating", "Creating project..."));
             io.execute(() -> {
                 try {
                     copyAssetDir(activity.getAssets(), "files/examples/" + folder, target);
                     createDefaultPaths(target);
                     ui.post(() -> {
-                        toast("Project created: " + name);
+                        toast(T("home_created", "Project created") + ": " + name);
                         search.setText("");
                         selectTab(0);
                         refresh();
@@ -289,7 +348,7 @@ public class ProjectsHomeView extends FrameLayout {
                 } catch (Exception | Error e) {
                     deleteRecursive(target);
                     ui.post(() -> {
-                        toast("Failed to create project: " + e);
+                        toast(T("ui_failed", "Failed") + ": " + e);
                         refresh();
                     });
                 }
@@ -303,19 +362,20 @@ public class ProjectsHomeView extends FrameLayout {
         LinearLayout list = findViewById(R.id.community_list);
         findViewById(R.id.btn_donate).setOnClickListener(v -> host.openDonate());
         String[][] links = {
-                {"Facebook Group", "Join the Star2D developers community on Facebook", "https://facebook.com/groups/995354408402399/"},
-                {"WhatsApp Group", "Live chat with developers and get quick assistance", "https://chat.whatsapp.com/Bxu3kM0b1oE9UL0iZhti4E?mode=ems_copy_c"},
-                {"Telegram Channel", "News, releases, asset packs, and updates", "https://t.me/+pE4VREnP04s5NDNk"},
-                {"Discord Community", "Discuss game dev, share scripts, and collaborate", "https://discord.gg/9gxPUTEP"},
-                {"GitHub Repository", "Star2D Engine open source code and issue tracking", "https://github.com/star4droid/Star2D/"},
-                {"YouTube Channel", "Game engine tutorials, guides, and feature showcases", "https://youtube.com/@star4droid?si=wNDqN_fbRIzf3KSQ"},
+                {"facebook", "Facebook Group", "Join the Star2D developers community on Facebook", "https://facebook.com/groups/995354408402399/"},
+                {"whatsapp", "WhatsApp Group", "Live chat with developers and get quick assistance", "https://chat.whatsapp.com/Bxu3kM0b1oE9UL0iZhti4E?mode=ems_copy_c"},
+                {"telegram", "Telegram Channel", "News, releases, asset packs, and updates", "https://t.me/+pE4VREnP04s5NDNk"},
+                {"discord", "Discord Community", "Discuss game dev, share scripts, and collaborate", "https://discord.gg/9gxPUTEP"},
+                {"github", "GitHub Repository", "Star2D Engine open source code and issue tracking", "https://github.com/star4droid/Star2D/"},
+                {"youtube", "YouTube Channel", "Game engine tutorials, guides, and feature showcases", "https://youtube.com/@star4droid?si=wNDqN_fbRIzf3KSQ"},
         };
         LayoutInflater inflater = LayoutInflater.from(activity);
         for (String[] link : links) {
             View row = inflater.inflate(R.layout.home_item_community, list, false);
-            ((TextView) row.findViewById(R.id.community_title)).setText(link[0]);
-            ((TextView) row.findViewById(R.id.community_desc)).setText(link[1]);
-            row.findViewById(R.id.community_join).setOnClickListener(v -> openUrl(link[2]));
+            ((TextView) row.findViewById(R.id.community_title)).setText(T("home_c_" + link[0], link[1]));
+            ((TextView) row.findViewById(R.id.community_desc)).setText(T("home_c_" + link[0] + "_desc", link[2]));
+            ((TextView) row.findViewById(R.id.community_join)).setText(T("home_join", "Join"));
+            row.findViewById(R.id.community_join).setOnClickListener(v -> openUrl(link[3]));
             list.addView(row);
         }
     }
@@ -324,7 +384,7 @@ public class ProjectsHomeView extends FrameLayout {
         try {
             activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (Exception e) {
-            toast("No app found to open the link.");
+            toast(T("home_no_app", "No app found to open the link."));
         }
     }
 
@@ -340,7 +400,7 @@ public class ProjectsHomeView extends FrameLayout {
         language.setOnItemSelectedListener(new SimpleSelection(position -> {
             String code = LANG_CODES[position];
             if (code.equals(prefs().getString("lang", "en"))) return;
-            prefs().edit().putString("lang", code).putBoolean("langSelected", true).apply();
+            prefs().edit().putString("lang", code).putBoolean("langSelected", true).commit();
             askRestart();
         }));
 
@@ -357,13 +417,13 @@ public class ProjectsHomeView extends FrameLayout {
         // icon size (small / medium / large) used by the editor toolbars
         LinearLayout card = (LinearLayout) findViewById(R.id.setting_undo).getParent();
         TextView label = new TextView(activity);
-        label.setText(Ui.isRtl(activity) ? "حجم الأيقونات" : "Icon size");
+        label.setText(T("ui_icon_size", "Icon size"));
         label.setTextColor(color(R.color.home_text_secondary));
         label.setTextSize(14);
         label.setPadding(0, dp(14), 0, dp(6));
         card.addView(label);
         String[] sizeKeys = {"small", "medium", "large"};
-        String[] sizeNames = Ui.isRtl(activity) ? new String[]{"صغير", "متوسط", "كبير"} : new String[]{"Small", "Medium", "Large"};
+        String[] sizeNames = {T("ui_small", "Small"), T("ui_medium", "Medium"), T("ui_large", "Large")};
         FrameLayout box = new FrameLayout(activity);
         Spinner sizes = new Spinner(activity);
         sizes.setBackgroundResource(R.drawable.home_input_bg);
@@ -392,22 +452,23 @@ public class ProjectsHomeView extends FrameLayout {
 
     private void askRestart() {
         new AlertDialog.Builder(activity)
-                .setTitle("Restart required")
-                .setMessage("The new language will be applied after restarting Star2D.")
-                .setPositiveButton("Restart now", (d, w) -> restartApp())
-                .setNegativeButton("Later", null)
+                .setTitle(T("ui_restart", "Restart required"))
+                .setMessage(T("langNextTime", "The new language will be applied after restarting Star2D."))
+                .setPositiveButton(T("ui_restart_now", "Restart now"), (d, w) -> restartApp())
+                .setNegativeButton(T("cancel", "Later"), null)
                 .show();
     }
 
     private void askLanguageOnFirstRun() {
         if (prefs().getBoolean("langSelected", false)) return;
         new AlertDialog.Builder(activity)
-                .setTitle("Choose language")
+                .setTitle("Language / اللغة")
                 .setCancelable(false)
                 .setItems(LANG_NAMES, (d, which) -> {
                     String code = LANG_CODES[which];
                     boolean changed = !code.equals(prefs().getString("lang", "en"));
-                    prefs().edit().putString("lang", code).putBoolean("langSelected", true).apply();
+                    // commit() (not apply): the process restarts right after
+                    prefs().edit().putString("lang", code).putBoolean("langSelected", true).commit();
                     if (changed) restartApp();
                 })
                 .show();
@@ -438,25 +499,25 @@ public class ProjectsHomeView extends FrameLayout {
 
         AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle(title)
-                .setMessage("Project name (A-Z, a-z, 0-9, _):")
+                .setMessage(T("home_name_rule", "Project name (A-Z, a-z, 0-9, _):"))
                 .setView(container)
-                .setPositiveButton("Create", null)
+                .setPositiveButton(T("home_create", "Create"), null)
                 .setNegativeButton("Cancel", null)
                 .create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = input.getText().toString().trim().replace(" ", "_");
             if (name.isEmpty()) {
-                input.setError("Enter a name");
+                input.setError(T("emptyError", "Enter a name"));
                 return;
             }
             for (char c : name.toCharArray()) {
                 if (!EditorField.allowedChars.contains(String.valueOf(c))) {
-                    input.setError("Not allowed: " + c);
+                    input.setError(T("ui_bad_char", "Not allowed") + ": " + c);
                     return;
                 }
             }
             if (new File(projectsDir, name).exists()) {
-                input.setError("A project with this name already exists");
+                input.setError(T("projectConflict", "A project with this name already exists"));
                 return;
             }
             dialog.dismiss();
@@ -521,7 +582,7 @@ public class ProjectsHomeView extends FrameLayout {
     }
 
     public void toast(String message) {
-        ui.post(() -> Toast.makeText(activity, message, Toast.LENGTH_SHORT).show());
+        com.star4droid.star2d.ui.Snack.show(message);
     }
 
     /** Spinner listener that ignores the initial callback fired by setSelection. */

@@ -74,7 +74,7 @@ public class SettingsPanel implements PanelHost.Panel {
         TextView langView = chooser(c, LANG_NAMES[li]);
         langView.setOnClickListener(v -> Dialogs.choose(c, Tr.t("language", "Language"), LANG_NAMES, i -> {
             if (LANG_CODES[i].equals(p.getString("lang", "en"))) return;
-            p.edit().putString("lang", LANG_CODES[i]).putBoolean("langSelected", true).apply();
+            p.edit().putString("lang", LANG_CODES[i]).putBoolean("langSelected", true).commit();
             Dialogs.confirm(c, Tr.t("ui_restart", "Restart required"), Tr.t("langNextTime", "The language will change after restarting."),
                     Tr.t("ui_restart_now", "Restart now"), () -> {
                         shell.save();

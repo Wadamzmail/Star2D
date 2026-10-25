@@ -265,7 +265,11 @@ public final class Ui {
         else MAIN.post(r);
     }
 
+    /** Short message (swipeable snackbar on the current screen; falls back to a toast). */
     public static void toast(Context c, String msg) {
-        ui(() -> Toast.makeText(c.getApplicationContext(), msg, Toast.LENGTH_SHORT).show());
+        ui(() -> {
+            if (Snack.activity() != null) Snack.show(msg);
+            else Toast.makeText(c.getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+        });
     }
 }

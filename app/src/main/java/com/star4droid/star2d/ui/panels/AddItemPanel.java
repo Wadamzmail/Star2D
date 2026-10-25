@@ -57,7 +57,7 @@ public class AddItemPanel implements PanelHost.Panel {
         col.addView(Ui.sectionLabel(c, Tr.t("newLight", "Lights")));
         col.addView(grid(c, LIGHTS, ar, true));
         LinearLayout settings = Ui.button(c, R.drawable.ic_s2_settings, Tr.t("lightSettings", "Light settings"), false,
-                v -> { shell.panels.hide(); Bridge.gl(() -> Bridge.controls().actionLightSettings()); });
+                v -> { shell.panels.hide(); com.star4droid.star2d.ui.LightSettings.show(shell.activity()); });
         LinearLayout.LayoutParams lp = Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 4, 8, 4, 0);
         col.addView(settings, lp);
         ScrollView s = new ScrollView(c);
