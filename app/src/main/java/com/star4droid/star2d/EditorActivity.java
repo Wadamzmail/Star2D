@@ -58,6 +58,9 @@ import java.util.concurrent.Executors;
 public class EditorActivity extends AppCompatActivity implements AndroidFragmentApplication.Callbacks, ProjectsHomeView.Host {
     Editor editor;
     ProjectsHomeView homeView;
+    com.star4droid.star2d.ui.EditorShell shell;
+    String importTargetDir = null;
+    Runnable importDone = null;
     volatile boolean appReady = false;
 	ActivityResultLauncher<String[]> files_picker;
 	ActivityResultLauncher saveFile;
@@ -141,6 +144,17 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
     					//FileUtil.writeFile(getExternalFilesDir("logs")+"/file.txt","to : "+to);
     					UriUtils.copyUriToUri(EditorActivity.this,uri,Uri.fromFile(new java.io.File(to)));
 						editor.getApp().getFileBrowser().refreshFileList();
+    				} else if(filePickerAction.equals("native") && importTargetDir != null){
+						try {
+							String last = Objects.requireNonNull(DocumentFile.fromSingleUri(EditorActivity.this, uri)).getName();
+							if(last == null) last = "file";
+							if(last.contains("/")) last = last.substring(last.lastIndexOf("/")+1);
+							java.io.File target = new java.io.File(importTargetDir, last);
+							FileUtil.writeFile(target.getAbsolutePath(),"");
+							UriUtils.copyUriToUri(EditorActivity.this,uri,Uri.fromFile(target));
+						} catch(Exception ex){
+							com.star4droid.star2d.ui.Ui.toast(EditorActivity.this,"Import error : "+ex);
+						}
     				} else if(filePickerAction.equals("import")){
 						if(homeView!=null) homeView.toast("Restoring...");
     				    try {
@@ -148,7 +162,10 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 						} catch(Exception e){}
     				}
 				}
-				
+				if(filePickerAction.equals("native") && importDone != null){
+					importDone.run();
+					com.star4droid.star2d.ui.Ui.toast(EditorActivity.this, uriList.size()+" file(s) imported");
+				}
 			});
 		
 		saveFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),new ActivityResultCallback<ActivityResult>(){
@@ -263,6 +280,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 		// show / hide the Android home screen together with the LibGDX editor
 		app.onProjectOpening = ()->runOnUiThread(()->homeView.setVisibility(View.GONE));
 		app.onProjectClosed = ()->runOnUiThread(()->{
+			shell.onProjectClosed();
 			homeView.setVisibility(View.VISIBLE);
 			homeView.refresh();
 		});
@@ -349,6 +367,21 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 
     public void init() {
         editor = findViewById(R.id.editor);
+        // Native Android editor UI (bars, panels, dialogs) over the LibGDX canvas
+        shell = new com.star4droid.star2d.ui.EditorShell(this, new com.star4droid.star2d.ui.EditorShell.Host(){
+            @Override public void openJava(String path){ EditorActivity.this.openJava(path); }
+            @Override public void importFiles(String targetDir, Runnable done){
+                importTargetDir = targetDir;
+                importDone = done;
+                filePickerAction = "native";
+                files_picker.launch(new String[] {"*/*"});
+            }
+            @Override public boolean openBlocks(String file, String hints){
+                return com.star4droid.star2d.ui.blocks.BlockEditorActivity.open(EditorActivity.this, file, hints);
+            }
+        });
+        ((ViewGroup) findViewById(R.id.frame)).addView(shell,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         // Native Android projects screen on top of the LibGDX surface
         homeView = new ProjectsHomeView(this,this);
         ((ViewGroup) findViewById(R.id.frame)).addView(homeView,
@@ -384,6 +417,12 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 		if(editor!=null)
 			editor.setToCurrentEditor();
 	}
+	@Override
+	public void onBackPressed() {
+		if(shell != null && shell.onBack()) return;
+		super.onBackPressed();
+	}
+
 	@Override
 	public void exit() {
 	    

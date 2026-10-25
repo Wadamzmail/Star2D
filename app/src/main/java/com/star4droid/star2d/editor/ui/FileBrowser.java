@@ -394,6 +394,17 @@ public class FileBrowser extends VisWindow implements Disposable {
 		else textViewer(fileHandle);
 	}
 	
+	/** Open the (LibGDX) animation editor for a file inside the anims folder. */
+	public void openAnimationEditor(FileHandle file){
+		animationEditor.setAssetLoader(projectAssetLoader).setPaths(file.parent().sibling("images").path(),file.path())
+				.refresh().show(TestApp.getCurrentApp().getUiStage());
+	}
+
+	/** Open the (LibGDX) bitmap font editor: s2df == null creates a new font in dir. */
+	public void openFontEditor(FileHandle dir, FileHandle s2df){
+		bitmapFontEditor.setData(dir,s2df).show(TestApp.getCurrentApp().getUiStage()).toFront();
+	}
+
 	private void editFont(FileHandle s2df){
 		bitmapFontEditor.setData(currentDir,s2df)
 			.show(getStage()).toFront();

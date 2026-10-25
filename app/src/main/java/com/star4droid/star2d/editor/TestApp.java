@@ -61,6 +61,8 @@ public class TestApp implements ApplicationListener {
 		boolean openVisual(String file, String hints);
 		/** Show a long text (runtime errors etc.). */
 		void showText(String text);
+		/** Back key pressed in the editor. */
+		void onBackKey();
 	}
 	public static NativeHooks nativeHooks;
 
@@ -104,6 +106,10 @@ public class TestApp implements ApplicationListener {
 		UiStage = new Stage(screenViewport){
 			@Override
 			public boolean keyDown(int key){
+				if(key == 4 && nativeHooks != null){
+					nativeHooks.onBackKey();
+					return true;
+				}
 				if(key == 4){
 					new ConfirmDialog(getTrans("exit"),getTrans("areYouSure"),ok->{
 						if(ok)
