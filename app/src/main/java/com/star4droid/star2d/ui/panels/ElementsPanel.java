@@ -333,6 +333,7 @@ public class ElementsPanel implements PanelHost.Panel {
             h.lock.setImageResource(i.locked ? R.drawable.ic_s2_lock : R.drawable.ic_s2_lock_open);
             h.lock.setImageTintList(android.content.res.ColorStateList.valueOf(i.locked ? Ui.WARNING : Ui.TEXT_3));
             h.row.setOnClickListener(v -> select(i.name));
+            com.star4droid.star2d.ui.tutorial.Tut.tag(h.row, "elem:" + i.name);
             h.row.setOnLongClickListener(v -> { menu(h.more, i); return true; });
             h.more.setOnClickListener(v -> menu(h.more, i));
             h.eye.setOnClickListener(v -> {

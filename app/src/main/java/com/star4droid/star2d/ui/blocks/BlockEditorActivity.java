@@ -506,7 +506,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     }
 
     static String reporterText(BlockCatalog.Reporter r) {
-        return r.display.replace("___", " ◯ ").replace("  ", " ").trim();
+        return BlockInfo.reporter(r.display).replace("___", " ◯ ").replace("  ", " ").trim();
     }
 
     /** Palette rows: statement blocks (Def), value blocks (Reporter) and group headers (String). */
@@ -837,6 +837,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             chips.addView(g);
             for (String v : e.getValue()) {
                 TextView ch = Ui.text(c, v, 12.5f, Ui.TEXT);
+                Tut.tag(ch, "blocks:chip:" + v);
                 ch.setPadding(Ui.dp(c, 10), Ui.dp(c, 5), Ui.dp(c, 10), Ui.dp(c, 5));
                 ch.setBackground(Ui.ripple(Ui.SURFACE_3, Ui.dp(c, 14)));
                 ch.setOnClickListener(x -> {
@@ -870,6 +871,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             chip.setTypeface(Typeface.DEFAULT_BOLD);
             chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 5), Ui.dp(c, 10), Ui.dp(c, 5));
             chip.setTag(g);
+            Tut.tag(chip, "blocks:group:" + g);
             chip.setOnClickListener(v -> {
                 valueGroup = g;
                 fillValues();
@@ -1154,9 +1156,126 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     /** Used by tutorials to know whether the script was saved. */
     public boolean hasUnsavedChanges() { return changed; }
 
+    // =============================================================== tutorial helpers
+
+    public File file() { return file; }
+    public boolean isEditingField() { return editField != null; }
+    public BlockModel.Field editingField() { return editField; }
+
+    public void saveNow() { save(false); }
+
+    public void saveAndClose() {
+        commitValue();
+        save(true);
+    }
+
+    /** Show the palette category that holds this block and scroll to it. */
+    public void revealPalette(String title) {
+        if (!paletteOpen) togglePalette();
+        if (editField != null) closeValuePane();
+        String cat = null;
+        for (Map.Entry<String, ArrayList<BlockCatalog.Def>> e : BlockCatalog.CATEGORIES.entrySet())
+            for (BlockCatalog.Def d : e.getValue()) if (d.title.equals(title)) cat = e.getKey();
+        if (cat == null) return;
+        if (!cat.equals(currentCategory) || !search.getText().toString().isEmpty()) {
+            currentCategory = cat;
+            search.setText("");
+            fillPalette();
+        }
+        scrollPaletteTo(title);
+    }
+
+    /** Scroll the palette (block list) so the block with this title is visible. */
+    public void scrollPaletteTo(String title) {
+        for (int i = 0; i < paletteItems.size(); i++) {
+            Object o = paletteItems.get(i);
+            if (o instanceof BlockCatalog.Def && ((BlockCatalog.Def) o).title.equals(title)) {
+                ((LinearLayoutManager) paletteList.getLayoutManager()).scrollToPositionWithOffset(i, Ui.dp(this, 8));
+                return;
+            }
+        }
+    }
+
+    /** Scroll the value list so a value block is visible. */
+    public void scrollValuesTo(String group, String display) {
+        if (valueList == null) return;
+        if (group != null && !group.equals(valueGroup)) {
+            valueGroup = group;
+            fillValues();
+        }
+        for (int i = 0; i < valueItems.size(); i++) {
+            Object o = valueItems.get(i);
+            if (o instanceof BlockCatalog.Reporter && ((BlockCatalog.Reporter) o).display.equals(display)) {
+                ((LinearLayoutManager) valueList.getLayoutManager()).scrollToPositionWithOffset(i, Ui.dp(this, 8));
+                return;
+            }
+        }
+    }
+
+    public String currentCategory() { return currentCategory; }
+    public String valueGroup() { return valueGroup; }
+
+    /** Insert a block: after the last block of the root stack, or inside a C-block (slot 1 then, 2 else). */
+    public BlockModel.Node tutorialInsert(String title, BlockModel.Node parent, int slot) {
+        BlockCatalog.Def d = BlockCatalog.find(title);
+        if (d == null) return null;
+        BlockModel.Node n = d.create();
+        beforeChange();
+        if (parent == null) {
+            BlockModel.Node root = model.root();
+            if (root != null) root.tail().next = n;
+        } else if (slot == 1) {
+            if (parent.yes == null) parent.yes = n; else parent.yes.tail().next = n;
+        } else if (slot == 2) {
+            if (parent.no == null) parent.no = n; else parent.no.tail().next = n;
+        } else {
+            n.next = parent.next;
+            parent.next = n;
+        }
+        canvas.changed();
+        afterChange();
+        return n;
+    }
+
+    /** Set a field value (one undo step). */
+    public void tutorialSetField(BlockModel.Field f, String value) {
+        if (f == null) return;
+        beforeChange();
+        f.value = value;
+        f.block = null;
+        canvas.changed();
+        afterChange();
+        if (f == editField && valueInput != null) valueInput.setText(value);
+    }
+
+    /** Put a value block into a field; returns it. */
+    public BlockModel.Param tutorialSetParam(BlockModel.Field f, String display) {
+        if (f == null) return null;
+        for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS)
+            if (r.display.equals(display)) {
+                beforeChange();
+                f.block = new BlockModel.Param(r.template, r.display);
+                f.value = "";
+                canvas.changed();
+                afterChange();
+                return f.block;
+            }
+        return null;
+    }
+
+    /** Open the value pane for a field (as if it was tapped). */
+    public void tutorialEdit(BlockModel.Node n, BlockModel.Field f) {
+        onFieldTap(n, f);
+    }
+
+    public void tutorialCloseValues() {
+        if (editField != null) closeValuePane();
+    }
+
     @Override
     public void onBackPressed() {
         if (canvas != null && canvas.isDragging()) return;
+        if (com.star4droid.star2d.ui.tutorial.Tutorial.onBack(this)) return;
         if (editField != null) {
             closeValuePane();
             return;

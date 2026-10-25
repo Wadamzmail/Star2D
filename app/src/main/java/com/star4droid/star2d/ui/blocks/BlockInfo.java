@@ -203,27 +203,66 @@ public final class BlockInfo {
         b("setGravityScaleOf", "Gravity scale", "مقياس الجاذبية", "0 = floats, 1 = normal, 2 = heavy.", "0 = يطفو، 1 = طبيعي، 2 = ثقيل.");
         b("destroyAfter", "Destroy after", "احذف بعد", "Removes the element after some seconds (bullets).", "يحذف العنصر بعد عدة ثوانٍ (الرصاص).");
         b("spawnCopy", "Spawn copy at", "أنشئ نسخة عند", "Clones an element at x, y. newName needs quotes.", "ينسخ العنصر عند x و y. الاسم الجديد يحتاج علامات تنصيص.");
+        b("setWorldGravity", "Set gravity", "اضبط الجاذبية", "How fast things fall, in pixels per second² (600 = normal, 0 = space).", "سرعة سقوط الأشياء بالبكسل/ثانية² (600 = عادي، 0 = فضاء).");
         b("toastValue", "Show value", "أظهر قيمة", "Shows any value as a message (no quotes needed).", "يعرض أي قيمة كرسالة (بدون علامات تنصيص).");
         b("logValue", "Log value", "سجّل قيمة", "Writes any value to the debug log.", "يكتب أي قيمة في سجل التصحيح.");
     }
 
+    /** Translation override from the language files (fr, pt, ru, es…), or null. */
+    private static String tr(String key) {
+        return com.star4droid.star2d.ui.Tr.t(key, null);
+    }
+
+    static String key(String s) {
+        return s.replaceAll("[^A-Za-z0-9]+", "_");
+    }
+
     public static String label(String title, boolean ar) {
+        String t = tr("blk_l_" + key(title));
+        if (t != null) return t;
         String[] v = B.get(title);
         return v == null ? title : v[ar ? 1 : 0];
     }
 
     public static String info(String title, boolean ar) {
+        String t = tr("blk_i_" + key(title));
+        if (t != null) return t;
         String[] v = B.get(title);
         return v == null ? null : v[ar ? 3 : 2];
     }
 
     public static String category(String cat, boolean ar) {
+        String t = tr("blk_c_" + key(cat));
+        if (t != null) return t;
         String[] v = CAT.get(cat);
         return v == null ? cat : v[ar ? 1 : 0];
     }
 
     public static String field(String label, boolean ar) {
+        String t = tr("blk_f_" + key(label));
+        if (t != null) return t;
         String[] v = FIELD.get(label);
         return v == null ? label : v[ar ? 1 : 0];
+    }
+
+    /** Value block text ("x of ___"), translated when the language file has it. Keeps the ___ slots. */
+    public static String reporter(String display) {
+        String t = tr("blk_r_" + key(display));
+        if (t == null) return display;
+        // a translation must keep the same number of slots
+        if (BlockModel.Param.count(t, "___") != BlockModel.Param.count(display, "___")) return display;
+        return t;
+    }
+
+    /** All built-in labels as properties lines (for translators). */
+    public static String dump() {
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, String[]> e : CAT.entrySet()) sb.append("blk_c_").append(key(e.getKey())).append('=').append(e.getValue()[0]).append('\n');
+        for (java.util.Map.Entry<String, String[]> e : FIELD.entrySet()) sb.append("blk_f_").append(key(e.getKey())).append('=').append(e.getValue()[0]).append('\n');
+        for (java.util.Map.Entry<String, String[]> e : B.entrySet()) {
+            sb.append("blk_l_").append(key(e.getKey())).append('=').append(e.getValue()[0]).append('\n');
+            sb.append("blk_i_").append(key(e.getKey())).append('=').append(e.getValue()[2]).append('\n');
+        }
+        return sb.toString();
     }
 }

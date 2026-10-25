@@ -130,6 +130,7 @@ public final class FilePickerDialog {
                 TextView tv = (TextView) cell.getChildAt(1);
                 boolean up = f == null;
                 tv.setText(up ? ".." : f.getName());
+                com.star4droid.star2d.ui.tutorial.Tut.tag(cell, up ? "pick:.." : "pick:" + f.getName());
                 tv.setTypeface(!up && f.isDirectory() ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
                 iv.setTag(null);
                 iv.setImageTintList(android.content.res.ColorStateList.valueOf(up || f.isDirectory() ? 0xFFFFCA28 : Ui.TEXT_2));

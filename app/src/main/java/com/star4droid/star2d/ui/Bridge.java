@@ -152,4 +152,43 @@ public final class Bridge {
             if (a instanceof EditorItem && name.equals(a.getName())) return a;
         return null;
     }
+
+    // ---------------------------------------------------------------- tutorial snapshots (GL thread)
+
+    /** One element with all its properties and its rectangle on the GL view (pixels, y down). */
+    public static class ElemState {
+        public String name, type;
+        public LinkedHashMap<String, String> props;
+        public float l, t, r, b;
+        public boolean selected;
+    }
+
+    public static ArrayList<ElemState> elements() {
+        ArrayList<ElemState> out = new ArrayList<>();
+        LibgdxEditor ed = editor();
+        if (ed == null) return out;
+        Actor sel = ed.getSelectedActor();
+        for (Actor a : ed.getActors()) {
+            if (!(a instanceof EditorItem)) continue;
+            PropertySet<String, Object> ps = PropertySet.getPropertySet(a);
+            if (ps == null || !ps.containsKey("name")) continue;
+            ElemState e = new ElemState();
+            e.name = ps.getString("name");
+            try { e.type = ((EditorItem) a).getTypeName(); } catch (Throwable t) { e.type = a.getClass().getSimpleName(); }
+            e.props = snapshot(ps);
+            e.selected = a == sel;
+            try {
+                com.badlogic.gdx.math.Vector2 p0 = a.localToStageCoordinates(new com.badlogic.gdx.math.Vector2(0, 0));
+                com.badlogic.gdx.math.Vector2 p1 = a.localToStageCoordinates(new com.badlogic.gdx.math.Vector2(a.getWidth(), a.getHeight()));
+                ed.stageToScreenCoordinates(p0);
+                ed.stageToScreenCoordinates(p1);
+                e.l = Math.min(p0.x, p1.x);
+                e.r = Math.max(p0.x, p1.x);
+                e.t = Math.min(p0.y, p1.y);
+                e.b = Math.max(p0.y, p1.y);
+            } catch (Throwable ignored) {}
+            out.add(e);
+        }
+        return out;
+    }
 }

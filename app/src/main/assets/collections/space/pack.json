@@ -1,0 +1,14 @@
+{
+ "id": "space",
+ "title": "Space",
+ "title_ar": "الفضاء",
+ "author": "Star2D",
+ "license": "CC0 1.0",
+ "files": [
+  "space_bg.png",
+  "ship.png",
+  "laser.png",
+  "rock.png",
+  "btn_fire.png"
+ ]
+}

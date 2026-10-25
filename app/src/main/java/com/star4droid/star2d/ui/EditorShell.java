@@ -77,6 +77,9 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private String tool = "grid", axis = "none";
     private boolean playing = false, projectOpen = false;
     private AlertDialog playDialog;
+    private boolean indexing = false;
+    /** The editor shell of the open editor activity (for tutorials). */
+    public static EditorShell current;
     private TextView playStatus;
     private ProgressBar playProgress;
 
@@ -103,6 +106,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         settings = new SettingsPanel(this);
         addItem = new AddItemPanel(this);
 
+        current = this;
         ControlLayer.nativeUi = this;
         TestApp.nativeHooks = this;
         setVisibility(GONE);
@@ -254,6 +258,11 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         ImageView set = Ui.iconButton(c, R.drawable.ic_s2_settings, Tr.t("settings", "Settings"), v -> panels.show(settings));
         Tut.tag(set, "tool:settings");
         into.addView(set);
+        ImageView coll = Ui.iconButton(c, R.drawable.ic_s2_collections, Tr.t("ui_collections", "Collections (free assets)"), v ->
+                Bridge.query(() -> Bridge.editor().getProject().getPath(), p -> CollectionsDialog.show(activity, new java.io.File(p), files::refreshList)));
+        coll.setImageTintList(ColorStateList.valueOf(0xFF81C784));
+        Tut.tag(coll, "tool:collections");
+        into.addView(coll);
         into.addView(Ui.iconButton(c, R.drawable.ic_s2_help, Tr.t("ui_help", "Help"), v -> Help.show(activity)));
     }
 
@@ -287,6 +296,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     private void addRail(Context c, LinearLayout rail, PanelHost.Panel p) {
         ImageView b = Ui.iconButton(c, p.icon(), p.title(), v -> togglePanel(p));
+        Tut.tag(b, "rail:" + p.getClass().getSimpleName().replace("Panel", "").toLowerCase());
         LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) b.getLayoutParams();
         lp.setMargins(0, Ui.dp(c, 2), 0, Ui.dp(c, 2));
         rail.addView(b);
@@ -309,6 +319,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         // add (accent)
         ImageView add = Ui.iconButton(c, R.drawable.ic_s2_add, Tr.t("ui_add_element", "Add element"), v -> panels.toggle(addItem));
         add.setBackground(Ui.ripple(Ui.ACCENT, Ui.dp(c, 10)));
+        Tut.tag(add, "tool:add");
         t.addView(add);
         t.addView(gap(c, vertical));
 
@@ -366,6 +377,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private void addTool(Context c, LinearLayout t, String mode, int icon, String label) {
         ImageView b = Ui.iconButton(c, icon, label, v -> setTool(mode));
         b.setTag(mode);
+        Tut.tag(b, "tool:" + mode);
         t.addView(b);
         toolButtons.add(b);
     }
@@ -678,7 +690,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     @Override
     public void onIndexing(boolean indexing) {
-        Ui.ui(() -> { if (indexingChip != null) indexingChip.setVisibility(indexing ? VISIBLE : GONE); });
+        Ui.ui(() -> {
+            this.indexing = indexing;
+            if (indexingChip != null) indexingChip.setVisibility(indexing ? VISIBLE : GONE);
+        });
     }
 
     @Override
@@ -744,10 +759,14 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     }
 
     public boolean isPlaying() { return playing; }
+    public boolean isProjectOpen() { return projectOpen; }
+    public boolean isIndexing() { return indexing; }
+    public boolean isBuilding() { return playDialog != null; }
 
     /** Back key: close the panel first. Returns true when consumed. */
     public boolean onBack() {
         if (getVisibility() != VISIBLE) return false;
+        if (com.star4droid.star2d.ui.tutorial.Tutorial.onBack(activity)) return true;
         if (panels.current() != null) {
             if (panels.current() instanceof FilesPanel && files.goUp()) return true;
             panels.hide();

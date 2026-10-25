@@ -77,6 +77,7 @@ public class PanelHost extends FrameLayout {
         ImageView expand = Ui.iconButton(c, R.drawable.ic_s2_fit, Tr.t("ui_expand", "Expand"), v -> toggleExpanded());
         header.addView(expand);
         ImageView close = Ui.iconButton(c, R.drawable.ic_s2_close, Tr.t("close", "Close"), v -> hide());
+        com.star4droid.star2d.ui.tutorial.Tut.tag(close, "panel:close");
         header.addView(close);
         sheet.addView(header, Ui.matchWrap());
         attachResize(header);

@@ -88,7 +88,12 @@ public class FilesPanel implements PanelHost.Panel {
             if (dir == null) return;
             shell.host().importFiles(dir.getAbsolutePath(), this::reload);
         });
-        return new View[]{imp, create, view};
+        com.star4droid.star2d.ui.tutorial.Tut.tag(imp, "files:import");
+        ImageView col = Ui.iconButton(c, R.drawable.ic_s2_collections, Tr.t("ui_collections", "Collections (free assets)"), v -> {
+            if (projectPath != null) com.star4droid.star2d.ui.CollectionsDialog.show(shell.activity(), new File(projectPath), this::reload);
+        });
+        com.star4droid.star2d.ui.tutorial.Tut.tag(col, "files:collections");
+        return new View[]{col, imp, create, view};
     }
 
     public void onEditorChanged() {
@@ -101,6 +106,21 @@ public class FilesPanel implements PanelHost.Panel {
             dir = rootDir;
             if (shell.panels.isShowing(this)) reload();
         });
+    }
+
+    /** Open a folder of the project (e.g. "images"). */
+    public void openFolder(String rel) {
+        if (projectPath == null) return;
+        logsMode = false;
+        rootDir = new File(projectPath);
+        File f = new File(rootDir, rel);
+        f.mkdirs();
+        dir = f;
+        if (root != null) reload();
+    }
+
+    public void refreshList() {
+        if (root != null && dir != null) reload();
     }
 
     /** Show the engine logs folder (compile errors etc.). */
@@ -576,6 +596,7 @@ public class FilesPanel implements PanelHost.Panel {
             ImageView iv = (ImageView) cell.getChildAt(0);
             LinearLayout texts = (LinearLayout) cell.getChildAt(1);
             ((TextView) texts.getChildAt(0)).setText(f.getName());
+            com.star4droid.star2d.ui.tutorial.Tut.tag(cell, "file:" + f.getName());
             if (texts.getChildCount() > 1) {
                 String sub = f.isDirectory() ? "" : size(f.length());
                 if (!search.getText().toString().isEmpty()) sub = relative(f.getParentFile()) + (sub.isEmpty() ? "" : " · " + sub);

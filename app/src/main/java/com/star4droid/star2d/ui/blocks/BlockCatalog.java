@@ -200,7 +200,7 @@ public final class BlockCatalog {
         if (t == null) return false;
         return t.contains("==") || t.contains("!=") || t.contains(" < ") || t.contains(" > ") || t.contains("<=") || t.contains(">=")
                 || t.contains("&&") || t.contains("||") || t.startsWith("(!(") || t.contains("checkCollision") || t.contains("isTouched")
-                || t.contains("isVisible()") || t.equals("true") || t.equals("false");
+                || t.contains("isVisible()") || t.contains(".equals(") || t.equals("true") || t.equals("false");
     }
 
     public static boolean isTextTemplate(String t) {
@@ -262,31 +262,32 @@ public final class BlockCatalog {
         def("Variables", vars, "newVariable", "type name value", "int|count|0", false, "%1$s %2$s = %3$s;\n%4$s");
         def("Variables", vars, "saveData", "key value", "best|score", false, "setValue(\"%1$s\",String.valueOf(%2$s));\n%3$s");
 
-        // Motion
-        def("Motion", motion, "moveBy", "body(Body) dx dy", "|1|0", false,
-                "%1$s.getBody().setTransform(%1$s.getBody().getPosition().x+(float)(%2$s),%1$s.getBody().getPosition().y+(float)(%3$s),%1$s.getBody().getAngle());\n%4$s");
-        def("Motion", motion, "goTo", "body(Body) x y", "|0|0", false,
-                "%1$s.getBody().setTransform((float)(%2$s),(float)(%3$s),%1$s.getBody().getAngle());\n%4$s");
-        def("Motion", motion, "goToBody", "body(Body) target(Body)", "", false,
+        // Motion (distances in editor pixels, speeds in pixels per second)
+        String ws = "com.star4droid.template.Items.StageImp.WORLD_SCALE";
+        def("Motion", motion, "moveBy", "body(Body) dx dy", "current|10|0", false,
+                "%1$s.getBody().setTransform(%1$s.getBody().getPosition().x+(float)(%2$s)*" + ws + ",%1$s.getBody().getPosition().y+(float)(%3$s)*" + ws + ",%1$s.getBody().getAngle());\n%4$s");
+        def("Motion", motion, "goTo", "body(Body) x y", "current|0|0", false,
+                "%1$s.getBody().setTransform((float)(%2$s)*" + ws + ",(float)(%3$s)*" + ws + ",%1$s.getBody().getAngle());\n%4$s");
+        def("Motion", motion, "goToBody", "body(Body) target(Body)", "current|", false,
                 "%1$s.getBody().setTransform(%2$s.getBody().getPosition(),%1$s.getBody().getAngle());\n%3$s");
-        def("Motion", motion, "setVelocityX", "body(Body) speed", "|5", false,
-                "%1$s.getBody().setLinearVelocity((float)(%2$s),%1$s.getBody().getLinearVelocity().y);\n%3$s");
-        def("Motion", motion, "setVelocityY", "body(Body) speed", "|5", false,
-                "%1$s.getBody().setLinearVelocity(%1$s.getBody().getLinearVelocity().x,(float)(%2$s));\n%3$s");
-        def("Motion", motion, "stopMoving", "body(Body)", "", false,
+        def("Motion", motion, "setVelocityX", "body(Body) speed", "current|200", false,
+                "%1$s.getBody().setLinearVelocity((float)(%2$s)*" + ws + ",%1$s.getBody().getLinearVelocity().y);\n%3$s");
+        def("Motion", motion, "setVelocityY", "body(Body) speed", "current|200", false,
+                "%1$s.getBody().setLinearVelocity(%1$s.getBody().getLinearVelocity().x,(float)(%2$s)*" + ws + ");\n%3$s");
+        def("Motion", motion, "stopMoving", "body(Body)", "current", false,
                 "%1$s.getBody().setLinearVelocity(0,0);\n%1$s.getBody().setAngularVelocity(0);\n%2$s");
-        def("Motion", motion, "jump", "body(Body) power", "|8", false,
-                "%1$s.getBody().setLinearVelocity(%1$s.getBody().getLinearVelocity().x,(float)(%2$s));\n%3$s");
-        def("Motion", motion, "rotateBy", "body(Body) degrees", "|15", false,
+        def("Motion", motion, "jump", "body(Body) power", "current|400", false,
+                "%1$s.getBody().setLinearVelocity(%1$s.getBody().getLinearVelocity().x,(float)(%2$s)*" + ws + ");\n%3$s");
+        def("Motion", motion, "rotateBy", "body(Body) degrees", "current|15", false,
                 "%1$s.getBody().setTransform(%1$s.getBody().getPosition(),%1$s.getBody().getAngle()+(float)Math.toRadians(%2$s));\n%3$s");
-        def("Motion", motion, "lookAt", "body(Body) target(Body)", "", false,
+        def("Motion", motion, "lookAt", "body(Body) target(Body)", "current|", false,
                 "%1$s.getBody().setTransform(%1$s.getBody().getPosition(),%2$s.angleTo(%1$s));\n%3$s");
-        def("Motion", motion, "moveToward", "body(Body) target(Body) speed", "||3", false,
-                "{\n    float __a = %2$s.angleTo(%1$s);\n    %1$s.getBody().setLinearVelocity((float)Math.cos(__a)*(float)(%3$s),(float)Math.sin(__a)*(float)(%3$s));\n}\n%4$s");
-        def("Motion", motion, "moveWithJoystick", "body(Body) joystick(Body) speed", "||5", false,
-                "%1$s.getBody().setLinearVelocity(%2$s.getJoyStickX()*(float)(%3$s),%2$s.getJoyStickY()*(float)(%3$s));\n%4$s");
-        def("Motion", motion, "walkWithJoystick", "body(Body) joystick(Body) speed", "||5", false,
-                "%1$s.getBody().setLinearVelocity(%2$s.getJoyStickX()*(float)(%3$s),%1$s.getBody().getLinearVelocity().y);\n%4$s");
+        def("Motion", motion, "moveToward", "body(Body) target(Body) speed", "current||150", false,
+                "{\n    float __a = %2$s.angleTo(%1$s);\n    %1$s.getBody().setLinearVelocity((float)Math.cos(__a)*(float)(%3$s)*" + ws + ",(float)Math.sin(__a)*(float)(%3$s)*" + ws + ");\n}\n%4$s");
+        def("Motion", motion, "moveWithJoystick", "body(Body) joystick(Body) speed", "current||300", false,
+                "%1$s.getBody().setLinearVelocity(%2$s.getJoyStickX()*(float)(%3$s)*" + ws + ",%2$s.getJoyStickY()*(float)(%3$s)*" + ws + ");\n%4$s");
+        def("Motion", motion, "walkWithJoystick", "body(Body) joystick(Body) speed", "current||300", false,
+                "%1$s.getBody().setLinearVelocity(%2$s.getJoyStickX()*(float)(%3$s)*" + ws + ",%1$s.getBody().getLinearVelocity().y);\n%4$s");
 
         // Looks
         def("Looks", looks, "show", "body(Body)", "", false, "%1$s.getActor().setVisible(true);\n%2$s");
@@ -312,7 +313,9 @@ public final class BlockCatalog {
         def("Physics", phys, "destroyAfter", "body(Body) seconds", "|2", false,
                 "Timer.schedule(new Timer.Task(){\n    public void run(){\n        %1$s.destroy();\n    }\n},(float)(%2$s));\n%3$s");
         def("Physics", phys, "spawnCopy", "body(Body) var newName x y", "|bullet|\"bullet\"|0|0", false,
-                "PlayerItem %2$s = %1$s.getClone(%3$s);\n%2$s.getBody().setTransform((float)(%4$s),(float)(%5$s),0);\n%6$s");
+                "PlayerItem %2$s = %1$s.getClone(%3$s);\n%2$s.getBody().setTransform((float)(%4$s)*" + ws + ",(float)(%5$s)*" + ws + ",0);\n%6$s");
+        def("Physics", phys, "setWorldGravity", "strength", "600", false,
+                "setGravity(0f,-(float)(%1$s)*" + ws + ");\n%2$s");
 
         // Debug
         def("Debug", dbg, "toastValue", "value", "score", false, "toast(String.valueOf(%1$s));\n%2$s");
@@ -320,6 +323,8 @@ public final class BlockCatalog {
     }
 
     // ------------------------------------------------------------------ reporters
+
+    private static final String WS = "com.star4droid.template.Items.StageImp.WORLD_SCALE";
 
     private static void addReporters() {
         // original parameter dialog groups (same templates)
@@ -369,12 +374,12 @@ public final class BlockCatalog {
         r("Math", "cos ___°", "(float)Math.cos(Math.toRadians(%1$s))");
         r("Text", "join ___ ___", "(String.valueOf(%1$s) + String.valueOf(%2$s))");
         r("Text", "length of ___", "String.valueOf(%1$s).length()");
-        r("Elements", "x of ___", "%1$s.getBodyX()");
-        r("Elements", "y of ___", "%1$s.getBodyY()");
-        r("Elements", "speed x of ___", "%1$s.getBody().getLinearVelocity().x");
-        r("Elements", "speed y of ___", "%1$s.getBody().getLinearVelocity().y");
+        r("Elements", "x of ___", "(%1$s.getBodyX()/" + WS + ")");
+        r("Elements", "y of ___", "(%1$s.getBodyY()/" + WS + ")");
+        r("Elements", "speed x of ___", "(%1$s.getBody().getLinearVelocity().x/" + WS + ")");
+        r("Elements", "speed y of ___", "(%1$s.getBody().getLinearVelocity().y/" + WS + ")");
         r("Elements", "angle of ___", "(float)Math.toDegrees(%1$s.getBody().getAngle())");
-        r("Elements", "distance ___ to ___", "%1$s.distTo(%2$s)");
+        r("Elements", "distance ___ to ___", "(%1$s.distTo(%2$s)/" + WS + ")");
         r("Elements", "angle ___ to ___", "%1$s.angleTo(%2$s)");
         r("Elements", "name of ___", "%1$s.getName()");
         r("Elements", "width of ___", "%1$s.getActor().getWidth()");
@@ -384,14 +389,16 @@ public final class BlockCatalog {
         r("Joystick", "joystick y ___", "%1$s.getJoyStickY()");
         r("Joystick", "power ___", "%1$s.getPower()");
         r("Joystick", "angle (deg) ___", "%1$s.getAngleDegrees()");
-        r("Input", "touch x", "getTouch().x");
-        r("Input", "touch y", "getTouch().y");
+        r("Input", "touch x", "(getTouch().x/" + WS + ")");
+        r("Input", "touch y", "(getTouch().y/" + WS + ")");
         r("Input", "frame time", "getDelta()");
-        r("Input", "camera x", "getCameraX()");
-        r("Input", "camera y", "getCameraY()");
+        r("Input", "camera x", "(getCameraX()/" + WS + ")");
+        r("Input", "camera y", "(getCameraY()/" + WS + ")");
         r("Data", "saved text ___", "getValue(\"%1$s\")");
         r("Data", "saved number ___", "getNumber(\"%1$s\")");
         r("Logic", "true", "true");
+        r("Logic", "___ is named ___", "%1$s.getName().equals(\"%2$s\")");
+        r("Logic", "___ equals ___", "String.valueOf(%1$s).equals(String.valueOf(%2$s))");
         r("Logic", "false", "false");
         r("Text", "\"___\"", "\"%1$s\"");
     }

@@ -142,9 +142,12 @@ public class EventsPanel implements PanelHost.Panel {
                     String path = Bridge.editor().getProject().getSceneScript(sc);
                     VisualScriptingDialog.openSceneScript(sc, path);
                 })));
-        for (String[] e : SCENE_EVENTS)
-            list.addView(row(c, R.drawable.ic_s2_events, 0xFFFFB300, Tr.t(e[0]), ar ? e[2] : e[1], withCode.contains(e[0]),
-                    v -> VisualScriptingDialog.showFor(e[0], false, false)));
+        for (String[] e : SCENE_EVENTS) {
+            View r = row(c, R.drawable.ic_s2_events, 0xFFFFB300, Tr.t(e[0]), ar ? e[2] : e[1], withCode.contains(e[0]),
+                    v -> VisualScriptingDialog.showFor(e[0], false, false));
+            com.star4droid.star2d.ui.tutorial.Tut.tag(r, "scene_event:" + e[0]);
+            list.addView(r);
+        }
 
         // element
         list.addView(Ui.sectionLabel(c, Tr.t("ui_element_events", "Element events") + (sel == null ? "" : " · " + sel)));
@@ -158,9 +161,12 @@ public class EventsPanel implements PanelHost.Panel {
                 t.setPadding(Ui.dp(c, 6), 0, 0, Ui.dp(c, 4));
                 list.addView(t);
             }
-            for (String[] e : BODY_EVENTS)
-                list.addView(row(c, R.drawable.ic_s2_touch, 0xFF42A5F5, Tr.t(e[0]), ar ? e[2] : e[1], withCode.contains("body:" + e[0]),
-                        v -> VisualScriptingDialog.showFor(e[0], true, false)));
+            for (String[] e : BODY_EVENTS) {
+                View r = row(c, R.drawable.ic_s2_touch, 0xFF42A5F5, Tr.t(e[0]), ar ? e[2] : e[1], withCode.contains("body:" + e[0]),
+                        v -> VisualScriptingDialog.showFor(e[0], true, false));
+                com.star4droid.star2d.ui.tutorial.Tut.tag(r, "event:" + e[0]);
+                list.addView(r);
+            }
             View bs = row(c, R.drawable.ic_s2_script, 0xFF7E57C2, Tr.t("bodyScript", "Body Script"),
                     ar ? "كود جافا خاص بهذا العنصر (للمحترفين)." : "Java code just for this element (advanced).", withCode.contains("Body Script"),
                     v -> {

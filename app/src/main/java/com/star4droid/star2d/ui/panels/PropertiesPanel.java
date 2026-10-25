@@ -262,6 +262,14 @@ public class PropertiesPanel implements PanelHost.Panel {
     }
 
     private View field(Context c, String f, String type) {
+        View v = fieldIn(c, f, type);
+        com.star4droid.star2d.ui.tutorial.Tut.tag(v, "prop:" + f);
+        View ed = editors.get(f);
+        if (ed != null && ed != v) com.star4droid.star2d.ui.tutorial.Tut.tag(ed, "propedit:" + f);
+        return v;
+    }
+
+    private View fieldIn(Context c, String f, String type) {
         LinearLayout box = Ui.column(c);
         if (type == null) type = "string";
         String val = values.get(f);
@@ -335,21 +343,22 @@ public class PropertiesPanel implements PanelHost.Panel {
                 t.setOnClickListener(v -> {
                     String[] opts = spinners.get(f);
                     if (opts == null) return;
-                    PopupMenu m = new PopupMenu(c, t);
-                    for (int i = 0; i < opts.length; i++) m.getMenu().add(0, i, i, Tr.t(opts[i], opts[i]));
-                    m.setOnMenuItemClickListener(it -> {
-                        String nv = opts[it.getItemId()];
-                        if (nv.equals(values.get(f))) return true;
-                        values.put(f, nv);
-                        t.setText(Tr.t(nv, nv));
-                        commit(() -> PropertyEditing.applySpinner(Bridge.app(), f, nv));
-                        if (f.equals("Shape") || f.equals("Light Type")) {
-                            fieldsSignature = "";
-                            t.postDelayed(this::onSelectionChanged, 250);
-                        }
-                        return true;
-                    });
-                    m.show();
+                    com.star4droid.star2d.ui.IconMenu m = new com.star4droid.star2d.ui.IconMenu(c);
+                    for (String o : opts) {
+                        boolean cur = o.equals(values.get(f));
+                        m.add(cur ? R.drawable.ic_s2_check : 0, Ui.ACCENT, Tr.t(o, o), () -> {
+                            String nv = o;
+                            if (nv.equals(values.get(f))) return;
+                            values.put(f, nv);
+                            t.setText(Tr.t(nv, nv));
+                            commit(() -> PropertyEditing.applySpinner(Bridge.app(), f, nv));
+                            if (f.equals("Shape") || f.equals("Light Type")) {
+                                fieldsSignature = "";
+                                t.postDelayed(this::onSelectionChanged, 250);
+                            }
+                        }).tagLast("menu:" + o);
+                    }
+                    m.show(t);
                 });
                 t.setText(Tr.t(val, val));
                 box.addView(t, Ui.matchWrap());

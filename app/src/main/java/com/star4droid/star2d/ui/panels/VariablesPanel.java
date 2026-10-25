@@ -95,6 +95,7 @@ public class VariablesPanel implements PanelHost.Panel {
             LinearLayout row = PanelHost.listRow(c, R.drawable.ic_s2_variables, 0xFF9575CD, m.getName(),
                     (m.getAccessModifer().isEmpty() ? "" : m.getAccessModifer() + " · ") + "= " + (m.getValue().isEmpty() ? "—" : m.getValue()), type);
             row.setOnClickListener(v -> edit(c, pos));
+            com.star4droid.star2d.ui.tutorial.Tut.tag(row, "var:" + m.getName());
             row.setOnLongClickListener(v -> {
                 PopupMenu pm = new PopupMenu(c, v);
                 pm.getMenu().add(0, 1, 0, Tr.t("edit", "Edit"));
@@ -115,6 +116,7 @@ public class VariablesPanel implements PanelHost.Panel {
             list.addView(row);
         }
         LinearLayout add = Ui.button(c, R.drawable.ic_s2_add, Tr.t("ui_add_variable", "Add variable"), true, v -> edit(c, -1));
+        com.star4droid.star2d.ui.tutorial.Tut.tag(add, "vars:add");
         list.addView(add, Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 4, 10, 4, 0));
     }
 
@@ -149,9 +151,11 @@ public class VariablesPanel implements PanelHost.Panel {
 
         col.addView(Ui.text(c, Tr.t("name", "Name"), 12.5f, Ui.TEXT_2));
         EditText name = Ui.input(c, m.getName(), "score");
+        com.star4droid.star2d.ui.tutorial.Tut.tag(name, "vardlg:name");
         col.addView(name, Ui.matchWrap());
         col.addView(Ui.text(c, Tr.t("ui_initial_value", "Initial value"), 12.5f, Ui.TEXT_2));
         EditText value = Ui.input(c, m.getValue(), "0");
+        com.star4droid.star2d.ui.tutorial.Tut.tag(value, "vardlg:value");
         col.addView(value, Ui.matchWrap());
         TextView tip = Ui.text(c, Tr.t("ui_var_tip", "Text values need quotes, e.g. \"Hello\". true/false for boolean."), 11.5f, Ui.TEXT_3);
         tip.setPadding(0, Ui.dp(c, 4), 0, 0);
@@ -176,7 +180,9 @@ public class VariablesPanel implements PanelHost.Panel {
                 .setPositiveButton(Tr.t("save", "Save"), null)
                 .setNegativeButton(Tr.t("cancel", "Cancel"), null)
                 .create();
-        d.setOnShowListener(x -> d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+        d.setOnShowListener(x -> {
+            com.star4droid.star2d.ui.tutorial.Tut.tag(d.getButton(AlertDialog.BUTTON_POSITIVE), "vardlg:save");
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String n = name.getText().toString().trim();
             String err = Dialogs.checkName(n);
             if (err != null) { name.setError(err); return; }
@@ -190,7 +196,8 @@ public class VariablesPanel implements PanelHost.Panel {
             if (pos < 0) vars.add(m);
             d.dismiss();
             save();
-        }));
+        });
+        });
         d.show();
     }
 

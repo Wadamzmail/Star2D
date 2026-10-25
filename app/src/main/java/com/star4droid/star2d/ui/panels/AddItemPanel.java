@@ -88,6 +88,7 @@ public class AddItemPanel implements PanelHost.Panel {
             texts.addView(name);
             texts.addView(d);
             card.addView(texts, Ui.weight(1));
+            com.star4droid.star2d.ui.tutorial.Tut.tag(card, lights ? "add:light" + pos : "add:" + it[2].toLowerCase());
             card.setOnClickListener(v -> {
                 shell.panels.hide();
                 Bridge.gl(() -> {

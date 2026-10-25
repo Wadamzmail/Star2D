@@ -419,7 +419,7 @@ public class BlockCanvas extends View {
             String tpl = f.block.template;
             s.shape = BlockCatalog.isBooleanTemplate(tpl) ? SHAPE_HEX : (BlockCatalog.isTextTemplate(tpl) ? SHAPE_RECT : SHAPE_PILL);
             s.color = BlockCatalog.reporterColor(tpl);
-            String[] pieces = f.block.display.split("___", -1);
+            String[] pieces = BlockInfo.reporter(f.block.display).split("___", -1);
             float content = 0, h = CHIP_H;
             int k = 0;
             for (int i = 0; i < pieces.length; i++) {
@@ -1191,5 +1191,115 @@ public class BlockCanvas extends View {
     public void changed() {
         dirty = true;
         invalidate();
+    }
+
+    // ================================================================ tutorial helpers
+
+    /** First node with this title (depth first from the root stack). */
+    public BlockModel.Node findNode(String title) {
+        if (model == null) return null;
+        java.util.ArrayList<BlockModel.Node> all = new java.util.ArrayList<>();
+        for (BlockModel.Node h : model.heads) collect(h, all);
+        for (BlockModel.Node n : all) if (title.equals(n.title)) return n;
+        return null;
+    }
+
+    private static void collect(BlockModel.Node n, java.util.ArrayList<BlockModel.Node> out) {
+        while (n != null) {
+            out.add(n);
+            collect(n.yes, out);
+            collect(n.no, out);
+            n = n.next;
+        }
+    }
+
+    private Box boxOf(BlockModel.Node n) {
+        if (dirty) doLayout();
+        for (Box b : boxes) if (b.node == n) return b;
+        return null;
+    }
+
+    private RectF toView(RectF w) {
+        if (w == null) return null;
+        return new RectF(w.left * scale + tx, w.top * scale + ty, w.right * scale + tx, w.bottom * scale + ty);
+    }
+
+    /** Header of a block, in this view's pixels. */
+    public RectF viewRectOfNode(BlockModel.Node n) {
+        Box b = n == null ? null : boxOf(n);
+        return b == null ? null : toView(b.header);
+    }
+
+    /** A field chip of a block (index in node.fields), in this view's pixels. */
+    public RectF viewRectOfField(BlockModel.Node n, int index) {
+        Box b = n == null ? null : boxOf(n);
+        if (b == null || index < 0 || index >= b.slots.size()) return null;
+        return toView(b.slots.get(index).r);
+    }
+
+    /** First empty inner field of the value block in a field. */
+    public RectF viewRectOfInner(BlockModel.Node n, int index, int inner) {
+        Box b = n == null ? null : boxOf(n);
+        if (b == null || index < 0 || index >= b.slots.size()) return null;
+        Slot s = b.slots.get(index);
+        int k = 0;
+        for (Object o : s.parts)
+            if (o instanceof Slot) {
+                if (k == inner) return toView(((Slot) o).r);
+                k++;
+            }
+        return null;
+    }
+
+    /** A field nested in value blocks: path = inner indexes, level by level. */
+    public RectF viewRectOfPath(BlockModel.Node n, int index, int[] path) {
+        Box b = n == null ? null : boxOf(n);
+        if (b == null || index < 0 || index >= b.slots.size()) return null;
+        Slot s = b.slots.get(index);
+        for (int want : path) {
+            Slot next = null;
+            int k = 0;
+            for (Object o : s.parts)
+                if (o instanceof Slot) {
+                    if (k == want) { next = (Slot) o; break; }
+                    k++;
+                }
+            if (next == null) return null;
+            s = next;
+        }
+        return toView(s.r);
+    }
+
+    /** Where a block dropped after the last block of the root stack goes. */
+    public RectF viewDropAfter(BlockModel.Node n) {
+        Box b = n == null ? null : boxOf(n.tail());
+        if (b == null) return null;
+        float w = 150 * d;
+        RectF r = mirror ? new RectF(b.header.right - w, b.all.bottom, b.header.right, b.all.bottom + 30 * d)
+                : new RectF(b.header.left, b.all.bottom, b.header.left + w, b.all.bottom + 30 * d);
+        return toView(r);
+    }
+
+    /** The "then" (1) or "else" (2) opening of a C-block. */
+    public RectF viewMouth(BlockModel.Node n, int slot) {
+        Box b = n == null ? null : boxOf(n);
+        if (b == null) return null;
+        return toView(slot == 2 ? b.noMouth : b.yesMouth);
+    }
+
+    /** Scroll so this view rectangle is inside the canvas. */
+    public void reveal(RectF v) {
+        if (v == null || getWidth() == 0) return;
+        float m = 24 * d;
+        float dx = 0, dy = 0;
+        if (v.right > getWidth() - m) dx = getWidth() - m - v.right;
+        if (v.left + dx < m) dx = m - v.left;
+        if (v.bottom > getHeight() - m) dy = getHeight() - m - v.bottom;
+        if (v.top + dy < m) dy = m - v.top;
+        if (dx != 0 || dy != 0) {
+            tx += dx;
+            ty += dy;
+            invalidate();
+        }
     }
 }

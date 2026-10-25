@@ -23,7 +23,13 @@ public final class IconMenu {
     }
 
     public IconMenu add(int icon, int color, String label, Runnable action) {
-        items.add(new Object[]{icon, color, label, action});
+        items.add(new Object[]{icon, color, label, action, null});
+        return this;
+    }
+
+    /** Tutorial tag for the last added item. */
+    public IconMenu tagLast(String tag) {
+        if (!items.isEmpty() && items.get(items.size() - 1) != null) items.get(items.size() - 1)[4] = tag;
         return this;
     }
 
@@ -70,8 +76,13 @@ public final class IconMenu {
             LinearLayout row = Ui.row(c);
             row.setPadding(Ui.dp(c, 14), Ui.dp(c, 10), Ui.dp(c, 20), Ui.dp(c, 10));
             row.setBackground(Ui.ripple(0, 0));
-            ImageView iv = Ui.smallIcon(c, (Integer) it[0], (Integer) it[1], 20);
-            row.addView(iv);
+            if ((Integer) it[0] != 0) {
+                ImageView iv = Ui.smallIcon(c, (Integer) it[0], (Integer) it[1], 20);
+                row.addView(iv);
+            } else {
+                row.addView(new View(c), new LinearLayout.LayoutParams(Ui.dp(c, 20), 1));
+            }
+            if (it[4] != null) com.star4droid.star2d.ui.tutorial.Tut.tag(row, (String) it[4]);
             TextView t = Ui.text(c, (String) it[2], 14.5f, Ui.TEXT);
             t.setPadding(Ui.dp(c, 14), 0, 0, 0);
             row.addView(t);
