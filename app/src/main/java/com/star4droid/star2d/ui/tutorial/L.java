@@ -223,7 +223,9 @@ final class L {
 
     static boolean fieldIs(String title, int index, String value, int... path) {
         BlockModel.Field f = field(title, index, path);
-        if (f == null || f.block != null) return false;
+        if (f == null) return false;
+        // an event parameter dragged from the first block is a value block with the same code
+        if (f.block != null) return f.block.inner.isEmpty() && f.block.template.equals(value);
         String v = f.value.trim();
         if (v.equals(value)) return true;
         try {

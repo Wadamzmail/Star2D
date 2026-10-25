@@ -48,6 +48,8 @@ import com.star4droid.star2d.Helpers.EngineSettings;
 import com.star4droid.star2d.editor.ui.variables.VarModel;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.ui.Dialogs;
+import com.star4droid.star2d.ui.FilePickerDialog;
+import com.star4droid.star2d.ui.NumberPad;
 import com.star4droid.star2d.ui.IconMenu;
 import com.star4droid.star2d.ui.Snack;
 import com.star4droid.star2d.ui.Tr;
@@ -136,6 +138,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         model = BlockModel.load(file);
         canvas = new BlockCanvas(this, this, rtl);
         canvas.setMirror(mirror);
+        canvas.setRootParams(eventParams(file));
         canvas.setModel(model, BlockInfo.label("First >", rtl) + " · " + eventName);
         if (!BlockCatalog.CATEGORIES.isEmpty()) currentCategory = BlockCatalog.CATEGORIES.keySet().iterator().next();
         build();
@@ -540,7 +543,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             block.setMaxLines(2);
             if (viewType == 1) row.addView(block, new LinearLayout.LayoutParams(-2, -2));
             else row.addView(block, Ui.weight(1));
-            if (viewType == 1) row.addView(new View(c), Ui.weight(1));
+            if (viewType == 1) row.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1));
             TextView info = Ui.text(c, "!", 15, Ui.TEXT);
             info.setTypeface(Typeface.DEFAULT_BOLD);
             info.setGravity(Gravity.CENTER);
@@ -745,6 +748,91 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         afterChange();
     }
 
+    private static final java.util.HashSet<String> NUMERIC = new java.util.HashSet<>(java.util.Arrays.asList(
+            "x", "y", "dx", "dy", "speed", "power", "seconds", "delay", "times", "by", "strength", "degrees", "alpha",
+            "scale", "scaleX", "scaleY", "zoom", "angle", "velocity", "xVelocity", "yVelocity", "impulse", "torque",
+            "offsetX", "offsetY", "GravityScale", "progress", "max", "splits", "step", "pointX", "pointY", "frequency",
+            "ratio", "torque", "ms", "repeat"));
+
+    /** The value block that holds this field, or null for a field of the block itself. */
+    private static BlockModel.Param parentOf(BlockModel.Node n, BlockModel.Field f) {
+        if (n == null) return null;
+        for (BlockModel.Field x : n.fields) {
+            BlockModel.Param p = parentIn(x, f);
+            if (p != null) return p;
+        }
+        return null;
+    }
+
+    private static BlockModel.Param parentIn(BlockModel.Field x, BlockModel.Field f) {
+        if (x.block == null) return null;
+        for (BlockModel.Field i : x.block.inner) {
+            if (i == f) return x.block;
+            BlockModel.Param p = parentIn(i, f);
+            if (p != null) return p;
+        }
+        return null;
+    }
+
+    /** Fields that take a number get the keypad. */
+    private boolean isNumericField(BlockModel.Node n, BlockModel.Field f) {
+        if (!f.type().isEmpty()) return false;
+        if (!f.value.trim().isEmpty()) return NumberPad.isNumber(f.value);
+        if (NUMERIC.contains(f.label())) return true;
+        if (f.name.equals("___")) {
+            BlockModel.Param p = parentOf(n, f);
+            String g = p == null ? null : BlockCatalog.groupOf(p.template);
+            return g != null && (g.equals("Math") || g.equals("Operators") || g.equals("Convert"));
+        }
+        return false;
+    }
+
+    private void openPad(String label) {
+        if (valueInput == null) return;
+        EditText input = valueInput;
+        NumberPad.show(this, label, input.getText().toString(), v -> {
+            input.setText(v);
+            commitValue();
+        }, () -> {
+            // type text instead (a variable name, an expression…)
+            input.setFocusableInTouchMode(true);
+            input.setFocusable(true);
+            input.setOnClickListener(null);
+            input.requestFocus();
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+        });
+    }
+
+    /** Project folder to browse for this field, or null. */
+    private static String browseFolder(BlockModel.Field f) {
+        String t = f.type().toLowerCase(Locale.ROOT), l = f.label().toLowerCase(Locale.ROOT);
+        switch (t) {
+            case "image": return "images";
+            case "sound": return "sounds";
+            case "animation": return "anims";
+            case "scene": return "scenes";
+        }
+        if (l.equals("path") || l.equals("file")) return "files";
+        if (l.equals("image")) return "images";
+        if (l.equals("sound")) return "sounds";
+        return null;
+    }
+
+    private void browse(BlockModel.Field f, String folder, String title) {
+        File root = new File(projectKey, folder);
+        String[] ext = folder.equals("images") ? new String[]{"png", "jpg", "jpeg"}
+                : folder.equals("sounds") ? new String[]{"mp3", "ogg", "wav", "m4a"} : null;
+        FilePickerDialog.show(this, title, root.getAbsolutePath(), ext, folder.equals("images"), (file, rel) -> {
+            String v = folder.equals("anims") || folder.equals("scenes") ? file.getName() : rel;
+            if (folder.equals("files")) v = "\"" + new File(root, rel).getAbsolutePath().replace("\"", "") + "\"";
+            if (valueInput != null && editField == f) {
+                valueInput.setText(v);
+                commitValue();
+            } else tutorialSetField(f, v);
+        });
+    }
+
     private boolean isCodeField(BlockModel.Node node, BlockModel.Field f) {
         return f.label().equals("code") || (node != null && (node.title.equals("addSource") || node.title.equals("codeLine")));
     }
@@ -803,6 +891,23 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         LinearLayout.LayoutParams okl = new LinearLayout.LayoutParams(-2, -2);
         okl.setMarginStart(Ui.dp(c, 6));
         in.addView(ok, okl);
+        // numbers: a keypad dialog instead of the keyboard
+        if (!code && isNumericField(editNode, field)) {
+            valueInput.setFocusable(false);
+            valueInput.setOnClickListener(v -> openPad(label));
+            valueInput.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_s2_dialpad, 0);
+            valueInput.setCompoundDrawableTintList(ColorStateList.valueOf(Ui.TEXT_3));
+        }
+        // files: browse the right folder of the project
+        String folder = browseFolder(field);
+        if (folder != null) {
+            ImageView br = Ui.iconButton(c, R.drawable.ic_s2_folder_open, Tr.t("blk_browse", "Browse"), v -> browse(field, folder, label));
+            br.setImageTintList(ColorStateList.valueOf(0xFFFFCA28));
+            Tut.tag(br, "blocks:value_browse");
+            LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-2, -2);
+            bl.setMarginStart(Ui.dp(c, 4));
+            in.addView(br, bl);
+        }
         valuePane.addView(in, Ui.margins(Ui.matchWrap(), c, 0, 4, 0, 0));
 
         if (field.block != null) {
@@ -1035,6 +1140,36 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             Dialogs.longText(this, BlockInfo.label(node.title, rtl), tmp.exportCode());
         });
         m.showAt(rootFrame, rawX, rawY);
+    }
+
+    @Override
+    public void onRootParam(String name) {
+        String what;
+        switch (name) {
+            case "current": what = Tr.t("blk_p_current", "the element that owns this event"); break;
+            case "body2": what = Tr.t("blk_p_body2", "the other body in the collision"); break;
+            case "body1": what = Tr.t("blk_p_body1", "the first body in the collision"); break;
+            case "event": what = Tr.t("blk_p_event", "the touch event (position, pointer…)"); break;
+            default: what = name;
+        }
+        Snack.show(name + " = " + what + ". " + Tr.t("blk_p_drag", "Long-press it and drag a copy into any field."));
+    }
+
+    /** Parameters of an event, from its file name (element events live in /private/). */
+    static String[] eventParams(File f) {
+        String e = f.getName().replace(".visual", "");
+        boolean element = f.getAbsolutePath().contains("/private/");
+        if (element) {
+            switch (e) {
+                case "onTouchStart":
+                case "onTouchEnd": return new String[]{"current", "event"};
+                case "onBodyCollided":
+                case "onBodyCollideEnd": return new String[]{"current", "body2"};
+                default: return new String[]{"current"};
+            }
+        }
+        if (e.equals("onCollisionStart") || e.equals("onCollisionEnd")) return new String[]{"body1", "body2"};
+        return new String[0];
     }
 
     @Override

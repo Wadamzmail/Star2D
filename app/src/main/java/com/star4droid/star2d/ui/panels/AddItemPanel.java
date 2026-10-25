@@ -83,7 +83,7 @@ public class AddItemPanel implements PanelHost.Panel {
             TextView name = Ui.text(c, Tr.t(it[0], it[1]), 14, Ui.TEXT);
             name.setTypeface(Typeface.DEFAULT_BOLD);
             name.setMaxLines(1);
-            TextView d = Ui.text(c, ar ? it[4] : it[3], 11.5f, Ui.TEXT_3);
+            TextView d = Ui.text(c, Tr.t("ui_add_desc_" + it[0], ar ? it[4] : it[3]), 11.5f, Ui.TEXT_3);
             d.setMaxLines(3);
             texts.addView(name);
             texts.addView(d);

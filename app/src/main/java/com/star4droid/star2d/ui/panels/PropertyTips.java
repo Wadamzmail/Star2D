@@ -53,6 +53,7 @@ public final class PropertyTips {
 
     public static String tip(String field, boolean arabic) {
         String[] t = TIPS.get(field);
-        return t == null ? null : t[arabic ? 1 : 0];
+        if (t == null) return null;
+        return com.star4droid.star2d.ui.Tr.t("ui_tip_" + field.replaceAll("[^A-Za-z0-9]+", "_"), t[arabic ? 1 : 0]);
     }
 }

@@ -142,6 +142,11 @@ public final class Targets {
         return blocks((c, m) -> path.length == 0 ? c.viewRectOfField(c.findNode(title), index) : c.viewRectOfPath(c.findNode(title), index, path));
     }
 
+    /** An event parameter chip (current, body2…) on the first block. */
+    public static Step.Finder rootParam(String name) {
+        return blocks((c, m) -> c.viewRectOfRootParam(name));
+    }
+
     /** Under the last block of the root stack. */
     public static Step.Finder dropAfterRoot() {
         return blocks((c, m) -> m == null ? null : c.viewDropAfter(m.root()));

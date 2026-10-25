@@ -333,6 +333,16 @@ public class PropertiesPanel implements PanelHost.Panel {
                 };
                 e.setOnEditorActionListener((tv, id, ev) -> { apply.run(); e.clearFocus(); return false; });
                 e.setOnFocusChangeListener((v, has) -> { if (!has) apply.run(); });
+                if (ft.equals("float")) {
+                    // numbers: keypad dialog instead of the keyboard
+                    e.setFocusable(false);
+                    e.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_s2_dialpad, 0);
+                    e.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(Ui.TEXT_3));
+                    e.setOnClickListener(v -> com.star4droid.star2d.ui.NumberPad.show(c, Tr.t(f), e.getText().toString(), nv -> {
+                        e.setText(nv);
+                        apply.run();
+                    }, null));
+                }
                 box.addView(e, Ui.matchWrap());
                 editors.put(f, e);
                 return box;

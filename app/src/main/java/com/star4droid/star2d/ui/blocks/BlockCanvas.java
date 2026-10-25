@@ -47,6 +47,8 @@ public class BlockCanvas extends View {
         void afterChange();
         /** A value block was dropped where it can't go. */
         void onDropHint();
+        /** An event parameter chip (current, body2…) on the first block was tapped. */
+        void onRootParam(String name);
     }
 
     public static final int SHAPE_PILL = 0, SHAPE_HEX = 1, SHAPE_RECT = 2;
@@ -56,6 +58,7 @@ public class BlockCanvas extends View {
     private final boolean rtl; // language labels
     private boolean mirror;   // right-to-left layout
     private String rootLabel = "";
+    private String[] rootParams = {};
 
     // view transform
     private float scale = 1f, tx, ty;
@@ -119,6 +122,8 @@ public class BlockCanvas extends View {
         RectF spine, yesMouth, elseBar, noMouth, bottom;
         String label;
         final ArrayList<Slot> slots = new ArrayList<>();
+        final ArrayList<RectF> params = new ArrayList<>(); // event parameters on the root block
+        final ArrayList<String> paramNames = new ArrayList<>();
         int color;
         Path shape;
     }
@@ -175,6 +180,12 @@ public class BlockCanvas extends View {
             @Override public void onLongPress(MotionEvent e) {
                 // options are shown on release, and only if the finger didn't start a drag
                 if (isDragging() || !pendingDrag || downBox == null || multi) return;
+                if (downParam != null) {
+                    // long-press on an event parameter: dragging now makes a copy of it
+                    paramArmed = true;
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                    return;
+                }
                 pendingMenu = downBox;
                 selected = downBox.node;
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -194,6 +205,12 @@ public class BlockCanvas extends View {
     }
 
     public BlockModel model() { return model; }
+
+    /** Parameters of the event (current, body2, event…), shown as draggable chips on the first block. */
+    public void setRootParams(String... names) {
+        rootParams = names == null ? new String[0] : names;
+        relayout();
+    }
     public BlockModel.Node selected() { return selected; }
     public void select(BlockModel.Node n) { selected = n; invalidate(); }
     public BlockModel.Field activeField() { return activeField; }
@@ -317,6 +334,15 @@ public class BlockCanvas extends View {
         // wrap chips into rows
         ArrayList<ArrayList<Slot>> rows = new ArrayList<>();
         rows.add(new ArrayList<>());
+        float paramsW = 0;
+        if (n.isRoot())
+            for (String pn : rootParams) {
+                float w = paramText.measureText(pn) + 22 * d;
+                b.params.add(new RectF(x + PAD + labelW + PAD + paramsW, 0, x + PAD + labelW + PAD + paramsW + w, 0));
+                b.paramNames.add(pn);
+                paramsW += w + 6 * d;
+            }
+        labelW += paramsW;
         float firstStart = x + PAD + labelW + PAD;
         float rx = firstStart, width = PAD + labelW + PAD;
         for (Slot s : b.slots) {
@@ -344,7 +370,11 @@ public class BlockCanvas extends View {
             for (Slot s : rows.get(i)) placeSlot(s, s.px, ry + rh / 2);
             ry += rh;
         }
-        b.labelR.set(x + PAD, y, x + PAD + labelW, y + row0H);
+        b.labelR.set(x + PAD, y, x + PAD + labelW - paramsW, y + row0H);
+        for (RectF pr : b.params) {
+            pr.top = y + (row0H - CHIP_H) / 2;
+            pr.bottom = pr.top + CHIP_H;
+        }
         float headerH = ry - y;
         b.header.set(x, y, x + width, y + headerH);
         float icy = y + row0H / 2;
@@ -498,6 +528,7 @@ public class BlockCanvas extends View {
             mirror(b.noMouth, ax);
             mirror(b.bottom, ax);
             for (Slot s : b.slots) mirrorSlot(s, ax);
+            for (RectF pr : b.params) mirror(pr, ax);
         }
         if (tl != null) for (int i = tfrom; i < tl.size(); i++) tl.get(i).x = 2 * ax - tl.get(i).x;
     }
@@ -637,6 +668,15 @@ public class BlockCanvas extends View {
             c.drawPath(b.shape, stroke);
         }
         c.drawText(b.label, b.labelR.left, b.labelR.centerY() + 5 * d, text);
+        for (int i = 0; i < b.params.size(); i++) {
+            RectF pr = b.params.get(i);
+            fill.setColor(0xFF00897B);
+            c.drawRoundRect(pr, pr.height() / 2, pr.height() / 2, fill);
+            stroke.setColor(0x99FFFFFF);
+            stroke.setStrokeWidth(1.2f * d);
+            c.drawRoundRect(pr, pr.height() / 2, pr.height() / 2, stroke);
+            c.drawText(b.paramNames.get(i), pr.left + 11 * d, pr.centerY() + 4.3f * d, paramText);
+        }
         for (Slot s : b.slots) drawSlot(c, s, ghost);
         if (!ghost) {
             fill.setColor(0x40000000);
@@ -723,6 +763,16 @@ public class BlockCanvas extends View {
         return r != null && r.contains(x, y);
     }
 
+    private String rootParamAt(Box b, float x, float y) {
+        if (b == null) return null;
+        for (int i = 0; i < b.params.size(); i++) {
+            RectF r = new RectF(b.params.get(i));
+            r.inset(-3 * d, -4 * d);
+            if (r.contains(x, y)) return b.paramNames.get(i);
+        }
+        return null;
+    }
+
     private Slot deepest(Slot s, float x, float y) {
         RectF r = new RectF(s.r);
         r.inset(-3 * d, -4 * d);
@@ -773,6 +823,11 @@ public class BlockCanvas extends View {
             listener.onInfo(b.node);
             return;
         }
+        String rp = rootParamAt(b, x, y);
+        if (rp != null) {
+            listener.onRootParam(rp);
+            return;
+        }
         Slot s = slotAt(b, x, y);
         if (s != null) {
             selected = b.node;
@@ -791,6 +846,8 @@ public class BlockCanvas extends View {
     private float lastX, lastY, downX, downY, lastFX, lastFY;
     private boolean panning, pendingDrag, multi;
     private Box downBox, pendingMenu;
+    private String downParam;
+    private boolean paramArmed;
     private Slot downSlot;
 
     private void focus(MotionEvent e) {
@@ -823,6 +880,8 @@ public class BlockCanvas extends View {
                 if (dirty) doLayout();
                 downBox = isDragging() ? null : boxAt(wx(x), wy(y));
                 downSlot = downBox != null ? slotAt(downBox, wx(x), wy(y)) : null;
+                downParam = downBox != null ? rootParamAt(downBox, wx(x), wy(y)) : null;
+                paramArmed = false;
                 pendingDrag = downBox != null;
                 panning = !pendingDrag && !isDragging();
                 return true;
@@ -858,7 +917,8 @@ public class BlockCanvas extends View {
                 if (pendingDrag && !multi && (Math.abs(x - downX) > slop || Math.abs(y - downY) > slop)) {
                     pendingMenu = null;
                     pendingDrag = false;
-                    if (downSlot != null && downSlot.field.block != null) startParamDrag(downSlot, x, y);
+                    if (paramArmed && downParam != null) beginExternalParamDrag(new BlockModel.Param(downParam, downParam), x, y);
+                    else if (downSlot != null && downSlot.field.block != null) startParamDrag(downSlot, x, y);
                     else startDrag(downBox, x, y);
                     return true;
                 }
@@ -875,6 +935,7 @@ public class BlockCanvas extends View {
                 boolean cancel = e.getActionMasked() == MotionEvent.ACTION_CANCEL;
                 if (drag != null) endDrag(cancel);
                 else if (dragParam != null) endParam(cancel);
+                else if (paramArmed && !cancel && downParam != null) listener.onRootParam(downParam);
                 else if (pendingMenu != null && !cancel) {
                     Box b = pendingMenu;
                     listener.onLongPress(b.node, e.getRawX(), e.getRawY());
@@ -1232,6 +1293,16 @@ public class BlockCanvas extends View {
     private RectF toView(RectF w) {
         if (w == null) return null;
         return new RectF(w.left * scale + tx, w.top * scale + ty, w.right * scale + tx, w.bottom * scale + ty);
+    }
+
+    /** An event parameter chip on the root block, in this view's pixels. */
+    public RectF viewRectOfRootParam(String name) {
+        if (dirty) doLayout();
+        for (Box b : boxes)
+            if (b.node.isRoot())
+                for (int i = 0; i < b.paramNames.size(); i++)
+                    if (b.paramNames.get(i).equals(name)) return toView(b.params.get(i));
+        return null;
     }
 
     /** Header of a block, in this view's pixels. */

@@ -53,6 +53,11 @@
 		android:exported="true">
 		</activity>
 		<activity
+			android:name="com.star4droid.star2d.ui.AnimationEditorActivity"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:theme="@style/AppTheme.FullScreen"
+			android:exported="false"/>
+		<activity
 			android:name="com.star4droid.star2d.ui.blocks.BlockEditorActivity"
 			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
 			android:theme="@style/AppTheme.FullScreen"

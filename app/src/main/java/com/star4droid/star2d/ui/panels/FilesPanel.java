@@ -339,7 +339,7 @@ public class FilesPanel implements PanelHost.Panel {
         if (!logsMode && parent.equals("anims") && f.getParentFile().getParentFile() != null
                 && f.getParentFile().getParentFile().getAbsolutePath().equals(rootDir.getAbsolutePath())) {
             shell.panels.hide();
-            Bridge.gl(() -> Bridge.app().getFileBrowser().openAnimationEditor(Gdx.files.absolute(f.getAbsolutePath())));
+            com.star4droid.star2d.ui.AnimationEditorActivity.open(shell.activity(), f.getAbsolutePath(), new File(rootDir, "images").getAbsolutePath());
         } else if (n.endsWith(".s2df")) {
             shell.panels.hide();
             Bridge.gl(() -> Bridge.app().getFileBrowser().openFontEditor(Gdx.files.absolute(f.getParent()), Gdx.files.absolute(f.getAbsolutePath())));

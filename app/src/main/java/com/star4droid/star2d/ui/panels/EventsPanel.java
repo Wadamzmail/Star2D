@@ -143,7 +143,7 @@ public class EventsPanel implements PanelHost.Panel {
                     VisualScriptingDialog.openSceneScript(sc, path);
                 })));
         for (String[] e : SCENE_EVENTS) {
-            View r = row(c, R.drawable.ic_s2_events, 0xFFFFB300, Tr.t(e[0]), ar ? e[2] : e[1], withCode.contains(e[0]),
+            View r = row(c, R.drawable.ic_s2_events, 0xFFFFB300, Tr.t(e[0]), Tr.t("ui_ev_desc_" + e[0], ar ? e[2] : e[1]), withCode.contains(e[0]),
                     v -> VisualScriptingDialog.showFor(e[0], false, false));
             com.star4droid.star2d.ui.tutorial.Tut.tag(r, "scene_event:" + e[0]);
             list.addView(r);
@@ -162,7 +162,7 @@ public class EventsPanel implements PanelHost.Panel {
                 list.addView(t);
             }
             for (String[] e : BODY_EVENTS) {
-                View r = row(c, R.drawable.ic_s2_touch, 0xFF42A5F5, Tr.t(e[0]), ar ? e[2] : e[1], withCode.contains("body:" + e[0]),
+                View r = row(c, R.drawable.ic_s2_touch, 0xFF42A5F5, Tr.t(e[0]), Tr.t("ui_ev_desc_" + e[0], ar ? e[2] : e[1]), withCode.contains("body:" + e[0]),
                         v -> VisualScriptingDialog.showFor(e[0], true, false));
                 com.star4droid.star2d.ui.tutorial.Tut.tag(r, "event:" + e[0]);
                 list.addView(r);

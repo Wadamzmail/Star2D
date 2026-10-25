@@ -120,7 +120,7 @@ public class Lesson {
     }
 
     Lesson number(String name, String prop, String value, String key, String en) {
-        return add(new Step(f(key, en, value)).at("propedit:" + prop)
+        return add(new Step(f(key, en, value)).at(Targets.first(Targets.unionOf("numpad", "numpad:ok"), Targets.view("propedit:" + prop)))
                 .until(() -> L.propIs(name, prop, value))
                 .auto(() -> L.setProp(name, prop, value)));
     }
@@ -186,10 +186,22 @@ public class Lesson {
     Lesson value(String title, int index, String value, String key, String en, int... path) {
         Step.Finder chip = Targets.view("blocks:chip:" + value);
         Step.Finder typing = Targets.unionOf("blocks:value_input", "blocks:value_ok", "blocks:chip:" + value);
+        Step.Finder pad = Targets.unionOf("numpad", "numpad:ok");
         Step.Finder slot = Targets.path(title, index, path);
-        return add(new Step(f(key, en, value)).at(() -> L.editing(title, index, path) ? typing.find() : slot.find())
+        return add(new Step(f(key, en, value)).at(() -> {
+                    Step.Found p = pad.find();
+                    if (p != null) return p;
+                    return L.editing(title, index, path) ? typing.find() : slot.find();
+                })
                 .until(() -> L.fieldIs(title, index, value, path))
                 .auto(() -> L.setField(title, index, value, path)));
+    }
+
+    /** Long-press an event parameter on the first block and drag a copy into a field. */
+    Lesson param(String title, int index, String name, String key, String en, int... path) {
+        return add(new Step(f(key, en, name)).at(Targets.rootParam(name)).dragTo(Targets.path(title, index, path))
+                .until(() -> L.fieldIs(title, index, name, path))
+                .auto(() -> L.setField(title, index, name, path)));
     }
 
     /** Tap a field and choose a value block for it. */

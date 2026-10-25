@@ -141,6 +141,7 @@ final class Lessons {
         l.selectFromList("star");
         l.elementEvent("star", "onClick", "event_click_star", "Tap onClick: these blocks run when the player taps the star.");
         l.info("blocks_intro", "This is the block editor. The yellow block is the start; blocks under it run one after another. Long-press a block for its options, (!) explains any block.");
+        l.info("params_intro", "See \"current\" on the yellow block? It is an input of this event: this element. Long-press it and drag it into any field to use it.");
         l.category("Variables");
         l.block("changeVariable", "drag_first", "Hold \"%1$s\" for a moment and drag it under the yellow block (or just tap it).");
         l.value("changeVariable", 0, "score", "field_var", "Tap the variable field and choose %1$s. \"by 1\" means +1 point.");
@@ -150,6 +151,7 @@ final class Lessons {
         l.category("Motion");
         l.block("goTo", "add_goto_star", "Add \"%1$s\": it moves an element. \"current\" means this element: the star.");
         l.valueBlock("goTo", 1, "Math", "random ___ to ___", "x_random", "Tap the x field and choose the value block %1$s from Math.");
+        l.info("numpad_intro", "Number fields open a number pad: tap the digits, ⌫ deletes the last one, C clears, then OK.");
         l.value("goTo", 1, "60", "random_from", "Type %1$s in the first circle.", 0);
         l.value("goTo", 1, "600", "random_to", "Type %1$s in the second circle.", 1);
         l.valueBlock("goTo", 2, "Math", "random ___ to ___", "y_random", "Same for y: tap it and choose %1$s.");
@@ -324,7 +326,7 @@ final class Lessons {
         l.category("main");
         l.block("if", "add_if", "Add the \"%1$s\" block: blocks inside it run only when its condition is true.");
         l.valueBlock("if", 0, "Logic", "___ is named ___", "cond_named", "Tap the condition and choose %1$s from Logic.");
-        l.value("if", 0, "body2", "named_body2", "Type %1$s in the first circle: the body that hit the rock.", 0);
+        l.param("if", 0, "body2", "drag_body2", "The yellow block shows this event's inputs. Long-press %1$s (the body that hit the rock) and drag it into the first circle.", 0);
         l.value("if", 0, "bullet", "named_bullet", "Type %1$s in the second circle.", 1);
         l.category("BodyModify");
         l.blockInside("destroy", "if", 1, "destroy_inside", "Drag \"%1$s\" inside \"%2$s\".");
@@ -400,7 +402,7 @@ final class Lessons {
         l.category("main");
         l.block("if", "add_if", "Add the \"%1$s\" block: blocks inside it run only when its condition is true.");
         l.valueBlock("if", 0, "Logic", "___ is named ___", "cond_named_hero", "Tap the condition and choose %1$s: was it the hero?");
-        l.value("if", 0, "body2", "named_body2_coin", "Type %1$s in the first circle: the body that touched the coin.", 0);
+        l.param("if", 0, "body2", "drag_body2_coin", "Long-press %1$s on the yellow block (the body that touched the coin) and drag it into the first circle.", 0);
         l.value("if", 0, "hero", "named_hero", "Type %1$s in the second circle.", 1);
         l.category("BodyModify");
         l.blockInside("destroy", "if", 1, "destroy_inside", "Drag \"%1$s\" inside \"%2$s\".");

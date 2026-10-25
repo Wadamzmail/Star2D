@@ -780,7 +780,8 @@ public final class Tutorial {
             buttons.removeAllViews();
             buttons.addView(button(auto ? "■ " + t("stop", "Stop") : "▶▶ " + t("auto", "Auto explain"), false, v -> toggleAuto()));
             View sp = new View(c);
-            buttons.addView(sp, Ui.weight(1));
+            // a plain View measures to the whole available height when WRAP_CONTENT: keep it 1px tall
+            buttons.addView(sp, new LinearLayout.LayoutParams(0, 1, 1));
             if (!auto) {
                 if (s.isInfo()) buttons.addView(button(t("next", "Next") + (Ui.isRtl(c) ? "  ←" : "  →"), true, v -> next()));
                 else buttons.addView(button(t("skip", "Skip") + "  ⏭", false, v -> skip()));
