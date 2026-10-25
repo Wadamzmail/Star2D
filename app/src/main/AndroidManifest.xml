@@ -11,6 +11,7 @@
 	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
+        android:enableOnBackInvokedCallback="false"
         android:allowBackup="true"
         android:icon="@drawable/icon"
         android:label="@string/app_name"
@@ -51,6 +52,17 @@
 		android:theme="@style/AppTheme.FullScreen"
 		android:exported="true">
 		</activity>
+		<activity
+			android:name="com.star4droid.star2d.ui.AnimationEditorActivity"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:theme="@style/AppTheme.FullScreen"
+			android:exported="false"/>
+		<activity
+			android:name="com.star4droid.star2d.ui.blocks.BlockEditorActivity"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:theme="@style/AppTheme.FullScreen"
+			android:windowSoftInputMode="adjustResize"
+			android:exported="false"/>
 		<activity
 			android:name="com.star4droid.star2d.Activities.CodeEditorActivity"
 			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"

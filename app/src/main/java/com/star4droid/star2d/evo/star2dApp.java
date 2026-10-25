@@ -31,6 +31,8 @@ public class star2dApp extends Application {
 	public void onCreate() {
 		EngineSettings.init(this);
 		Utils.setLanguage(this);
+		com.star4droid.star2d.ui.Snack.install(this);
+		com.star4droid.star2d.ui.tutorial.Tutorial.install(this);
 		
 		new com.github.anrwatchdog.ANRWatchDog(7000).setANRListener(new ANRWatchDog.ANRListener() {
     		@Override

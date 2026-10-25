@@ -1,0 +1,13 @@
+{
+ "id": "sky_flyer",
+ "title": "Sky flyer",
+ "title_ar": "الطائر",
+ "author": "Star2D",
+ "license": "CC0 1.0",
+ "files": [
+  "bird.png",
+  "pipe.png",
+  "sky_bg.png",
+  "ground_strip.png"
+ ]
+}

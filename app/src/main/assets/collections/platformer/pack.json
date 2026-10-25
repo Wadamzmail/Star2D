@@ -1,0 +1,17 @@
+{
+ "id": "platformer",
+ "title": "Platformer",
+ "title_ar": "منصات",
+ "author": "Star2D",
+ "license": "CC0 1.0",
+ "files": [
+  "hills_bg.png",
+  "grass_ground.png",
+  "crate.png",
+  "coin.png",
+  "hero.png",
+  "btn_left.png",
+  "btn_right.png",
+  "btn_jump.png"
+ ]
+}

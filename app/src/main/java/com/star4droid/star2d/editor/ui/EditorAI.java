@@ -937,11 +937,13 @@ public class EditorAI extends VisTable {
     }
     
     private void promptForApiKeyIfNeeded() {
+        // the native Android assistant replaces this panel
+        if (ControlLayer.isNativeUi()) return;
         String displayName = modelSelector.getSelected();
         ModelEntry entry = getModelEntry(displayName);
         String key = "";
         if (entry.provider.equals("opencode")) {
-            key = app.preferences.getString(PREF_ZEN_API_KEY, "sk-u2ry3Bfok1KqidNbe2d8tR6oe0ApXC5QfJNbTMvvbEsvr2rm5BVkmfZMBWePY5mg");
+            key = app.preferences.getString(PREF_ZEN_API_KEY, "");
         } else {
             key = app.preferences.getString(PREF_GEMINI_API_KEY, "");
         }

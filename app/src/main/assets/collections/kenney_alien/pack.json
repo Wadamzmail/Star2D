@@ -1,0 +1,14 @@
+{
+ "id": "kenney_alien",
+ "title": "Alien character (Kenney)",
+ "title_ar": "شخصية فضائي (Kenney)",
+ "author": "Kenney (www.kenney.nl)",
+ "license": "CC0 1.0",
+ "files": [
+  "alienPink_stand.png",
+  "alienPink_walk1.png",
+  "alienPink_walk2.png",
+  "alienPink_jump.png",
+  "alienPink_duck.png"
+ ]
+}

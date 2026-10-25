@@ -1,0 +1,13 @@
+{
+ "id": "racing",
+ "title": "Racing",
+ "title_ar": "سباق",
+ "author": "Star2D",
+ "license": "CC0 1.0",
+ "files": [
+  "road.png",
+  "car_red.png",
+  "car_blue.png",
+  "car_yellow.png"
+ ]
+}

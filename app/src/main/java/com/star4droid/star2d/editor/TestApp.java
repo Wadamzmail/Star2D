@@ -50,6 +50,26 @@ public class TestApp implements ApplicationListener {
 	public Runnable openDonate;
 	/** Called (on the GL thread) when a project starts opening / after it was closed. Used by the Android home screen. */
 	public Runnable onProjectOpening, onProjectClosed;
+
+	/** Hooks for the native Android editor UI (null = classic LibGDX UI). */
+	public interface NativeHooks {
+		/** The current scene editor changed (project loaded, tab switched, scene opened). GL thread. */
+		void onEditorChanged();
+		/** Game started (true) or stopped (false). GL thread. */
+		void onPlayStateChanged(boolean playing);
+		/** Open a visual script; return true when handled natively. */
+		boolean openVisual(String file, String hints);
+		/** Show a long text (runtime errors etc.). */
+		void showText(String text);
+		/** Back key pressed in the editor. */
+		void onBackKey();
+	}
+	public static NativeHooks nativeHooks;
+
+	private void showErrorText(String text){
+		if(nativeHooks != null) nativeHooks.showText(text);
+		else fileBrowser.showText(text);
+	}
 	ControlLayer controlLayer;
 	Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
 	public Preferences preferences;
@@ -86,6 +106,10 @@ public class TestApp implements ApplicationListener {
 		UiStage = new Stage(screenViewport){
 			@Override
 			public boolean keyDown(int key){
+				if(key == 4 && nativeHooks != null){
+					nativeHooks.onBackKey();
+					return true;
+				}
 				if(key == 4){
 					new ConfirmDialog(getTrans("exit"),getTrans("areYouSure"),ok->{
 						if(ok)
@@ -114,6 +138,7 @@ public class TestApp implements ApplicationListener {
 	}
 	
 	public void loadVisual(String file, String all){
+	    if(nativeHooks != null && nativeHooks.openVisual(file, all)) return;
 	    visualScripting.loadFrom(file);
 	    visualScripting.setHints(all);
 	    showVisualScripting(true);
@@ -286,6 +311,7 @@ public class TestApp implements ApplicationListener {
 		editors.add(editor);
 		controlLayer.tabsItem.refresh();
 		canExitFromProject = true;
+		if(nativeHooks != null) nativeHooks.onEditorChanged();
 	}
 	
 	public void openSceneInNewEditor(String scene){
@@ -389,6 +415,8 @@ public class TestApp implements ApplicationListener {
 			controlLayer.tabsItem.refresh();
 			controlLayer.getJointsList().refresh();
 			controlLayer.getBodiesList().update();
+			controlLayer.getVarsItem().setFileHandle(Gdx.files.absolute(project.getVariables(editor.getScene())));
+			if(nativeHooks != null) nativeHooks.onEditorChanged();
 		} else if(editors.size > 0) {
 			toast("Invalid Selection!\nsize : "+editors.size+",pos : "+pos);
 		} else toast("There\'s no editors! (this shouldn't happen)");
@@ -536,7 +564,7 @@ public class TestApp implements ApplicationListener {
 				Thread.setDefaultUncaughtExceptionHandler((thread,exc)->{
 					Gdx.app.postRunnable(()->{
 						play(null);
-						fileBrowser.showText("Error :\n"+Utils.getStackTraceString(exc));
+						showErrorText("Error :\n"+Utils.getStackTraceString(exc));
 						Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 					});
 				});
@@ -561,6 +589,7 @@ public class TestApp implements ApplicationListener {
 				UiStage.getViewport().update(width, height);
 			}
 			this.stageImp = stage;
+			if(nativeHooks != null) nativeHooks.onPlayStateChanged(stage != null);
 		});
 	}
 	
@@ -611,7 +640,7 @@ public class TestApp implements ApplicationListener {
 					Gdx.files.external("logs/render.error.txt").writeString(Utils.getStackTraceString(e)+"\n"+"_".repeat(10)+"\n",false);
 				else {
 					play(null);
-					fileBrowser.showText("Error:\n"+Utils.getStackTraceString(e));
+					showErrorText("Error:\n"+Utils.getStackTraceString(e));
 				}
 			}
 			return;
