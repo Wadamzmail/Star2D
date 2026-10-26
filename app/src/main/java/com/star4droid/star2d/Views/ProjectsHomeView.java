@@ -164,9 +164,25 @@ public class ProjectsHomeView extends FrameLayout {
         pages = new View[]{
                 findViewById(R.id.page_projects), findViewById(R.id.page_learn), findViewById(R.id.page_templates),
                 findViewById(R.id.page_community), findViewById(R.id.page_settings)};
+        // icons only (the name is shown as a tooltip / for accessibility)
+        int[] icons = {R.drawable.ic_s2_folder, R.drawable.ic_s2_school, R.drawable.ic_s2_widgets, R.drawable.ic_s2_group, R.drawable.ic_s2_settings};
+        String[][] names = {{"home_tab_projects", "Projects"}, {"home_tab_learn", "Learn"}, {"home_tab_templates", "Templates"},
+                {"home_tab_community", "Community"}, {"home_tab_settings", "Settings"}};
         for (int i = 0; i < tabs.length; i++) {
             final int index = i;
-            tabs[i].setOnClickListener(v -> selectTab(index));
+            TextView t = tabs[i];
+            String label = T(names[i][0], names[i][1]);
+            t.setText("");
+            t.setContentDescription(label);
+            if (android.os.Build.VERSION.SDK_INT >= 26) t.setTooltipText(label);
+            t.setCompoundDrawablesWithIntrinsicBounds(0, icons[i], 0, 0);
+            t.setPadding(0, (int) (8 * getResources().getDisplayMetrics().density), 0, 0);
+            t.setMinWidth(0);
+            android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(0, t.getLayoutParams().height, 1f);
+            lp.setMargins(4, 0, 4, 0);
+            t.setLayoutParams(lp);
+            t.setOnClickListener(v -> selectTab(index));
+            t.setOnLongClickListener(v -> { toast(label); return true; });
         }
     }
 
@@ -175,6 +191,7 @@ public class ProjectsHomeView extends FrameLayout {
             boolean selected = i == index;
             tabs[i].setBackgroundResource(selected ? R.drawable.home_tab_selected : 0);
             tabs[i].setTextColor(color(selected ? R.color.home_text : R.color.home_text_secondary));
+            tabs[i].setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color(selected ? R.color.home_text : R.color.home_text_secondary)));
             tabs[i].setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
             pages[i].setVisibility(selected ? VISIBLE : GONE);
         }

@@ -153,6 +153,9 @@ public class SettingsPanel implements PanelHost.Panel {
         });
         col.addView(ai, new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)));
 
+        col.addView(Ui.sectionLabel(c, Tr.t("bc_title", "Block creator")));
+        col.addView(Ui.button(c, R.drawable.ic_s2_wand, Tr.t("bc_open", "Make your own blocks"), false, v -> com.star4droid.star2d.ui.blocks.BlockCreatorActivity.open(shell.activity())),
+                new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)));
         col.addView(Ui.sectionLabel(c, Tr.t("ui_help", "Help")));
         col.addView(Ui.button(c, R.drawable.ic_s2_help, Tr.t("ui_quick_guide", "Quick guide"), false, v -> com.star4droid.star2d.ui.Help.show(c)),
                 new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)));

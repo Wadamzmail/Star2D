@@ -58,7 +58,21 @@
 			android:theme="@style/AppTheme.FullScreen"
 			android:exported="false"/>
 		<activity
+			android:name="com.star4droid.star2d.ui.blocks.BlockCreatorActivity"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:theme="@style/AppTheme.FullScreen"
+			android:windowSoftInputMode="adjustResize"
+			android:exported="false"/>
+		<activity
+			android:name="com.star4droid.star2d.ui.blocks.BlockEditorLandscapeActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:theme="@style/AppTheme.FullScreen"
+			android:windowSoftInputMode="adjustResize"
+			android:exported="false"/>
+		<activity
 			android:name="com.star4droid.star2d.ui.blocks.BlockEditorActivity"
+			android:screenOrientation="portrait"
 			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
 			android:theme="@style/AppTheme.FullScreen"
 			android:windowSoftInputMode="adjustResize"

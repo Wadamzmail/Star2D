@@ -58,6 +58,9 @@ public final class BlockCatalog {
         loaded = true;
         CATEGORIES.clear();
         REPORTERS.clear();
+        GROUP_OF.clear();
+        TEMPLATE_COLOR.clear();
+        CATEGORY_COLOR.clear();
         try (InputStream in = c.getAssets().open("java/nodes.java")) {
             byte[] b = readAll(in);
             parseDsl(new String(b, StandardCharsets.UTF_8), null);
@@ -77,7 +80,13 @@ public final class BlockCatalog {
     public static synchronized void reload(Context c) {
         loaded = false;
         load(c);
+        version++;
     }
+
+    private static int version = 0;
+
+    /** Changes each time the user libraries are reloaded. */
+    public static int version() { return version; }
 
     public static int colorOf(String category) {
         Integer col = CATEGORY_COLOR.get(category);
@@ -233,7 +242,11 @@ public final class BlockCatalog {
         return GROUP_OF.get(template);
     }
 
+    private static final HashMap<String, Integer> TEMPLATE_COLOR = new HashMap<>();
+
     public static int reporterColor(String template) {
+        Integer c = TEMPLATE_COLOR.get(template);
+        if (c != null) return c;
         return groupColor(GROUP_OF.get(template));
     }
 
@@ -423,14 +436,19 @@ public final class BlockCatalog {
                     Def d = new Def();
                     d.category = cat;
                     d.color = 0xFF5D4037;
+                    try { if (n.has("color")) d.color = n.get("color").getAsInt(); } catch (Exception ignored) {}
                     String title = BlockModel.str(n, "title", "");
                     d.title = title.isEmpty() ? BlockModel.str(n, "name", "custom") : title;
                     d.code = BlockModel.str(n, "code", "%1$s");
                     try { d.isIf = n.get("isBooleanNode").getAsBoolean(); } catch (Exception e) { d.isIf = false; }
-                    ArrayList<String> fs = new ArrayList<>();
+                    ArrayList<String> fs = new ArrayList<>(), dv = new ArrayList<>();
                     if (n.has("fields"))
-                        for (JsonElement fe : n.getAsJsonArray("fields")) fs.add(BlockModel.str(fe.getAsJsonObject(), "name", "value"));
+                        for (JsonElement fe : n.getAsJsonArray("fields")) {
+                            fs.add(BlockModel.str(fe.getAsJsonObject(), "name", "value"));
+                            dv.add(BlockModel.str(fe.getAsJsonObject(), "value", ""));
+                        }
                     d.fields = fs.toArray(new String[0]);
+                    d.defaults = dv.toArray(new String[0]);
                     add(d);
                 }
             }
@@ -447,7 +465,9 @@ public final class BlockCatalog {
                 if (!s.has("blocks")) continue;
                 for (JsonElement be : s.getAsJsonArray("blocks")) {
                     JsonObject b = be.getAsJsonObject();
-                    r(g, BlockModel.str(b, "title", "___"), BlockModel.str(b, "code", "%1$s"));
+                    String code = BlockModel.str(b, "code", "%1$s");
+                    r(g, BlockModel.str(b, "title", "___"), code);
+                    try { if (b.has("color")) TEMPLATE_COLOR.put(code, b.get("color").getAsInt()); } catch (Exception ignored) {}
                 }
             }
         } catch (Exception ignored) {}
