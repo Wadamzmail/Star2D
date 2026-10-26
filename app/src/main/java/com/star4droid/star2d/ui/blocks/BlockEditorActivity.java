@@ -370,7 +370,8 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
                 case MotionEvent.ACTION_MOVE:
                     if (land) {
                         float dx = e.getRawX() - start[0];
-                        if (mirror) dx = -dx;
+                        // grow toward the handle's side: the handle is right of the palette in LTR, left of it in RTL
+                        if (v.getX() < paletteBox.getX()) dx = -dx;
                         lp.width = clampW((int) (start[1] + dx));
                     } else {
                         lp.height = clampH((int) (start[1] - (e.getRawY() - start[0])));
