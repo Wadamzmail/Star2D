@@ -78,8 +78,27 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     public static boolean open(Activity a, String file, String hints) {
         pendingFile = file;
         pendingHints = hints == null ? "" : hints;
-        a.runOnUiThread(() -> a.startActivity(new Intent(a, BlockEditorActivity.class)));
+        Class<?> cls = gameIsLandscape(file) ? BlockEditorLandscapeActivity.class : BlockEditorActivity.class;
+        a.runOnUiThread(() -> a.startActivity(new Intent(a, cls)));
         return true;
+    }
+
+    /** The scene's orientation (configs/<scene>.json "or": "" / "landscape" = landscape). */
+    static boolean gameIsLandscape(String visualFile) {
+        try {
+            int i = visualFile.indexOf("/Events/");
+            if (i < 0) return false;
+            String root = visualFile.substring(0, i), rest = visualFile.substring(i + 8);
+            String scene = rest.contains("/") ? rest.substring(0, rest.indexOf('/')) : rest;
+            File cfg = new File(root + "/configs/" + scene + ".json");
+            if (!cfg.exists()) cfg = new File(root + "/configs/scene1.json");
+            if (!cfg.exists()) return true;
+            com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(BlockModel.read(cfg)).getAsJsonObject();
+            String or = o.has("or") ? o.get("or").getAsString() : "";
+            return or.isEmpty() || or.equals("landscape");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static final String VALUES_CAT = "ƒ values";
@@ -135,6 +154,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         parseHints(pendingHints);
         loadVariables();
         BlockCatalog.load(this);
+        catalogSeen = BlockCatalog.version();
         model = BlockModel.load(file);
         canvas = new BlockCanvas(this, this, rtl);
         canvas.setMirror(mirror);
@@ -144,6 +164,18 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         build();
         canvas.post(canvas::home);
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // blocks made in the block creator appear right away
+        if (catalogSeen != BlockCatalog.version() && paletteList != null) {
+            catalogSeen = BlockCatalog.version();
+            build();
+        }
+    }
+
+    private int catalogSeen = -1;
 
     @Override
     protected void onDestroy() {
@@ -391,7 +423,12 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             @Override public void onTextChanged(CharSequence s, int a, int b, int d) {}
             @Override public void afterTextChanged(Editable s) { fillPalette(); }
         });
-        blocksPane.addView(search, Ui.matchWrap());
+        LinearLayout searchRow = Ui.row(c);
+        searchRow.addView(search, Ui.weight(1));
+        ImageView create = Ui.iconButton(c, R.drawable.ic_s2_wand, Tr.t("bc_title", "Block creator"), v -> BlockCreatorActivity.open(this));
+        create.setImageTintList(ColorStateList.valueOf(0xFFFFCA28));
+        searchRow.addView(create);
+        blocksPane.addView(searchRow, Ui.matchWrap());
         HorizontalScrollView hs = new HorizontalScrollView(c);
         hs.setHorizontalScrollBarEnabled(false);
         categoryRow = Ui.row(c);
@@ -418,7 +455,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         }
         TextView hint = Ui.text(c, Tr.t("blk_palette_hint", "Tap to add · hold, then drag onto the canvas · (!) for help"), 11, Ui.TEXT_3);
         hint.setPadding(Ui.dp(c, 4), 0, 0, Ui.dp(c, 4));
-        blocksPane.addView(hint);
+        if (!Ui.isLandscape(c)) blocksPane.addView(hint);
         paletteList = new RecyclerView(c);
         paletteList.setLayoutManager(new LinearLayoutManager(c));
         paletteList.setAdapter(new PaletteAdapter(paletteItems));
