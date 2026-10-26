@@ -270,7 +270,7 @@ public class BlockCreatorActivity extends AppCompatActivity {
             sec.getAsJsonArray(key).add(toJson(s));
             writeArray(f, secs);
             BlockCatalog.reload(this);
-            Snack.show(t("saved", "Block saved. Find it in the palette under ★ ") + s.category);
+            Snack.show(t("saved", "Block saved. Find it in the palette under ★") + " " + s.category);
             editing = null;
             showList();
         } catch (Exception e) {
