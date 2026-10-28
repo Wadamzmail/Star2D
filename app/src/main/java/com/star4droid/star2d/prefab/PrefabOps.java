@@ -78,7 +78,9 @@ public final class PrefabOps {
     /** Every instance root in the project: {prefabPath, scene, elementName}. */
     public static List<String[]> instances(Project p) { return instances(p.getPath()); }
     public static void syncAll(Project p, String prefabPath) throws Exception { syncAll(p.getPath(), prefabPath); }
-    public static String beginEdit(Project p, String prefabPath) throws Exception { return beginEdit(p.getPath(), prefabPath); }
+    public static String beginEdit(Project p, String prefabPath) throws Exception { return beginEdit(p.getPath(), prefabPath, null); }
+    /** {@code sourceScene}: the scene the prefab is opened from; its config (background, size, orientation) is copied. null = any scene. */
+    public static String beginEdit(Project p, String prefabPath, String sourceScene) throws Exception { return beginEdit(p.getPath(), prefabPath, sourceScene); }
     public static void commitEdit(Project p, String tempScene, String prefabPath) throws Exception { commitEdit(p.getPath(), tempScene, prefabPath); }
     public static void discardEdit(Project p, String tempScene) throws Exception { discardEdit(p.getPath(), tempScene); }
 
@@ -741,26 +743,55 @@ public final class PrefabOps {
     // ================================================================ editing a prefab in a temporary scene
 
     static String beginEdit(String root, String prefabPath) throws Exception {
+        return beginEdit(root, prefabPath, null);
+    }
+
+    /** Fallback when the project has no scene config at all (the editor's own defaults: landscape, 640x360 = long x short side). */
+    static final String DEFAULT_CONFIG = "{\"sceneColor\":\"#263238\",\"Ambient Light\":\"#FFFFFF\",\"logicWidth\":\"640\",\"logicHeight\":\"360\",\"or\":\"\"}";
+
+    /** The config of the scene the prefab is opened from (as is), else of any other scene, else the default. */
+    static String sourceConfig(String root, String sourceScene) {
+        List<String> order = new ArrayList<>();
+        if (sourceScene != null && !sourceScene.isEmpty() && !PrefabStore.isTempScene(sourceScene)) order.add(sourceScene);
+        for (String sc : PrefabFiles.scenes(root)) if (!order.contains(sc)) order.add(sc);
+        for (String sc : order) {
+            String c = PrefabFiles.read(PrefabFiles.configFile(root, sc));
+            if (c == null || c.trim().isEmpty()) continue;
+            try {
+                if (JsonParser.parseString(c).isJsonObject()) return c;
+            } catch (Exception ignored) {
+            }
+        }
+        return DEFAULT_CONFIG;
+    }
+
+    /**
+     * Size of the screen as the editor shows it: scene configs keep the LONG side in logicWidth and the short one in
+     * logicHeight in both orientations; portrait swaps them when used (LibgdxEditor.getLogicWidth/Height).
+     */
+    static double[] displaySize(String cfg) {
+        double lw = 640, lh = 360;
+        boolean portrait = false;
+        try {
+            JsonObject o = JsonParser.parseString(cfg).getAsJsonObject();
+            lw = PrefabFiles.num(PrefabFiles.str(o, "logicWidth"), lw);
+            lh = PrefabFiles.num(PrefabFiles.str(o, "logicHeight"), lh);
+            portrait = "portrait".equals(PrefabFiles.str(o, "or"));
+        } catch (Exception ignored) {
+        }
+        return portrait ? new double[]{lh, lw} : new double[]{lw, lh};
+    }
+
+    static String beginEdit(String root, String prefabPath, String sourceScene) throws Exception {
         String path = PrefabStore.normalize(prefabPath);
         PrefabModel model = PrefabStore.load(root, path);
         String tmp = PrefabStore.tempSceneFor(path);
         for (File f : PrefabFiles.sceneParts(root, tmp)) PrefabFiles.deleteTree(f);
 
-        // scene settings: those of an existing scene (same size and background), else defaults
-        double lw = 640, lh = 360;
-        String cfg = "{\"sceneColor\":\"#263238\",\"Ambient Light\":\"#FFFFFF\",\"or\":\"portrait\"}";
-        for (String sc : PrefabFiles.scenes(root)) {
-            String c = PrefabFiles.read(PrefabFiles.configFile(root, sc));
-            if (c == null || c.trim().isEmpty()) continue;
-            try {
-                JsonObject o = JsonParser.parseString(c).getAsJsonObject();
-                cfg = c;
-                lw = PrefabFiles.num(PrefabFiles.str(o, "logicWidth"), lw);
-                lh = PrefabFiles.num(PrefabFiles.str(o, "logicHeight"), lh);
-                break;
-            } catch (Exception ignored) {
-            }
-        }
+        // scene settings: exactly those of the scene it is opened from (same background, size and orientation)
+        String cfg = sourceConfig(root, sourceScene);
+        double[] disp = displaySize(cfg);
+        double lw = disp[0], lh = disp[1];
         PrefabFiles.write(PrefabFiles.configFile(root, tmp), cfg);
 
         JsonArray arr = new JsonArray();

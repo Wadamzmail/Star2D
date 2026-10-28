@@ -699,7 +699,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
                 LibgdxEditor ed = Bridge.editor();
                 String back = ed.getScene();
                 Bridge.controls().actionSave();
-                String temp = com.star4droid.star2d.prefab.PrefabOps.beginEdit(ed.getProject(), path);
+                String temp = com.star4droid.star2d.prefab.PrefabOps.beginEdit(ed.getProject(), path, back); // same background / size / orientation as the scene it is opened from
                 prefabPath = path;
                 prefabReturn = back;
                 prefabTemp = temp;
