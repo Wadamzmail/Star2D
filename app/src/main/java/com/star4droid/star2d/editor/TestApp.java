@@ -217,7 +217,13 @@ public class TestApp implements ApplicationListener {
 	
 	public void openProject(Project project){
 	    try {
-		    PropertySet<String,Object> propertySet=PropertySet.getFrom(Gdx.files.absolute(project.getConfig("scene1")).readString());
+		    com.badlogic.gdx.files.FileHandle first = Gdx.files.absolute(project.getConfig("scene1"));
+		    if(!first.exists()){
+		        // scene1 was deleted or renamed: the orientation of the project is the one of any other scene
+		        java.io.File[] all = new java.io.File(project.getConfig("scene1")).getParentFile().listFiles();
+		        if(all != null) for(java.io.File f : all) if(f.isFile() && !f.getName().startsWith("__")){ first = Gdx.files.absolute(f.getAbsolutePath()); break; }
+		    }
+		    PropertySet<String,Object> propertySet=PropertySet.getFrom(first.readString());
 		    openProject(project,propertySet);
 		} catch(Exception ex){
 		    openProject(project,null);

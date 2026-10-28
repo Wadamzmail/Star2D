@@ -348,14 +348,14 @@ export const TOOLS: ToolDef[] = [
   // ------------------------------------------------------------------ run and test (all of it runs ON THE PHONE)
   {
     name: "build",
-    description: "Compile the project without starting it. Returns errors with file and line (or 'ok'). The game always runs on the user's phone: never try to compile or run it yourself.",
+    description: "Compile only (no start): errors with file and line, or ok. If you will run the game anyway, call run_game directly: it compiles too, and build + run_game compiles TWICE (slow). The game always runs on the user's phone: never try to compile or run it yourself.",
     inputSchema: obj({}),
     timeout: 120,
   },
   {
     name: "run_game",
     description:
-      "Build and start the game on the phone (from the open scene, or `scene`). Returns when it is running, or the compile errors. The editor is taken over by the game screen until stop_game.",
+      "Build AND start the game on the phone in one call (from the open scene, or `scene`): no need to call build first. Returns when it is running, or the compile errors. The editor is taken over by the game screen until stop_game.",
     inputSchema: obj({ scene: str("scene to start from, default = the open one"), wait_ms: num("extra time to let it start, default 500") }),
     timeout: 120,
   },
@@ -475,7 +475,7 @@ Rules:
 7. Images: create_image name.png -> element image "/name.png". TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT/PROGRESS without touch events is click-through: put onClick/onTouchStart on the BOX button only.
 8. UI: after building a screen run layout_check, then screenshot (target scene, region/camera) and fix what you see.
 8b. Structure: put related elements under a GROUP (parent, read_docs groups); a repeated enemy/UI piece becomes a prefab (prefabs tool, read_docs prefabs), edit one instance then apply.
-9. Test: run_game returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
+9. Test: run_game compiles and starts in ONE call (never build first, that compiles twice); build only to check errors without opening the game. It returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
 
 Docs are long: read only what you need. read_docs {} = topic map; {topic, section} (e.g. elements/JOYSTICK); {search:'words'}. Tool errors name the section to read. Cheap project reading: status -> scene_dump {brief:true} -> get_elements {names}.`;
 

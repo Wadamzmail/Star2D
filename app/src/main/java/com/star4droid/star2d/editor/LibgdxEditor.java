@@ -573,6 +573,7 @@ public class LibgdxEditor extends Stage {
 				Gdx.files.absolute(project.getConfig(scene)).writeString(Gdx.files.internal("scene.json").readString(),false);
 				cfg=Gdx.files.absolute(project.getConfig(scene)).readString();
 				editorConfig = Utils.getProperty(cfg);
+				inheritProjectOrientation();
 				backgroundColor = editorConfig.getColor("sceneColor");
 			}
 			
@@ -593,6 +594,28 @@ public class LibgdxEditor extends Stage {
 		}
 	}
 	
+	/** A scene created with the default config takes the orientation of the project (its other scenes), not always landscape. */
+	private void inheritProjectOrientation(){
+		try {
+			java.io.File mine = new java.io.File(project.getConfig(scene));
+			java.io.File dir = mine.getParentFile();
+			java.io.File[] all = dir == null ? null : dir.listFiles();
+			if(all == null) return;
+			java.io.File pick = null;
+			for(java.io.File f : all){
+				if(!f.isFile() || f.getName().equals(mine.getName()) || f.getName().startsWith("__")) continue;
+				if(pick == null || f.getName().startsWith("scene1")) pick = f;
+			}
+			if(pick == null) return;
+			String or = Utils.getProperty(Gdx.files.absolute(pick.getAbsolutePath()).readString()).getString("or");
+			if(or.equals("portrait") || or.equals("landscape") || or.equals("")){
+				editorConfig.put("or", or.equals("portrait") ? "portrait" : "");
+				Gdx.files.absolute(project.getConfig(scene)).writeString(editorConfig.toString(), false);
+				lastConfig = Gdx.files.absolute(project.getConfig(scene)).readString();
+			}
+		} catch(Exception ignored){}
+	}
+
 	// get logical width/height of the editor 
 	public float getLogicWidth(){
 	    String key = LANDSCAPE ? "logicWidth":"logicHeight";

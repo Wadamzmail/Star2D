@@ -64,3 +64,6 @@ Never send a whole script again to change a few lines (slow, costs shared quota,
 36. Never claim success without `build` ok + `run_test`/`screenshot` + `game_logs` without `runtime_errors`.
 37. The game runs only on the phone; never run or compile anything yourself. Keep the app visible. Stop the running game (`stop_game`) before editing again.
 38. Call `finish_work` when done (it unlocks the editor for the user).
+
+## build vs run_game
+`run_game` compiles AND starts the game in one call. Do not call `build` and then `run_game`: that compiles twice. Use `build` alone only to check compile errors when you do not want the game to open.
