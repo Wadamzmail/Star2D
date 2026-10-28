@@ -61,9 +61,22 @@ public interface PlayerItem {
 	public void setScript(ItemScript script);
 	public <T extends ItemScript> T getScript();
 	public ChildsHolder getChildsHolder();
+	/** Makes {@code item} the parent. The element keeps its current world position and then follows the parent. */
 	default public void setParent(PlayerItem item){
-		getChildsHolder().setParent(item.getChildsHolder());
+		if(item == null) getChildsHolder().detach();
+		else getChildsHolder().setParent(item.getChildsHolder());
 	}
+	/** Leaves the parent without moving: the element keeps its place and stops following. */
+	default public void detachFromParent(){
+		getChildsHolder().detach();
+	}
+	/** The parent element, or null. */
+	default public PlayerItem getParentItem(){
+		ChildsHolder p = getChildsHolder().getParentHolder();
+		return p == null ? null : p.getPlayerItem();
+	}
+	/** Distance (world units) between the body position and the center of the actor. {0,0} unless the element has a collider offset. */
+	default public float[] getBodyOffset(){ return new float[]{0f, 0f}; }
 	default public void addChild(PlayerItem item){
 		getChildsHolder().addChild(item);
 	}
@@ -151,6 +164,18 @@ public interface PlayerItem {
 	default public void removeAnimation(){}
 	public ElementEvent getElementEvents();
 	default public void destroy(){
+	    ChildsHolder holder = getChildsHolder();
+	    if(holder != null){
+	        if(holder.destroyed) return;
+	        holder.destroyed = true;
+	        // children go first, with their own children
+	        java.util.ArrayList<PlayerItem> kids = new java.util.ArrayList<>(holder.childs);
+	        for(PlayerItem kid : kids){
+	            try { if(kid != null && kid != this) kid.destroy(); } catch(Throwable ignored){}
+	        }
+	        holder.childs.clear();
+	        holder.detach();
+	    }
 	    if(getActor()!=null)
 	        getActor().remove();
 	    if(getBody()!=null)

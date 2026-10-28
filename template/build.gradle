@@ -1,0 +1,126 @@
+// The base game APK ("template"). It is built from the SAME runtime sources as the editor (see runtime-sources.txt),
+// then tools/make_template.py turns the APK into assets/files/template.zip + java/manifest.xml + java/game.zip.
+// Nothing here is meant to be installed: ExportThread adds project.zip, a manifest and an icon, and signs it.
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    // The runtime sources do `import com.star4droid.star2d.evo.R` (the editor's R), so keep the same namespace here.
+    namespace 'com.star4droid.star2d.evo'
+    compileSdk 36
+    buildToolsVersion '37.0.0'
+
+    defaultConfig {
+        // Final package name is replaced at export time; the resource table keeps this one.
+        applicationId "com.star4droid.template"
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            // unsigned on purpose: the template is re-signed on the phone after export
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+ext {
+    gdxVersion = '1.14.2'
+}
+
+configurations { natives }
+
+dependencies {
+    implementation("com.badlogicgames.gdx:gdx:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-freetype:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-backend-android:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-box2d:$gdxVersion")
+    implementation("com.kotcrab.vis:vis-ui:1.5.9")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("net.lingala.zip4j:zip4j:2.11.5")
+    implementation(files("../app/libs/box2dlights-1.5.jar"))
+    implementation("androidx.core:core:1.17.0")
+    implementation("androidx.startup:startup-runtime:1.2.0")
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
+    natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86"
+    natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86_64"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86_64"
+}
+
+// ---- runtime sources: copied (not moved) from the editor module, so there is one source of truth ----
+def runtimePatterns = file('runtime-sources.txt').readLines().collect { it.trim() }.findAll { it && !it.startsWith('#') }
+
+def syncRuntime = tasks.register('syncRuntimeSources', Sync) {
+    from(file('../app/src/main/java')) {
+        include runtimePatterns
+    }
+    into layout.buildDirectory.dir('runtime-src')
+}
+
+android.sourceSets.main.java.srcDir(layout.buildDirectory.dir('runtime-src'))
+tasks.matching { it.name == 'preBuild' }.configureEach { it.dependsOn syncRuntime }
+tasks.configureEach { t ->
+    if (t.name.startsWith('compile') && t.name.endsWith('JavaWithJavac')) t.dependsOn syncRuntime
+    if (t.name.startsWith('lint')) t.dependsOn syncRuntime
+}
+
+// ---- native libraries of libgdx for the 4 ABIs (same recipe as :app) ----
+tasks.register('copyAndroidNatives') {
+    doFirst {
+        file("libs/armeabi-v7a/").mkdirs()
+        file("libs/arm64-v8a/").mkdirs()
+        file("libs/x86_64/").mkdirs()
+        file("libs/x86/").mkdirs()
+
+        configurations.natives.copy().files.each { jar ->
+            def outputDir = null
+            if (jar.name.endsWith("natives-armeabi-v7a.jar")) outputDir = file("libs/armeabi-v7a")
+            if (jar.name.endsWith("natives-arm64-v8a.jar")) outputDir = file("libs/arm64-v8a")
+            if (jar.name.endsWith("natives-x86_64.jar")) outputDir = file("libs/x86_64")
+            if (jar.name.endsWith("natives-x86.jar")) outputDir = file("libs/x86")
+            if (outputDir != null) {
+                copy {
+                    from zipTree(jar)
+                    into outputDir
+                    include "*.so"
+                }
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.contains("merge") && it.name.contains("JniLibFolders") }.configureEach { packageTask ->
+    packageTask.dependsOn 'copyAndroidNatives'
+}

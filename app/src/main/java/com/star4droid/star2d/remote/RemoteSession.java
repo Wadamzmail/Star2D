@@ -35,6 +35,8 @@ public final class RemoteSession {
     private static final Handler UI = new Handler(Looper.getMainLooper());
     private static final CopyOnWriteArrayList<Listener> LISTENERS = new CopyOnWriteArrayList<>();
     private static final long IDLE_UNLOCK_MS = 60_000;
+    /** While the connection is lost the user stays locked this long, waiting for the AI to come back. */
+    private static final long DISCONNECT_GRACE_MS = 5 * 60_000;
 
     private static boolean working;
     private static String title = "";
@@ -96,12 +98,19 @@ public final class RemoteSession {
         return copy;
     }
 
+    /** The AI works but the connection dropped: the lock stays, the overlay says "waiting". */
+    public static synchronized boolean isReconnecting() {
+        return working && !connected;
+    }
+
     static void setConnected(boolean on) {
         synchronized (RemoteSession.class) {
             if (connected == on) return;
             connected = on;
-            if (!on) endLocked();
+            // a dropped connection does NOT release the user: the AI usually comes back within seconds
+            if (on) lastActivity = System.currentTimeMillis();
         }
+        if (isWorking()) scheduleIdleCheck();
         changed();
     }
 
@@ -188,13 +197,14 @@ public final class RemoteSession {
 
     private static void scheduleIdleCheck() {
         UI.removeCallbacks(idleCheck == null ? (idleCheck = RemoteSession::checkIdle) : idleCheck);
-        UI.postDelayed(idleCheck, IDLE_UNLOCK_MS + 500);
+        UI.postDelayed(idleCheck, (connected ? IDLE_UNLOCK_MS : DISCONNECT_GRACE_MS) + 500);
     }
 
     private static void checkIdle() {
         boolean release;
         synchronized (RemoteSession.class) {
-            release = working && !gameBusy && System.currentTimeMillis() - lastActivity >= IDLE_UNLOCK_MS;
+            long limit = connected ? IDLE_UNLOCK_MS : DISCONNECT_GRACE_MS;
+            release = working && !gameBusy && System.currentTimeMillis() - lastActivity >= limit;
             if (release) working = false;
         }
         if (release) changed();

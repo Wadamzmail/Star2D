@@ -125,7 +125,6 @@ final class LogicTools {
         final String defScene = CoreTools.s(a, "scene");
         final JsonArray ops = EditTools.opsOf(a);
         final JsonArray results = new JsonArray();
-        final java.util.HashSet<String> touchScenes = new java.util.HashSet<>();
         Gl.run(() -> {
             ensureCatalog();
             LibgdxEditor ed = Proj.editor();
@@ -183,6 +182,26 @@ final class LogicTools {
                             results.add(ok(op, label, "deleted"));
                             break;
                         }
+                        case "edit": {
+                            // patch a raw-Java event instead of rewriting it
+                            JsonArray edits = o.has("edits") && o.get("edits").isJsonArray() ? o.getAsJsonArray("edits") : FileTools.singleEdit(o);
+                            File vf = new File(path + ".visual");
+                            if (vf.exists() && vf.length() > 2) {
+                                BlockModel m = BlockModel.load(vf);
+                                BlockModel.Node src = m.heads.size() == 1 ? m.heads.get(0).next : null;
+                                if (src == null || !"addSource".equals(src.title) || src.next != null || src.fields.isEmpty())
+                                    throw new Gl.ToolError("'" + label + "' is made of blocks, not raw Java: change it with set (blocks), or events get to see it.");
+                                src.fields.get(0).value = FileTools.applyEdits(src.fields.get(0).value, edits);
+                                m.save(vf);
+                                results.add(ok(op, label, "java edited"));
+                            } else {
+                                FileHandle jf = Gdx.files.absolute(path + ".java");
+                                if (!jf.exists()) throw new Gl.ToolError("'" + label + "' has no code yet: use set");
+                                jf.writeString(FileTools.applyEdits(jf.readString(), edits), false);
+                                results.add(ok(op, label, "java edited"));
+                            }
+                            break;
+                        }
                         case "set": {
                             BlockModel m;
                             String how;
@@ -203,30 +222,17 @@ final class LogicTools {
                                     m.save(tf);
                                 }
                             }
-                            if (isEl && (event.equals("onClick") || event.equals("onTouchStart") || event.equals("onTouchEnd"))) touchScenes.add(scene);
                             // the plain event file marks "this event exists" for older code paths
                             results.add(ok(op, label, how + " saved" + (m.formatFailures.isEmpty() ? "" : "; WARNING a block template failed to format")));
                             break;
                         }
                         default:
-                            throw new Gl.ToolError("unknown op '" + op + "' (set|get|delete|list)");
+                            throw new Gl.ToolError("unknown op '" + op + "' (set|edit|get|delete|list)");
                     }
                 } catch (Gl.ToolError t) {
                     results.add(fail(op, label, t.getMessage()));
                 } catch (Throwable t) {
                     results.add(fail(op, label, String.valueOf(t)));
-                }
-            }
-            if (touchScenes.contains(ed.getScene())) {
-                java.util.List<String> w = Warnings.overlaps(ed, p, ed.getScene());
-                if (!w.isEmpty()) {
-                    JsonObject r = new JsonObject();
-                    r.addProperty("op", "warnings");
-                    r.addProperty("ok", true);
-                    JsonArray wa = new JsonArray();
-                    for (String x : w) wa.add(x);
-                    r.add("warnings", wa);
-                    results.add(r);
                 }
             }
             return null;

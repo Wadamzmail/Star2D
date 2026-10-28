@@ -324,7 +324,7 @@ public class CodeGenerator {
                             String propertyKey = entry.getKey();
                             
                             // Skip certain properties
-                            if ("(TYPE)(Shape)(lock)(parent)".contains("(" + propertyKey + ")")) {
+                            if ("(TYPE)(Shape)(lock)(parent)(prefab)(pid)(pbase)".contains("(" + propertyKey + ")")) {
                                 continue;
                             }
                             if (propertyKey.equals("lock")) {
@@ -379,11 +379,31 @@ public class CodeGenerator {
                         if (!isLight) {
                             fixZ = fixZ + String.format(fixZIndexDefault, name);
                         }
+
+                        // A TEXT / PROGRESS that reacts to no touch lets the touch pass to what lies below it (label on a button).
+                        if (!isLight) {
+                            String tp = propertySet.getString("TYPE");
+                            if (("TEXT".equals(tp) || "PROGRESS".equals(tp)) && !reactsToTouch(project, eventsList, script, scriptScene)) {
+                                fixZ = fixZ + "\n" + name + ".getActor().setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);\n";
+                            }
+                        }
                         
                         // Handle parent-child relationships
-                        if ((!isLight) && propertySet.getParent() != null) {
-                            addChilds += propertySet.getParent().getString("name") + 
-                                        ".addChild(" + name + ");\n";
+                        // (the "parent" name is the truth; the PropertySet link is only a fallback for sets without it)
+                        if (!isLight) {
+                            String parentOfItem = propertySet.containsKey("parent") ? propertySet.getString("parent")
+                                    : (propertySet.getParent() != null ? propertySet.getParent().getString("name") : "");
+                            if (!parentOfItem.equals("") && !parentOfItem.equals(name)) {
+                                boolean parentOk = false;
+                                for (PropertySet<String, Object> other : properties) {
+                                    if (parentOfItem.equals(other.getString("name")) && !other.getString("TYPE").equals("LIGHT")) {
+                                        parentOk = true;
+                                        break;
+                                    }
+                                }
+                                if (parentOk)
+                                    addChilds += parentOfItem + ".addChild(" + name + ");\n";
+                            }
                         }
                         
                         // Add script attachment if needed
@@ -484,9 +504,23 @@ public class CodeGenerator {
     public static ArrayList<String> sceneNames(com.star4droid.star2d.Helpers.editor.Project project) {
         ArrayList<String> out = new ArrayList<>();
         java.io.File[] fs = new java.io.File(project.getScenesPath()).listFiles();
-        if (fs != null) for (java.io.File f : fs) if (f.isFile()) out.add(f.getName());
+        if (fs != null) for (java.io.File f : fs) if (f.isFile() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.getName())) out.add(f.getName());
         java.util.Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
         return out;
+    }
+
+    /** True when the element has code for onClick / onTouchStart / onTouchEnd (events or a Java script that mentions them). */
+    private static boolean reactsToTouch(com.star4droid.star2d.Helpers.editor.Project project, String[] events, String script, String scriptScene) {
+        for (int i = 0; i < 3; i++) {
+            String e = events[i] == null ? "" : events[i].replaceAll("(?s)/\\*.*?\\*/|//[^\n]*", "").trim();
+            if (!e.isEmpty()) return true;
+        }
+        try {
+            String code = FileUtil.readFile(project.getBodyScriptPath(script, scriptScene));
+            if (code != null && (code.contains("touchStart") || code.contains("touchEnd") || code.contains("click"))) return true;
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     /** The saved items of a scene (what the scene editor wrote with Save), parents re-linked. */
@@ -626,6 +660,7 @@ public class CodeGenerator {
             case "PARTICLE": return "ParticleDef";
             case "CAMERA": return "CameraDef";
             case "MAP": return "MapDef";
+            case "GROUP": return "GroupDef";
             default: return "Unknown";
         }
     }

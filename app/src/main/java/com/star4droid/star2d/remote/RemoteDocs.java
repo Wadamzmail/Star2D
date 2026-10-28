@@ -295,6 +295,7 @@ public final class RemoteDocs {
             {"PARTICLE", "particle.json", "libGDX particle effect from a .p file in files/ (empty file = default smoke)"},
             {"CAMERA", "camera.json", "CAMERA element: in this version its settings are not applied; control the camera with the Camera blocks"},
             {"MAP", "map.json", "Tiled map (.tmx under images/), drawn only: it has no collision"},
+            {"GROUP", "group.json", "GROUP: empty container, draws nothing. Elements with parent = the group follow it (move, rotate, hide, delete). See topic groups"},
             {"LIGHT point", "Lights/point.json", "Point light (needs a dark Ambient Light in the scene config to be visible)"},
             {"LIGHT cone", "Lights/cone.json", "Cone light"},
             {"LIGHT directional", "Lights/directional.json", "Directional light"},

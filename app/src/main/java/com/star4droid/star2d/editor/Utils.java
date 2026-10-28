@@ -130,7 +130,9 @@ public class Utils {
 	
 	public static void setImageFromFile(Image image,String path,float rx,float ry){
 		ProjectAssetLoader loader = (Editor.getCurrentEditor()!=null && Editor.getCurrentEditor().getLibgdxEditor()!=null)?Editor.getCurrentEditor().getLibgdxEditor().getAssetLoader():null;
-		Texture editorTexture = (loader!=null&&loader.contains(path))?loader.get(path):null;
+		Texture editorTexture = null;
+		// contains() is also true for an image that is only queued (just added, not loaded yet): get() would throw and the item would keep the default logo
+		try { if(loader!=null && loader.isLoaded(path)) editorTexture = loader.get(path); } catch(Throwable ignored){}
 		FileHandle fileHandle = Gdx.files.absolute(path);
 		Texture texture = (editorTexture!=null?editorTexture:new Texture(fileHandle.exists()?fileHandle:Gdx.files.internal("images/logo.png")));
 		if(rx > 1|| ry > 1){

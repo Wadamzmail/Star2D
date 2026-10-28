@@ -11,6 +11,7 @@ public final class RemoteTools {
     private static String docHint(String tool) {
         switch (tool) {
             case "elements": return "read_docs {topic:'elements', section:'<TYPE>'}";
+            case "layout_check": return "read_docs {topic:'ui-input', section:'Designing UI'}";
             case "events": return "read_docs {topic:'events'} and {topic:'blocks'}";
             case "define_blocks": case "block_catalog": return "read_docs {topic:'blocks', section:'define_blocks'}";
             case "create_image": case "create_sound": case "import_asset": return "read_docs {topic:'assets', section:'paths'}";
@@ -19,6 +20,7 @@ public final class RemoteTools {
             case "scenes": return "read_docs {topic:'scenes'}";
             case "variables": return "read_docs {topic:'variables'}";
             case "joints": return "read_docs {topic:'joints'}";
+            case "prefabs": return "read_docs {topic:'prefabs'}";
             case "files": return "read_docs {topic:'overview'}";
             default: return null;
         }
@@ -59,9 +61,11 @@ public final class RemoteTools {
                 case "project_info": return CoreTools.projectInfo();
                 case "scene_dump": return CoreTools.sceneDump(args);
                 case "get_elements": return CoreTools.getElements(args);
+                case "layout_check": return LayoutCheck.check(args);
                 case "scenes": return EditTools.scenes(args);
                 case "elements": return EditTools.elements(args);
                 case "joints": return EditTools.joints(args);
+                case "prefabs": return PrefabTools.prefabs(args);
                 case "variables": return EditTools.variables(args);
                 case "editor": return EditTools.editor(args);
                 case "block_catalog": return LogicTools.blockCatalog(args);

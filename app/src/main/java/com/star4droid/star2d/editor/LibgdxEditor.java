@@ -73,6 +73,9 @@ public class LibgdxEditor extends Stage {
 	ToastManager toastManager;
 	boolean lockX = false,lockY = false;
 	String[] startTransform;
+	// the descendants of the selected element move / rotate with it: they and their start pose (for one undo step)
+	private final ArrayList<Actor> dragKids = new ArrayList<>();
+	private ArrayList<String[]> dragKidsStart = new ArrayList<>();
 	float prevDistance = -1,startAngle=0,ratioScale =1,gridSizeX=50,logicalWidth=1600,logicalHeight=720,gridSizeY=50;
 	
 	public LibgdxEditor(Project project){
@@ -214,8 +217,18 @@ public class LibgdxEditor extends Stage {
 				"Collider Height",ps.getString("Collider Height")
 			};
 			try {
-			    EditorAction.propertiesChanged(this,getSelectedActor().getName(),touch_mode == TOUCHMODE.ROTATE ? "rotation" : (touch_mode == TOUCHMODE.SCALE ? "scale" : "position"),endTransform,startTransform).updateEditorProperties().updateItemProperties();
+				String msg = touch_mode == TOUCHMODE.ROTATE ? "rotation" : (touch_mode == TOUCHMODE.SCALE ? "scale" : "position");
+				if(dragKids.isEmpty()){
+			    	EditorAction.propertiesChanged(this,getSelectedActor().getName(),msg,endTransform,startTransform).updateEditorProperties().updateItemProperties();
+				} else {
+					// the group and everything inside it: one undo step
+					EditorAction main = EditorAction.propertiesChangedQuiet(this,getSelectedActor().getName(),msg,endTransform,startTransform);
+					if(main != null) main.updateEditorProperties().updateItemProperties();
+					Hierarchy.pushMove(this,main,dragKidsStart,msg);
+				}
 			} catch(Exception ex){}
+			dragKids.clear();
+			dragKidsStart = new ArrayList<>();
 			getSaveState();
 			if(controlLayer!=null)
 				controlLayer.updateUndoRedo();
@@ -241,6 +254,14 @@ public class LibgdxEditor extends Stage {
 					centerY = selectedActor.getY() + selectedActor.getHeight() / 2.0f;
 			double angle = Math.atan2(Gdx.input.getY() - centerY, Gdx.input.getX() - centerX);
 			startAngle = (float)Math.toDegrees(angle) - 90;
+		}
+		dragKids.clear();
+		dragKidsStart = new ArrayList<>();
+		if(selectedActor!=null && (touch_mode == TOUCHMODE.MOVE || touch_mode == TOUCHMODE.ROTATE)){
+			try {
+				dragKids.addAll(Hierarchy.descendantsOf(this,selectedActor.getName()));
+				dragKidsStart = Hierarchy.snapshot(dragKids);
+			} catch(Throwable ignored){}
 		}
 		if(selectedActor!=null){
 			PropertySet<String,Object> ps = PropertySet.getPropertySet(selectedActor);
@@ -393,6 +414,7 @@ public class LibgdxEditor extends Stage {
 			case "PARTICLE": return new ParticleItem(this);
 			case "CAMERA": return new EditorCameraItem(this);
 			case "MAP": return new EditorMapItem(this);
+			case "GROUP": return new EditorGroupItem(this);
 		}
 		return null;
 	}
@@ -476,6 +498,7 @@ public class LibgdxEditor extends Stage {
 			}
 		} catch(Exception exx){}
 		propsMap.clear();
+		try { Hierarchy.relink(this); } catch(Throwable ignored){}
 		loadingScene = false;
 		if(controlLayer!=null){
 			if(selectedActor!=null)
@@ -550,6 +573,7 @@ public class LibgdxEditor extends Stage {
 				Gdx.files.absolute(project.getConfig(scene)).writeString(Gdx.files.internal("scene.json").readString(),false);
 				cfg=Gdx.files.absolute(project.getConfig(scene)).readString();
 				editorConfig = Utils.getProperty(cfg);
+				inheritProjectOrientation();
 				backgroundColor = editorConfig.getColor("sceneColor");
 			}
 			
@@ -570,6 +594,28 @@ public class LibgdxEditor extends Stage {
 		}
 	}
 	
+	/** A scene created with the default config takes the orientation of the project (its other scenes), not always landscape. */
+	private void inheritProjectOrientation(){
+		try {
+			java.io.File mine = new java.io.File(project.getConfig(scene));
+			java.io.File dir = mine.getParentFile();
+			java.io.File[] all = dir == null ? null : dir.listFiles();
+			if(all == null) return;
+			java.io.File pick = null;
+			for(java.io.File f : all){
+				if(!f.isFile() || f.getName().equals(mine.getName()) || f.getName().startsWith("__")) continue;
+				if(pick == null || f.getName().startsWith("scene1")) pick = f;
+			}
+			if(pick == null) return;
+			String or = Utils.getProperty(Gdx.files.absolute(pick.getAbsolutePath()).readString()).getString("or");
+			if(or.equals("portrait") || or.equals("landscape") || or.equals("")){
+				editorConfig.put("or", or.equals("portrait") ? "portrait" : "");
+				Gdx.files.absolute(project.getConfig(scene)).writeString(editorConfig.toString(), false);
+				lastConfig = Gdx.files.absolute(project.getConfig(scene)).readString();
+			}
+		} catch(Exception ignored){}
+	}
+
 	// get logical width/height of the editor 
 	public float getLogicWidth(){
 	    String key = LANDSCAPE ? "logicWidth":"logicHeight";
@@ -708,6 +754,9 @@ public class LibgdxEditor extends Stage {
     				((EditorItem)actor).update();
     		}
     		saveConfig();
+    		// the flag must follow the config at once: other code (AI status, new scene editors, the toggle)
+    		// reads isLandscape() right after this and used to get the OLD value until the next config reload
+    		LANDSCAPE = b;
     		if(orienationChangeListener!=null)
     			orienationChangeListener.onChange(b);
 	    } catch(Exception ex){
@@ -717,6 +766,44 @@ public class LibgdxEditor extends Stage {
 	
 	public boolean isLandscape(){
 		return LANDSCAPE;
+	}
+	
+	/** The two numbers as stored in the config. Convention: logicWidth = the LONG side, logicHeight = the SHORT side, in both orientations (portrait swaps them when used). */
+	public float getRawLogicWidth(){
+		PropertySet<String,Object> c = getConfig();
+		return c != null && c.containsKey("logicWidth") ? c.getFloat("logicWidth") : Math.max(Gdx.graphics.getWidth(),Gdx.graphics.getHeight());
+	}
+	
+	public float getRawLogicHeight(){
+		PropertySet<String,Object> c = getConfig();
+		return c != null && c.containsKey("logicHeight") ? c.getFloat("logicHeight") : Math.min(Gdx.graphics.getWidth(),Gdx.graphics.getHeight());
+	}
+	
+	/** True when the stored size breaks the convention (logicWidth shorter than logicHeight): the frame (and the game) then looks reversed. */
+	public boolean logicSizeLooksSwapped(){
+		return getRawLogicWidth() < getRawLogicHeight();
+	}
+	
+	/** Explicit user action: exchange the two stored sizes (fixes a reversed frame). */
+	public void swapLogicSize(){
+		float w = getRawLogicWidth(), h = getRawLogicHeight();
+		setLogicalWH(h,w);
+		saveConfig();
+		for(Actor actor:getActors())
+			if(actor instanceof EditorItem)
+				((EditorItem)actor).update();
+	}
+	
+	private boolean swapHintShown = false;
+	/** Once per editor: tells the user when the size looks reversed and where the fix is. */
+	public void checkLogicSizeHint(){
+		if(swapHintShown) return;
+		try {
+			if(logicSizeLooksSwapped()){
+				swapHintShown = true;
+				toast(com.star4droid.star2d.ui.Tr.t("logic_swapped_hint","The game size looks reversed (width < height). Settings > Scene > Swap width and height."),4);
+			}
+		} catch(Throwable ignored){}
 	}
 	
 	public void setLogicalWH(float width,float height){
@@ -935,6 +1022,9 @@ public class LibgdxEditor extends Stage {
 					case "MAP":
 					item = new EditorMapItem(this);
 					break;
+					case "GROUP":
+					item = new EditorGroupItem(this);
+					break;
 				}
 				
 				if (item == null)
@@ -967,6 +1057,7 @@ public class LibgdxEditor extends Stage {
 				}
 			} catch(Exception exx){}
 			propsMap.clear();
+			try { Hierarchy.relink(this); } catch(Throwable ignored){}
 			if(controlLayer!=null){
 				if(selectedActor!=null)
 					controlLayer.bodySelected();
@@ -1072,7 +1163,7 @@ public class LibgdxEditor extends Stage {
 			PropertySet<String,Object> propertySet = (selectedActor != null && selectedActor instanceof EditorItem) ? ((EditorItem)selectedActor).getPropertySet():null;
 			float deltaX = lockY ? 0 : (-Gdx.input.getDeltaX() * camera.zoom * 0.5f);
 			float deltaY = lockX ? 0 : (Gdx.input.getDeltaY() * camera.zoom * 0.5f);
-			boolean locked = propertySet != null && propertySet.getString("lock").equals("true");
+			boolean locked = propertySet != null && Hierarchy.isLocked(propertySet);
 			if(touch_mode == TOUCHMODE.GRID || com.star4droid.star2d.remote.RemoteSession.isLocked() || selectedActor == null || locked || !(selectedActor instanceof EditorItem)){
 				//movement
 				camera.translate(deltaX,deltaY);
@@ -1080,6 +1171,7 @@ public class LibgdxEditor extends Stage {
 				propertySet.put("x",propertySet.getFloat("x") - deltaX);
 				propertySet.put("y",propertySet.getFloat("y") - deltaY);
 				((EditorItem)selectedActor).update();
+				if(!dragKids.isEmpty()) Hierarchy.move(dragKids,-deltaX,-deltaY);
 				
 				//selectedActor.setPosition(selectedActor.getX()+deltaX,selectedActor.getY()+deltaX);
 			} else if(touch_mode == TOUCHMODE.ROTATE){
@@ -1107,6 +1199,7 @@ public class LibgdxEditor extends Stage {
 					angle += 360;
 				propertySet.put("rotation", angle);
 				((EditorItem)selectedActor).update();
+				if(!dragKids.isEmpty()) Hierarchy.rotate(dragKids,centerX,centerY,(float)deltaRotation);
 				
 			} else if(touch_mode == TOUCHMODE.SCALE){
 			    deltaY = -deltaY;
@@ -1249,6 +1342,7 @@ public class LibgdxEditor extends Stage {
 		shapeRenderer.end();
 		Gdx.gl.glLineWidth(1f);
 		
+		try { Hierarchy.applyVisibility(this); } catch(Throwable ignored){}
 		super.draw();
 		updateProperties();
 		try {

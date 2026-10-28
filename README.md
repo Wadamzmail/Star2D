@@ -121,3 +121,10 @@ Every contribution helps grow the Star2D ecosystem.
 > Some bugs may still exist in the engine. Contributions to fix them are highly appreciated. 🚒  
 
 ---
+
+---
+
+## 🧱 Game template (for contributors)
+Exported games are built from a prebuilt template that is **generated** by the `:template` module and the
+*Build game template* GitHub Action (runs by itself when the game runtime changes on `master`, or by hand).
+Never edit `template.zip`, `java/manifest.xml`, `java/game.zip` by hand — see [docs/TEMPLATE.md](docs/TEMPLATE.md).

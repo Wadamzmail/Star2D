@@ -72,7 +72,7 @@ final class FileTools {
         boolean mutating = false;
         for (JsonElement e : ops) {
             String op = CoreTools.s(e.getAsJsonObject(), "op");
-            if (op.equals("write") || op.equals("delete") || op.equals("move") || op.equals("copy") || op.equals("mkdir")) mutating = true;
+            if (op.equals("write") || op.equals("edit") || op.equals("delete") || op.equals("move") || op.equals("copy") || op.equals("mkdir")) mutating = true;
         }
         HashMap<String, String> snap = mutating ? before() : null;
         JsonArray results = new JsonArray();
@@ -103,6 +103,19 @@ final class FileTools {
                             break;
                         }
                         String txt = new String(readBytes(f, MAX_READ * 4L), StandardCharsets.UTF_8);
+                        if (o.has("from_line") || o.has("to_line")) {
+                            // numbered lines: cheap way to look at one part of a big script
+                            String[] lines = txt.split("\n", -1);
+                            int from = Math.max(1, CoreTools.i(o, "from_line", 1));
+                            int to = Math.min(lines.length, CoreTools.i(o, "to_line", from + 119));
+                            if (to - from > 399) to = from + 399;
+                            StringBuilder sb = new StringBuilder();
+                            for (int ln = from; ln <= to; ln++) sb.append(ln).append(": ").append(lines[ln - 1]).append('\n');
+                            r.addProperty("content", sb.toString());
+                            r.addProperty("lines", lines.length);
+                            if (to < lines.length) r.addProperty("next_from_line", to + 1);
+                            break;
+                        }
                         int off = Math.max(0, CoreTools.i(o, "offset", 0));
                         if (off > txt.length()) off = txt.length();
                         String part = txt.substring(off, Math.min(txt.length(), off + MAX_READ));
@@ -111,6 +124,23 @@ final class FileTools {
                             r.addProperty("truncated", true);
                             r.addProperty("next_offset", off + part.length());
                         }
+                        break;
+                    }
+                    case "edit": {
+                        guard(p, f);
+                        if (!f.isFile()) throw new Gl.ToolError("file not found: " + path);
+                        if (looksBinary(f)) throw new Gl.ToolError("binary file: cannot edit");
+                        String text = new String(readBytes(f, MAX_WRITE), StandardCharsets.UTF_8);
+                        text = applyEdits(text, o.has("edits") && o.get("edits").isJsonArray() ? o.getAsJsonArray("edits") : singleEdit(o));
+                        try (OutputStream out = new FileOutputStream(f)) {
+                            out.write(text.getBytes(StandardCharsets.UTF_8));
+                        }
+                        r.addProperty("ok", true);
+                        reload |= touchesScene(Proj.rel(p, f)) || touchesAssets(Proj.rel(p, f));
+                        break;
+                    }
+                    case "search": {
+                        searchInto(p, f, o, r);
                         break;
                     }
                     case "write": {
@@ -154,7 +184,7 @@ final class FileTools {
                         break;
                     }
                     default:
-                        throw new Gl.ToolError("unknown op '" + op + "' (list|read|write|delete|move|copy|mkdir)");
+                        throw new Gl.ToolError("unknown op '" + op + "' (list|read|search|edit|write|delete|move|copy|mkdir)");
                 }
             } catch (Gl.ToolError t) {
                 r.addProperty("error", t.getMessage());
@@ -170,6 +200,135 @@ final class FileTools {
             results.add(r);
         }
         return ToolResult.text(results.toString());
+    }
+
+    // ------------------------------------------------------------------ edit / search helpers
+
+    static JsonArray singleEdit(JsonObject o) {
+        JsonArray arr = new JsonArray();
+        if (o.has("old")) {
+            JsonObject e = new JsonObject();
+            e.addProperty("old", CoreTools.s(o, "old"));
+            e.addProperty("new", CoreTools.s(o, "new"));
+            if (o.has("all")) e.add("all", o.get("all"));
+            arr.add(e);
+        }
+        return arr;
+    }
+
+    static int lineOf(String text, int index) {
+        int n = 1;
+        for (int i = 0; i < index && i < text.length(); i++) if (text.charAt(i) == '\n') n++;
+        return n;
+    }
+
+    /** All edits in order on the in-memory text; any failure throws and nothing is written (atomic). Each {old,new,all?}: old must match exactly once unless all. */
+    static String applyEdits(String text, JsonArray edits) {
+        if (edits == null || edits.size() == 0) throw new Gl.ToolError("edits is empty: give [{old,new}] (old = exact text to replace)");
+        for (int i = 0; i < edits.size(); i++) {
+            JsonObject e = edits.get(i).getAsJsonObject();
+            String old = CoreTools.s(e, "old");
+            String neu = e.has("new") && !e.get("new").isJsonNull() ? e.get("new").getAsString() : "";
+            if (old.isEmpty()) throw new Gl.ToolError("edit " + i + ": 'old' is empty");
+            int count = 0, at = -1, from = 0;
+            StringBuilder lineNos = new StringBuilder();
+            while ((from = text.indexOf(old, from)) >= 0) {
+                if (count == 0) at = from;
+                if (count < 6) lineNos.append(lineNos.length() == 0 ? "" : ", ").append(lineOf(text, from));
+                count++;
+                from += old.length();
+            }
+            if (count == 0) throw new Gl.ToolError("edit " + i + ": 'old' text not found (nothing was changed). " + nearest(text, old));
+            boolean all = e.has("all") && e.get("all").getAsBoolean();
+            if (count > 1 && !all)
+                throw new Gl.ToolError("edit " + i + ": 'old' matches " + count + " times (lines " + lineNos + ") - make it longer/unique or set all:true (nothing was changed)");
+            text = all ? text.replace(old, neu) : text.substring(0, at) + neu + text.substring(at + old.length());
+        }
+        return text;
+    }
+
+    /** A hint for a failed match: the line that looks most like the first line of 'old'. */
+    private static String nearest(String text, String old) {
+        String key = old.trim().split("\n")[0].trim();
+        if (key.length() > 60) key = key.substring(0, 60);
+        if (key.isEmpty()) return "";
+        String[] lines = text.split("\n", -1);
+        String best = null;
+        int bestAt = -1, bestScore = 0;
+        String k = key.replaceAll("\\s+", " ").toLowerCase();
+        for (int i = 0; i < lines.length; i++) {
+            String l = lines[i].trim().replaceAll("\\s+", " ").toLowerCase();
+            if (l.isEmpty()) continue;
+            int score = 0;
+            if (l.contains(k) || k.contains(l)) score = 1000 + Math.min(l.length(), k.length());
+            else {
+                int n = Math.min(l.length(), k.length());
+                while (score < n && l.charAt(score) == k.charAt(score)) score++;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                best = lines[i];
+                bestAt = i + 1;
+            }
+        }
+        if (best == null || bestScore < 6) return "";
+        String show = best.length() > 160 ? best.substring(0, 160) + "…" : best;
+        return "Closest line " + bestAt + ": " + show + "  (check spaces/tabs/line breaks; use files search or read with from_line/to_line)";
+    }
+
+    private static void searchInto(Project p, File f, JsonObject o, JsonObject r) throws Exception {
+        String pattern = CoreTools.s(o, "pattern");
+        if (pattern.isEmpty()) throw new Gl.ToolError("pattern is empty");
+        boolean regex = CoreTools.b(o, "regex", false), ci = CoreTools.b(o, "ignore_case", true);
+        int ctx = Math.max(0, Math.min(5, CoreTools.i(o, "context", 0))), max = Math.max(1, Math.min(120, CoreTools.i(o, "max", 40)));
+        java.util.regex.Pattern pat;
+        try {
+            pat = java.util.regex.Pattern.compile(regex ? pattern : java.util.regex.Pattern.quote(pattern), ci ? java.util.regex.Pattern.CASE_INSENSITIVE : 0);
+        } catch (Exception e) {
+            throw new Gl.ToolError("bad regex: " + e.getMessage());
+        }
+        java.util.ArrayList<File> files = new java.util.ArrayList<>();
+        if (f.isFile()) files.add(f);
+        else if (f.isDirectory()) collectFiles(f, files, 600);
+        else throw new Gl.ToolError("not found: " + CoreTools.s(o, "path"));
+        JsonArray hits = new JsonArray();
+        int total = 0;
+        outer:
+        for (File x : files) {
+            if (looksBinary(x) || x.length() > 1_500_000) continue;
+            String[] lines = new String(readBytes(x, 1_500_000), StandardCharsets.UTF_8).split("\n", -1);
+            for (int i = 0; i < lines.length; i++) {
+                if (!pat.matcher(lines[i]).find()) continue;
+                total++;
+                if (hits.size() >= max) continue;
+                StringBuilder sb = new StringBuilder();
+                for (int k = Math.max(0, i - ctx); k <= Math.min(lines.length - 1, i + ctx); k++) {
+                    String l = lines[k].length() > 200 ? lines[k].substring(0, 200) + "…" : lines[k];
+                    sb.append(k == i ? "> " : "  ").append(k + 1).append(": ").append(l).append('\n');
+                }
+                JsonObject h = new JsonObject();
+                h.addProperty("file", Proj.rel(p, x));
+                h.addProperty("line", i + 1);
+                h.addProperty("text", ctx == 0 ? lines[i].trim() : sb.toString().replaceAll("\\s+$", ""));
+                hits.add(h);
+                if (total > 5000) break outer;
+            }
+        }
+        r.add("matches", hits);
+        r.addProperty("total", total);
+        if (total > hits.size()) r.addProperty("note", "more matches than shown: refine the pattern or raise max (<=120)");
+    }
+
+    private static void collectFiles(File dir, java.util.List<File> out, int max) {
+        File[] fs = dir.listFiles();
+        if (fs == null) return;
+        Arrays.sort(fs, (x, y) -> x.getName().compareToIgnoreCase(y.getName()));
+        for (File x : fs) {
+            if (out.size() >= max) return;
+            if (x.getName().equals(".git")) continue;
+            if (x.isDirectory()) collectFiles(x, out, max);
+            else out.add(x);
+        }
     }
 
     private static void list(Project p, File dir, boolean rec, JsonArray out, int max) {

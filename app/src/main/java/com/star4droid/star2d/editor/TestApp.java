@@ -217,7 +217,13 @@ public class TestApp implements ApplicationListener {
 	
 	public void openProject(Project project){
 	    try {
-		    PropertySet<String,Object> propertySet=PropertySet.getFrom(Gdx.files.absolute(project.getConfig("scene1")).readString());
+		    com.badlogic.gdx.files.FileHandle first = Gdx.files.absolute(project.getConfig("scene1"));
+		    if(!first.exists()){
+		        // scene1 was deleted or renamed: the orientation of the project is the one of any other scene
+		        java.io.File[] all = new java.io.File(project.getConfig("scene1")).getParentFile().listFiles();
+		        if(all != null) for(java.io.File f : all) if(f.isFile() && !f.getName().startsWith("__")){ first = Gdx.files.absolute(f.getAbsolutePath()); break; }
+		    }
+		    PropertySet<String,Object> propertySet=PropertySet.getFrom(first.readString());
 		    openProject(project,propertySet);
 		} catch(Exception ex){
 		    openProject(project,null);
@@ -280,15 +286,21 @@ public class TestApp implements ApplicationListener {
 	}
 	
 	private void onLoad(Project project){
+		cleanTempScenes(project);
 		editors.clear();
 		UiStage.clear();
 		toastManager = new ToastManager(UiStage);
+		boolean hadConfig = new java.io.File(project.getConfig("scene1")).exists();
 		editor = new LibgdxEditor(project,"scene1",projectAssetLoader);
 		editor.enableAutoSave(preferences.getBoolean("AutoSave",true));
 		editor.loadFromPath();
 		//editor.setOrienationChangeListener(orienationChangeListener);
 		editor.setToastManager(toastManager);
-		editor.setLandscape(landscape);
+		if(hadConfig){
+			// the saved config is the truth: never push a guessed orientation (a failed read defaulted to landscape) over it
+			landscape = editor.isLandscape();
+			if(orienationChangeListener != null) orienationChangeListener.onChange(landscape);
+		} else editor.setLandscape(landscape);
 		editor.setFilePicker(filePicker);
 		if(controlLayer==null)
 	    	controlLayer = new ControlLayer(this);
@@ -324,6 +336,7 @@ public class TestApp implements ApplicationListener {
 			resize(width,height);
 		editors.add(editor);
 		controlLayer.tabsItem.refresh();
+		editor.checkLogicSizeHint();
 		canExitFromProject = true;
 		if(nativeHooks != null) nativeHooks.onEditorChanged();
 	}
@@ -341,6 +354,50 @@ public class TestApp implements ApplicationListener {
 		LibgdxEditor editor = createSceneEditor(scene);
 		editors.add(editor);
 		setCurrentEditor(editors.size - 1);
+	}
+	
+	/**
+	 * Closes the editor of a scene (used for the hidden prefab-edit scene) and goes back to another tab:
+	 * the one of "returnScene" when it is open, else the first other one. Does nothing when it is the only editor.
+	 */
+	public boolean closeSceneEditorQuiet(String scene,String returnScene){
+		LibgdxEditor target = null, back = null, firstOther = null;
+		for(LibgdxEditor ed:editors){
+			if(ed.getScene().equals(scene)) target = ed;
+			else {
+				if(firstOther == null) firstOther = ed;
+				if(returnScene != null && ed.getScene().equals(returnScene)) back = ed;
+			}
+		}
+		if(target == null) return false;
+		if(back == null) back = firstOther;
+		if(back == null) return false;
+		if(this.editor == target) setCurrentEditor(editors.indexOf(back,true));
+		editors.removeValue(target,true);
+		try { target.dispose(); } catch(Throwable ignored){}
+		currentEditorPos = Math.max(0,editors.indexOf(this.editor,true));
+		setCurrentEditorQuiet();
+		return true;
+	}
+	
+	/** True when a (hidden) prefab-edit scene is open in an editor. */
+	public boolean hasTempSceneOpen(){
+		for(LibgdxEditor ed:editors)
+			if(com.star4droid.star2d.prefab.PrefabStore.isTempScene(ed.getScene())) return true;
+		return false;
+	}
+	
+	/** Leftovers of a prefab edit that was cut short (app killed): removed when a project opens. */
+	private void cleanTempScenes(Project project){
+		try {
+			java.io.File[] fs = new java.io.File(project.getScenesPath()).listFiles();
+			if(fs == null) return;
+			for(java.io.File f:fs){
+				if(!com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.getName())) continue;
+				try { com.star4droid.star2d.prefab.PrefabOps.discardEdit(project,f.getName()); } catch(Throwable ignored){}
+				if(f.exists()) project.deleteScene(f.getName());
+			}
+		} catch(Throwable ignored){}
 	}
 	
 	/** A loaded (it loads in chunks) editor for a scene, set up like the ones of the other tabs. Not added to the tabs. */

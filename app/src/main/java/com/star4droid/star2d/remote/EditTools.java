@@ -134,6 +134,7 @@ final class EditTools {
             LibgdxEditor ed = Proj.editor();
             StringBuilder sb = new StringBuilder();
             float lw = -1, lh = -1;
+            boolean swap = false;
             for (Map.Entry<String, JsonElement> e : c.entrySet()) {
                 String k = e.getKey(), v = str(e.getValue());
                 switch (k) {
@@ -150,12 +151,23 @@ final class EditTools {
                         break;
                     case "logicWidth": lw = Bridge.num(v); break;
                     case "logicHeight": lh = Bridge.num(v); break;
+                    case "swap_size":
+                    case "swapSize": swap = v.equalsIgnoreCase("true") || v.equals("1"); break;
                     default: sb.append("ignored unknown key '").append(k).append("'; ");
                 }
             }
             if (lw > 0 || lh > 0) {
-                ed.setLogicalWH(lw > 0 ? lw : ed.getLogicWidth(), lh > 0 ? lh : ed.getLogicHeight());
+                // stored convention: logicWidth = LONG side, logicHeight = SHORT side (portrait swaps them when used).
+                // The missing one comes from the STORED values (the display getters are swapped in portrait).
+                float a = lw > 0 ? lw : ed.getRawLogicWidth(), b = lh > 0 ? lh : ed.getRawLogicHeight();
+                float longSide = Math.max(a, b), shortSide = Math.min(a, b);
+                if (a < b) sb.append("logicWidth is the LONG side: stored as ").append((int) longSide).append(" x ").append((int) shortSide).append("; ");
+                ed.setLogicalWH(longSide, shortSide);
                 ed.saveConfig();
+            }
+            if (swap) {
+                ed.swapLogicSize();
+                sb.append("sizes swapped (logicWidth now ").append((int) ed.getRawLogicWidth()).append(", logicHeight ").append((int) ed.getRawLogicHeight()).append("); ");
             }
             Proj.project().save(ed);
             return "Scene '" + ed.getScene() + "' configured. " + sb;
@@ -164,11 +176,12 @@ final class EditTools {
 
     // ================================================================== elements
 
-    private static final String[] KINDS = {"BOX", "CIRCLE", "TEXT", "JOYSTICK", "PROGRESS", "CUSTOM", "PARTICLE", "CAMERA", "MAP"};
+    private static final String[] KINDS = {"BOX", "CIRCLE", "TEXT", "JOYSTICK", "PROGRESS", "CUSTOM", "PARTICLE", "CAMERA", "MAP", "GROUP"};
 
     private static int kindIndex(String type) {
         String t = type.toUpperCase(Locale.ROOT).replace(" ", "");
         if (t.equals("TILEDMAP") || t.equals("TILEMAP")) t = "MAP";
+        if (t.equals("CONTAINER") || t.equals("EMPTY") || t.equals("FOLDER")) t = "GROUP";
         for (int i = 0; i < KINDS.length; i++) if (KINDS[i].equals(t)) return i;
         return -1;
     }
@@ -266,7 +279,6 @@ final class EditTools {
             ArrayList<String> w = new ArrayList<>();
             LibgdxEditor ed = Proj.editor();
             w.addAll(Warnings.text(ed, touched));
-            w.addAll(Warnings.overlaps(ed, ed.getProject(), ed.getScene()));
             return w;
         });
         if (!warns.isEmpty()) {
@@ -295,7 +307,7 @@ final class EditTools {
             switch (op) {
                 case "add": {
                     String type = CoreTools.s(o, "type");
-                    if (type.isEmpty()) return res(op, name, false, "type is required (BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP, LIGHT)");
+                    if (type.isEmpty()) return res(op, name, false, "type is required (BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP, GROUP, LIGHT)");
                     if (!name.isEmpty() && ed.getBodiesList().contains(name)) return res(op, name, false, "an element named '" + name + "' already exists (use set)");
                     if (!name.isEmpty() && !name.matches("[A-Za-z_][A-Za-z0-9_]*")) return res(op, name, false, "name must be letters, digits and _ (not starting with a digit)");
                     String t = type.toUpperCase(Locale.ROOT).replace(" ", "");
@@ -305,7 +317,7 @@ final class EditTools {
                         app.getControlLayer().actionAddLight(idx);
                     } else {
                         int idx = kindIndex(type);
-                        if (idx < 0) return res(op, name, false, "unknown type '" + type + "'. Use BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP or LIGHT");
+                        if (idx < 0) return res(op, name, false, "unknown type '" + type + "'. Use BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP, GROUP or LIGHT");
                         app.getControlLayer().actionAddBody(idx);
                     }
                     Actor actor = ed.getSelectedActor();

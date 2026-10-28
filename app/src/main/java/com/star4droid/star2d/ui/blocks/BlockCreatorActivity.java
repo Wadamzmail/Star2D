@@ -431,6 +431,8 @@ public class BlockCreatorActivity extends AppCompatActivity {
         t.setMaxLines(1);
         top.addView(t, Ui.weight(1));
         for (View v : actions) top.addView(v);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        Ui.fitIconRow(c, top, 90);
         return top;
     }
 

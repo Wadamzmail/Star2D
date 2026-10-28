@@ -43,13 +43,23 @@
             android:layout_weight="1" />
 
         <ImageView
+            android:id="@+id/home_blocks"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Block creator"
+            android:padding="9dp"
+            android:src="@drawable/ic_s2_blocks"
+            android:tint="@color/home_text" />
+
+        <ImageView
             android:id="@+id/home_clone"
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="Clone from GitHub"
             android:padding="9dp"
-            android:src="@drawable/ic_s2_download"
+            android:src="@drawable/ic_s2_git"
             android:tint="@color/home_text" />
 
         <ImageView

@@ -71,22 +71,29 @@ public final class RemoteSettings {
         secret(c);
     }
 
+    /** The server API version this app speaks. The server keeps old versions working (/v1/, /v2/...); a server without this one needs an update. */
+    public static final int API_VERSION = 1;
+
+    public static String versionBase(Context c) {
+        return server(c) + "/v" + API_VERSION;
+    }
+
     public static String connectorUrl(Context c) {
-        return server(c) + "/mcp/" + secret(c);
+        return versionBase(c) + "/mcp/" + secret(c);
     }
 
     public static String apiBase(Context c) {
-        return server(c) + "/api/" + secret(c);
+        return versionBase(c) + "/api/" + secret(c);
     }
 
     public static String wsUrl(Context c) {
         String s = server(c);
         String ws = s.startsWith("https://") ? "wss://" + s.substring(8) : s.startsWith("http://") ? "ws://" + s.substring(7) : s;
-        return ws + "/ws/" + secret(c);
+        return ws + "/v" + API_VERSION + "/ws/" + secret(c);
     }
 
     public static String guideUrl(Context c) {
-        return server(c) + "/AI.md";
+        return versionBase(c) + "/AI.md";
     }
 
     static String normalize(String url) {

@@ -95,6 +95,10 @@ public class ProjectsHomeView extends FrameLayout {
         setupCommunity();
         setupSettings();
         findViewById(R.id.home_gear).setOnClickListener(v -> selectTab(4));
+        View blocksBtn = findViewById(R.id.home_blocks);
+        blocksBtn.setContentDescription(T("home_block_creator", "Block creator"));
+        blocksBtn.setOnClickListener(v -> com.star4droid.star2d.ui.blocks.BlockCreatorActivity.open(activity));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(blocksBtn, T("home_block_creator", "Block creator"));
         View cloneBtn = findViewById(R.id.home_clone);
         cloneBtn.setContentDescription(T("gh_clone_title", "Clone from GitHub"));
         cloneBtn.setOnClickListener(v -> com.star4droid.star2d.git.ui.CloneDialog.show(activity, projectsDir, dir -> {

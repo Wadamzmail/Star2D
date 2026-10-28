@@ -64,6 +64,13 @@ public class PropertiesPanel implements PanelHost.Panel {
     private final HashSet<String> collapsed = new HashSet<>();
     private String fieldsSignature = "";
     private final Runnable poll = this::pollValues;
+    // prefab instance bar (see updateInstanceBar)
+    private LinearLayout instanceBar;
+    private final HashSet<String> overridden = new HashSet<>();
+    private String instKey = "";
+    private int infoSeq;
+    private final Runnable infoRefresh = this::refreshInstance;
+    private static final java.util.concurrent.ExecutorService INFO_IO = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     public PropertiesPanel(EditorShell shell) {
         this.shell = shell;
@@ -114,6 +121,9 @@ public class PropertiesPanel implements PanelHost.Panel {
         header = Ui.text(c, "", 13, Ui.TEXT_3);
         header.setPadding(Ui.dp(c, 4), Ui.dp(c, 2), 0, Ui.dp(c, 4));
         col.addView(header);
+        instanceBar = Ui.column(c);
+        instanceBar.setVisibility(View.GONE);
+        col.addView(instanceBar, Ui.matchWrap());
         content = Ui.column(c);
         col.addView(content, Ui.matchWrap());
         root.addView(col);
@@ -164,6 +174,7 @@ public class PropertiesPanel implements PanelHost.Panel {
             content.removeAllViews();
             editors.clear();
             header.setText("");
+            hideInstanceBar();
             TextView t = Ui.text(c, Tr.t("ui_select_hint", "Select an element on the canvas or in the Elements list to edit its properties."), 14, Ui.TEXT_3);
             t.setGravity(Gravity.CENTER);
             t.setPadding(Ui.dp(c, 10), Ui.dp(c, 30), Ui.dp(c, 10), 0);
@@ -173,6 +184,8 @@ public class PropertiesPanel implements PanelHost.Panel {
         String name = (String) snap[0];
         LinkedHashMap<String, String> v = (LinkedHashMap<String, String>) snap[1];
         String sig = name + "|" + android.text.TextUtils.join(",", v.keySet());
+        selectedName = name;
+        updateInstanceBar(name, v, (String) snap[2]);
         if (sig.equals(fieldsSignature)) {
             updateValues(v);
             return;
@@ -223,7 +236,7 @@ public class PropertiesPanel implements PanelHost.Panel {
         head.setOnClickListener(x -> {
             boolean col = body.getVisibility() == View.VISIBLE;
             body.setVisibility(col ? View.GONE : View.VISIBLE);
-            arrow.setImageResource(col ? R.drawable.ic_s2_chevron_right : R.drawable.ic_s2_expand_more);
+            Ui.setDirIcon(arrow, col ? R.drawable.ic_s2_chevron_right : R.drawable.ic_s2_expand_more);
             if (col) collapsed.add(title); else collapsed.remove(title);
         });
 
@@ -257,6 +270,12 @@ public class PropertiesPanel implements PanelHost.Panel {
         if (tip != null) {
             l.setText(Tr.t(f) + "  ⓘ");
             l.setOnClickListener(v -> new AlertDialog.Builder(c).setTitle(Tr.t(f)).setMessage(tip).setPositiveButton(Tr.t("ok", "OK"), null).show());
+        }
+        if (overridden.contains(f)) {
+            // differs from the prefab
+            l.setText(l.getText() + "  ● " + Tr.t("prefab_modified_mark", "modified"));
+            l.setTextColor(com.star4droid.star2d.ui.PrefabUi.COLOR);
+            l.setTypeface(Typeface.DEFAULT_BOLD);
         }
         return l;
     }
@@ -545,7 +564,7 @@ public class PropertiesPanel implements PanelHost.Panel {
             }
             ArrayList<String> scenes = new ArrayList<>();
             for (FileHandle fh : Gdx.files.absolute(Bridge.editor().getProject().getScenesPath()).list())
-                if (!fh.isDirectory() && !fh.name().equals(target)) scenes.add(fh.name());
+                if (!fh.isDirectory() && !fh.name().equals(target) && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(fh.name())) scenes.add(fh.name());
             return new Object[]{scene, target, bodies, scenes};
         }, r -> {
             String scene = (String) r[0], target = (String) r[1];
@@ -576,6 +595,144 @@ public class PropertiesPanel implements PanelHost.Panel {
         }
     }
 
+    // ------------------------------------------------------------ prefab instance bar
+
+    private void hideInstanceBar() {
+        if (instanceBar == null) return;
+        instanceBar.removeAllViews();
+        instanceBar.setVisibility(View.GONE);
+        instKey = "";
+        overridden.clear();
+    }
+
+    /** Shows what prefab the selected element belongs to (Apply / Revert / Unpack), or Save-as / Link for a plain group. */
+    private void updateInstanceBar(String name, LinkedHashMap<String, String> v, String type) {
+        if (instanceBar == null) return;
+        if (shell.inPrefabMode()) {
+            hideInstanceBar();
+            return;
+        }
+        String pid = v.get("pid") == null ? "" : v.get("pid");
+        if (pid.isEmpty()) {
+            instKey = "";
+            overridden.clear();
+            if ("Group".equals(type)) showGroupBar(name);
+            else {
+                instanceBar.removeAllViews();
+                instanceBar.setVisibility(View.GONE);
+            }
+            return;
+        }
+        String key = name + "|" + pid + "|" + (v.get("prefab") == null ? "" : v.get("prefab"));
+        if (key.equals(instKey)) return;
+        instKey = key;
+        instanceBar.removeAllViews();
+        instanceBar.setVisibility(View.GONE);
+        overridden.clear();
+        refreshInstance();
+    }
+
+    private void refreshInstance() {
+        final String name = selectedName;
+        if (name == null || instKey.isEmpty() || !Bridge.ready()) return;
+        final int seq = ++infoSeq;
+        Bridge.query(() -> {
+            com.star4droid.star2d.editor.LibgdxEditor ed = Bridge.editor();
+            ed.getProject().save(ed); // the prefab compare reads the scene file
+            return new String[]{ed.getProject().getPath(), ed.getScene()};
+        }, r -> INFO_IO.execute(() -> {
+            com.star4droid.star2d.prefab.PrefabOps.Info info = null;
+            try {
+                info = com.star4droid.star2d.prefab.PrefabOps.info(new com.star4droid.star2d.Helpers.editor.Project(r[0]), r[1], name);
+            } catch (Throwable ignored) {
+            }
+            final com.star4droid.star2d.prefab.PrefabOps.Info fi = info;
+            Ui.ui(() -> {
+                if (seq != infoSeq || !name.equals(selectedName)) return;
+                applyInfo(name, fi);
+            });
+        }));
+    }
+
+    private void applyInfo(String name, com.star4droid.star2d.prefab.PrefabOps.Info info) {
+        HashSet<String> before = new HashSet<>(overridden);
+        overridden.clear();
+        if (info == null) {
+            instanceBar.removeAllViews();
+            instanceBar.setVisibility(View.GONE);
+        } else {
+            String mine = name + ".";
+            for (String m : info.modified) if (m.startsWith(mine)) overridden.add(m.substring(mine.length()));
+            buildInstanceBar(instanceBar.getContext(), name, info);
+        }
+        if (!before.equals(overridden)) {
+            fieldsSignature = "";
+            Bridge.query(this::snapshot, this::render);
+        }
+    }
+
+    private LinearLayout barCard(Context c) {
+        LinearLayout card = Ui.column(c);
+        card.setBackground(Ui.rounded(0x224FC3F7, Ui.dp(c, 10), com.star4droid.star2d.ui.PrefabUi.COLOR, Ui.dp(c, 1)));
+        card.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 8));
+        return card;
+    }
+
+    private View barButton(Context c, int icon, String label, boolean primary, View.OnClickListener l) {
+        LinearLayout b = Ui.button(c, icon, label, primary, l);
+        b.setLayoutParams(Ui.margins(new LinearLayout.LayoutParams(0, Ui.dp(c, 38), 1), c, 2, 0, 2, 0));
+        b.setPadding(Ui.dp(c, 6), 0, Ui.dp(c, 8), 0);
+        return b;
+    }
+
+    private void buildInstanceBar(Context c, String name, com.star4droid.star2d.prefab.PrefabOps.Info info) {
+        instanceBar.removeAllViews();
+        instanceBar.setVisibility(View.VISIBLE);
+        LinearLayout card = barCard(c);
+        LinearLayout top = Ui.row(c);
+        top.addView(Ui.smallIcon(c, com.star4droid.star2d.ui.PrefabUi.ICON, com.star4droid.star2d.ui.PrefabUi.COLOR, 22));
+        LinearLayout texts = Ui.column(c);
+        texts.setPadding(Ui.dp(c, 10), 0, Ui.dp(c, 4), 0);
+        TextView title = Ui.text(c, Tr.t("prefab", "Prefab") + ": " + com.star4droid.star2d.ui.PrefabUi.shortName(info.prefabPath), 15, Ui.TEXT);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setMaxLines(1);
+        String sub;
+        if (info.missing) sub = Tr.t("prefab_missing", "The prefab file is missing");
+        else if (info.modifiedCount == 0) sub = Tr.t("prefab_no_changes", "No changes");
+        else sub = info.modifiedCount + " " + Tr.t("prefab_n_modified", "modified");
+        if (!info.isRoot && info.rootName != null && !info.rootName.isEmpty()) sub += "  ·  " + Tr.t("prefab_part_of", "part of") + " " + info.rootName;
+        TextView subtitle = Ui.text(c, sub, 12, info.modifiedCount > 0 ? com.star4droid.star2d.ui.PrefabUi.COLOR : Ui.TEXT_3);
+        texts.addView(title);
+        texts.addView(subtitle);
+        top.addView(texts, Ui.weight(1));
+        if (!info.missing) {
+            top.addView(Ui.iconButton(c, R.drawable.ic_s2_edit, Tr.t("prefab_open", "Open prefab"), v -> shell.openPrefab(info.prefabPath)));
+            top.setOnClickListener(v -> shell.openPrefab(info.prefabPath));
+        }
+        card.addView(top, Ui.matchWrap());
+        LinearLayout btns = Ui.row(c);
+        btns.setPadding(0, Ui.dp(c, 8), 0, 0);
+        if (!info.missing) {
+            btns.addView(barButton(c, R.drawable.ic_s2_upload, Tr.t("prefab_apply", "Apply"), true, v -> com.star4droid.star2d.ui.PrefabUi.apply(shell, info.rootName, info.prefabPath)));
+            btns.addView(barButton(c, R.drawable.ic_s2_undo, Tr.t("prefab_revert", "Revert"), false, v -> com.star4droid.star2d.ui.PrefabUi.revert(shell, info.rootName)));
+        }
+        btns.addView(barButton(c, R.drawable.ic_s2_link, Tr.t("prefab_unpack", "Unpack"), false, v -> com.star4droid.star2d.ui.PrefabUi.unpack(shell, info.rootName)));
+        card.addView(btns, Ui.matchWrap());
+        instanceBar.addView(card, Ui.margins(Ui.matchWrap(), c, 0, 2, 0, 4));
+    }
+
+    private void showGroupBar(String name) {
+        Context c = instanceBar.getContext();
+        instanceBar.removeAllViews();
+        instanceBar.setVisibility(View.VISIBLE);
+        LinearLayout card = barCard(c);
+        LinearLayout btns = Ui.row(c);
+        btns.addView(barButton(c, com.star4droid.star2d.ui.PrefabUi.ICON, Tr.t("prefab_save_as", "Save as prefab"), false, v -> com.star4droid.star2d.ui.PrefabUi.saveAsPrefab(shell, name)));
+        btns.addView(barButton(c, R.drawable.ic_s2_link, Tr.t("prefab_link", "Link to prefab…"), false, v -> com.star4droid.star2d.ui.PrefabUi.link(shell, name)));
+        card.addView(btns, Ui.matchWrap());
+        instanceBar.addView(card, Ui.margins(Ui.matchWrap(), c, 0, 2, 0, 4));
+    }
+
     private void commit(Runnable glWork) {
         Bridge.gl(glWork);
     }
@@ -586,6 +743,11 @@ public class PropertiesPanel implements PanelHost.Panel {
             String f = e.getKey(), v = e.getValue();
             if (v.equals(values.get(f))) continue;
             values.put(f, v);
+            // a changed value of a prefab instance: recount what differs from the prefab (debounced)
+            if (!instKey.isEmpty() && !f.equals("x") && !f.equals("y") && !f.equals("width") && !f.equals("height") && !f.equals("rotation") && !f.equals("radius") && !f.equals("z")) {
+                root.removeCallbacks(infoRefresh);
+                root.postDelayed(infoRefresh, 900);
+            }
             View ed = editors.get(f);
             if (ed == null) continue;
             String type = typeOf.get(f);

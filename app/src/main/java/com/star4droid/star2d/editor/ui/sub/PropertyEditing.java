@@ -44,17 +44,15 @@ public final class PropertyEditing {
         try {
             LibgdxEditor editor = app.getEditor();
             if (field.equals("parent")) {
-                if (value.equals(""))
-                    PropertySet.getPropertySet(editor.getSelectedActor()).setParent(null);
-                if (!value.equals(""))
-                    for (Actor actor : editor.getActors()) {
-                        if (actor instanceof EditorItem && actor.getName().equals(value)) {
-                            PropertySet set = PropertySet.getPropertySet(actor);
-                            if (!PropertySet.getPropertySet(editor.getSelectedActor()).setParent(set))
-                                return "Can't set as parent!";
-                            break;
-                        }
-                    }
+                if (com.star4droid.star2d.prefab.PrefabSession.isTemp(editor)) {
+                    if (com.star4droid.star2d.prefab.PrefabSession.isRoot(editor.getSelectedActor()) || value.equals(""))
+                        return com.star4droid.star2d.ui.Tr.t("prefab_parent_locked", "Everything in a prefab stays under its root");
+                }
+                // the world position stays; self and cycles are refused; one undo step
+                String err = com.star4droid.star2d.editor.Hierarchy.setParent(editor, editor.getSelectedActor().getName(), value, true);
+                if (err != null) return err;
+                editor.getSaveState();
+                return null;
             }
             PropertySet<String, Object> ps = ps(editor);
             String old = ps.getString(field);
@@ -123,7 +121,26 @@ public final class PropertyEditing {
             LibgdxEditor editor = app.getEditor();
             PropertySet<String, Object> propertySet = ps(editor);
             String old = propertySet.getString(field);
+            // x / y / rotation of an element move (rotate) everything inside it too, as one undo step
+            java.util.ArrayList<com.badlogic.gdx.scenes.scene2d.Actor> kids = null;
+            java.util.ArrayList<String[]> kidsBefore = null;
+            if (field.equals("x") || field.equals("y") || field.equals("rotation")) {
+                kids = com.star4droid.star2d.editor.Hierarchy.descendantsOf(editor, editor.getSelectedActor().getName());
+                if (kids.isEmpty()) kids = null;
+                else kidsBefore = com.star4droid.star2d.editor.Hierarchy.snapshot(kids);
+            }
             propertySet.put(field, f);
+            if (kids != null) {
+                float oldF = 0;
+                try { oldF = Float.parseFloat(old); } catch (Exception ignored) {}
+                float d = f - oldF;
+                if (field.equals("x")) com.star4droid.star2d.editor.Hierarchy.move(kids, d, 0);
+                else if (field.equals("y")) com.star4droid.star2d.editor.Hierarchy.move(kids, 0, d);
+                else {
+                    com.badlogic.gdx.scenes.scene2d.Actor sel = editor.getSelectedActor();
+                    com.star4droid.star2d.editor.Hierarchy.rotate(kids, sel.getX() + sel.getWidth() * 0.5f, sel.getY() + sel.getHeight() * 0.5f, d);
+                }
+            }
             Array<String> oldValues = new Array<>(), newValues = new Array<>();
             newValues.add(field);
             newValues.add(String.valueOf(f));
@@ -144,7 +161,9 @@ public final class PropertyEditing {
                 oldArray[i] = oldValues.get(i);
                 newArray[i] = newValues.get(i);
             }
-            EditorAction action = EditorAction.propertiesChanged(editor, editor.getSelectedActor().getName(), field, newArray, oldArray);
+            EditorAction action = kids == null
+                    ? EditorAction.propertiesChanged(editor, editor.getSelectedActor().getName(), field, newArray, oldArray)
+                    : EditorAction.propertiesChangedQuiet(editor, editor.getSelectedActor().getName(), field, newArray, oldArray);
             editor.updateProperties();
             editor.getSaveState();
             if (field.equals("tileX") || field.equals("tileY") || field.toLowerCase().contains("progress")) {
@@ -154,6 +173,7 @@ public final class PropertyEditing {
                 ((EditorItem) editor.getSelectedActor()).update();
                 if (action != null) action.updateItemProperties();
             }
+            if (kids != null) com.star4droid.star2d.editor.Hierarchy.pushMove(editor, action, kidsBefore, field);
             editor.getSaveState();
         } catch (Exception ex) {
             Gdx.files.external("floatUndo.txt").writeString("error : " + Utils.getStackTraceString(ex) + "\n" + "_".repeat(15) + "\n", true);

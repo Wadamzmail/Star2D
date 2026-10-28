@@ -42,7 +42,7 @@ Common first calls for every recipe (call numbers continue below):
    {"block":"if","fields":{"boolean":{"r":"___ > ___","args":[{"r":"x of ___","args":["enemy1"]},1150]}},"do":[{"block":"setVariable","fields":{"variable":"enemyDir","value":-1}}]},
    {"block":"if","fields":{"boolean":{"r":"___ < ___","args":[{"r":"x of ___","args":["enemy1"]},800]}},"do":[{"block":"setVariable","fields":{"variable":"enemyDir","value":1}}]},
    {"block":"setVelocityX","fields":{"body":"enemy1","speed":{"r":"___ * ___","args":["enemyDir",120]}}}]},
- {"op":"set","scope":"element","element":"jumpBtn","event":"onTouchStart","blocks":[
+ {"op":"set","scope":"element","element":"jumpBox","event":"onTouchStart","blocks":[
    {"block":"ifThen","fields":{"boolean":{"r":"___ > ___","args":["groundContacts",0]}},"do":[
      {"block":"jump","fields":{"body":"player","power":450}},{"block":"playSound","fields":{"Sound":"jump.wav"}}]}]},
  {"op":"set","scope":"scene","event":"onCollisionStart","blocks":[
@@ -62,7 +62,7 @@ Common first calls for every recipe (call numbers continue below):
 8. Second scene: `scenes` `{"action":"create","name":"gameover","config":{"or":"landscape","logicWidth":1280,"logicHeight":720,"sceneColor":"#212121"}}`, then
 `elements` `{"ops":[{"op":"add","type":"TEXT","name":"title","props":{"x":340,"y":420,"width":600,"height":100,"Text":"GAME OVER","Font Scale":8}},{"op":"add","type":"TEXT","name":"retry","props":{"x":440,"y":250,"width":400,"height":100,"Text":"TAP TO RETRY","Font Scale":5}}]}` and
 `events` `{"ops":[{"op":"set","scope":"element","element":"retry","event":"onClick","blocks":[{"block":"OpenScene","fields":{"scene":"scene1"}}]}]}`. Finally `scenes` `{"action":"open","name":"scene1"}`.
-9. Test: `run_test` `{"steps":[{"do":"wait","ms":800},{"do":"tap","element":"jumpBtn"},{"do":"wait","ms":300},{"do":"assert","element":"player","prop":"vy","op":">","value":0},{"do":"screenshot","label":"jump"}]}` (see `testing`).
+9. Test: `run_test` `{"steps":[{"do":"wait","ms":800},{"do":"tap","element":"jumpBox"},{"do":"wait","ms":300},{"do":"assert","element":"player","prop":"vy","op":">","value":0},{"do":"screenshot","label":"jump"}]}` (see `testing`).
 
 ## 2. Top-down shooter "Blaster": joystick moves, button fires, enemies spawn
 
@@ -95,7 +95,7 @@ Gravity off. Templates `enemyT` and `bulletT` live off-screen and are cloned. `C
      {"block":"destroyLater","fields":{"item":"e","seconds":8}}]}]},
  {"op":"set","scope":"scene","event":"OnStep","blocks":[
    {"block":"moveWithJoystick","fields":{"body":"player","joystick":"joy","speed":350}}]},
- {"op":"set","scope":"element","element":"fireBtn","event":"onTouchStart","blocks":[
+ {"op":"set","scope":"element","element":"fireBox","event":"onTouchStart","blocks":[
    {"block":"changeVariable","fields":{"variable":"shots","by":1}},
    {"block":"spawnCopy","fields":{"body":"bulletT","var":"b","newName":{"r":"join ___ ___","args":[{"r":"\"___\"","args":["bullet"]},"shots"]},"x":{"r":"___ + ___","args":[{"r":"x of ___","args":["player"]},50]},"y":{"r":"y of ___","args":["player"]}}},
    {"block":"setVelocityX","fields":{"body":"b","speed":450}},
@@ -116,7 +116,7 @@ Gravity off. Templates `enemyT` and `bulletT` live off-screen and are cloned. `C
 ]}
 ```
 7. Show score and lives in `OnStep` (add to the OnStep blocks): `{"block":"setText","fields":{"ui":"scoreText","text":"\"Score: \" + score + \"   Lives: \" + lives"}}`. Then create the `gameover` scene like recipe 1 step 8.
-8. Test: `run_test` with `{"do":"tap","element":"fireBtn"}`, `{"do":"joystick","element":"joy","jx":0,"jy":1,"ms":500}`, `{"do":"read","elements":["player"]}`.
+8. Test: `run_test` with `{"do":"tap","element":"fireBox"}`, `{"do":"joystick","element":"joy","jx":0,"jy":1,"ms":500}`, `{"do":"read","elements":["player"]}`.
 
 ## 3. Tap game "Whack the Target": score by tapping, time limit
 

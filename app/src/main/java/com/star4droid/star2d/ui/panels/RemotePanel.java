@@ -212,12 +212,17 @@ public class RemotePanel implements PanelHost.Panel, RemoteClient.StateListener 
         switch (st) {
             case CONNECTED: color = Ui.SUCCESS; text = Tr.t("rc_st_connected", "Connected"); break;
             case CONNECTING: color = Ui.WARNING; text = Tr.t("rc_st_connecting", "Connecting…"); break;
-            case ERROR: color = Ui.DANGER; text = Tr.t("rc_st_error", "Cannot connect"); break;
+            case ERROR: color = Ui.DANGER;
+                text = RemoteClient.SERVER_OUTDATED.equals(RemoteClient.get().detail())
+                        ? Tr.t("rc_server_outdated", "The server needs an update") : Tr.t("rc_st_error", "Cannot connect");
+                break;
             default: color = Ui.TEXT_3; text = RemoteSettings.enabled(c) ? Tr.t("rc_st_waiting", "Waiting for the editor to be on screen") : Tr.t("rc_st_off", "Off");
         }
         dot.setBackground(Ui.rounded(color, Ui.dp(c, 5)));
         stateText.setText(text);
         String d = RemoteClient.get().detail();
+        if (RemoteClient.SERVER_OUTDATED.equals(d))
+            d = Tr.t("rc_server_outdated_hint", "This server does not support the API version this app uses. Update the server (deploy the latest server/ folder) or use the default server.");
         detailText.setText(d);
         detailText.setVisibility(d.isEmpty() ? View.GONE : View.VISIBLE);
         updating = true;

@@ -22,7 +22,7 @@ public final class AiContext {
             "## How a Star2D project works\n" +
             "- Scenes: scenes/<scene> (JSON list of elements). Each scene compiles to class com.star4droid.Game.<scene lowercase> extends StageImp.\n" +
             "- Elements (items) are declared as fields of that class, typed PlayerItem, named exactly like the element name (e.g. player, ground, Text1).\n" +
-            "- Element types: Box, Circle, Text, Joystick, Progress, Custom (polygon collider), Particle, Camera, TiledMap, Lights (point/directional/cone).\n" +
+            "- Element types: Box, Circle, Text, Joystick, Progress, Custom (polygon collider), Particle, Camera, TiledMap, Group (empty container: its children follow it), Lights (point/directional/cone).\n" +
             "- Element properties: name, type (DYNAMIC | STATIC | KINAMATIC | UI), x, y, z, rotation, width, height, radius, image (path relative to images/, e.g. /player.png),\n" +
             "  density, friction, restitution, Gravity Scale, Fixed Rotation, isSensor, Bullet, Active, Visible, Tint (RRGGBBAA), Text, Font Scale, Script, parent, Collision.\n" +
             "- Events (visual scripts) are Java statements stored in:\n" +
@@ -75,7 +75,7 @@ public final class AiContext {
         sb.append("Current scene: ").append(ed.getScene()).append(ed.isLandscape() ? " (landscape)" : " (portrait)").append("\n");
         sb.append("Scenes: ");
         FileHandle sc = Gdx.files.absolute(p.getScenesPath());
-        if (sc.exists()) for (FileHandle f : sc.list()) if (!f.isDirectory()) sb.append(f.name()).append(" ");
+        if (sc.exists()) for (FileHandle f : sc.list()) if (!f.isDirectory() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.name())) sb.append(f.name()).append(" ");
         sb.append("\nLogic screen size: ").append(ed.getLogicWidth()).append(" x ").append(ed.getLogicHeight()).append("\n");
         Actor sel = ed.getSelectedActor();
         sb.append("Selected element: ").append(sel == null ? "none" : sel.getName()).append("\n\n");

@@ -17,14 +17,14 @@ UI elements (`type: "UI"`) are placed in logic pixels, origin bottom-left, and n
 
 The text is drawn with the default font at `Font Scale`. One line is about `Font Scale x (sum of the letter advances)` px wide and `20 x Font Scale` px high. Advances of the default font: capital letters about 10 px (W 17, I 5), small letters about 8, digits 9, space 5, `^` 9. Examples at `Font Scale` 1: `UP` 20, `JUMP` 38, `PLAY` 35, `Score: 0` 56, `Game Over` 83. At Font Scale 4 `UP` needs 80 px.
 - If the text is wider than `width` it WRAPS onto a second line (a two-letter label can break between its letters). Fix it with `set`: raise `width` (and `height`), or lower `Font Scale`. The `elements` tool measures every TEXT you add or change and returns a warning with the width it needs; do not ignore it.
-- For a label on a button: make the TEXT exactly as big as the button and keep `Font Scale` so that `needed width <= button width - 10`.
+- For a label on a button: make the TEXT exactly as big as the button and keep `Font Scale` so that `needed width <= button width - 10`. The label is click-through (no events on it), the BOX below gets the tap.
 - A single symbol (`^`, `<`, `>`, `v`, `+`) never wraps; handy for arrow buttons.
 - Any element's `x`, `y`, `width`, `height` (and `radius`) can be changed at any time with `elements` `set`; resizing is the normal way to fix a layout.
 - Change it: block `setText` (text is Java: `"\"Lives: \" + lives"` or a `join` reporter) or `showText`. `\n` in `Text` makes a new line.
 
 ## Buttons
 
-There is no button element. Make a BOX with `type: "UI"` and an image (or a white `create_image` PNG with `Tint`), plus a TEXT with the SAME `x`, `y`, `width`, `height` and a higher `z`; put the SAME touch event on the TEXT too (it is the topmost element, so it receives the tap; a TEXT without events still swallows the touch and the box below never sees it). The `events` tool does both in one call: `{"op":"set","scope":"element","element":"jumpBox","event":"onTouchStart","blocks":[...],"also_on":["jumpBtn"]}`; `elements` and `events` warn when a TEXT lies on a button. Use `onTouchStart` instead of `onClick` for game controls (instant response), `onClick` for menu buttons.
+There is no button element. Make a BOX with `type: "UI"` and an image (or a white `create_image` PNG with `Tint`), plus a TEXT with the SAME `x`, `y`, `width`, `height` and a higher `z`. Put the touch event on the BOX only: a TEXT or PROGRESS that has NO touch event (`onClick`, `onTouchStart`, `onTouchEnd`) is click-through, the tap goes to whatever lies below it. A TEXT that HAS a touch event captures the touch itself, so do not give label texts events. Use `onTouchStart` instead of `onClick` for game controls (instant response), `onClick` for menu buttons.
 
 ```json
 {"ops":[
@@ -32,9 +32,20 @@ There is no button element. Make a BOX with `type: "UI"` and an image (or a whit
  {"op":"add","type":"TEXT","name":"playBtn","props":{"x":490,"y":300,"width":300,"height":100,"Text":"PLAY","Font Scale":5,"z":51}}
 ]}
 ```
-Then `events` `{"op":"set","scope":"element","element":"playBtn","event":"onClick","blocks":[{"block":"OpenScene","fields":{"scene":"scene1"}}]}`.
+Then `events` `{"op":"set","scope":"element","element":"playBox","event":"onClick","blocks":[{"block":"OpenScene","fields":{"scene":"scene1"}}]}`.
 
 A BOX with `Tint` `#FFFFFF00` (transparent) over the whole screen with `type: "UI"` captures taps anywhere (use its `onTouchStart`, and the reporters `touch x` / `touch y` for the position).
+
+## Designing UI: look, measure, fix
+
+Two layers: the UI layer (elements with `type: "UI"`, JOYSTICK, HUD) is SCREEN space: (0,0) is the bottom-left of the logic screen (`scenes` config `logicWidth` x `logicHeight`) and it never moves with the camera. World elements live in camera space and scroll. In the editor the UI elements are drawn at their screen positions on the scene canvas.
+
+The loop that gives a good-looking screen:
+1. Build with `elements` (batch). Read the `warnings` of the reply (wrapping text).
+2. `layout_check`: lists what is wrong without a picture: UI outside the screen, overlapping UI, text too narrow, touch targets under 48 px, text hidden under its box (a label lying inside a box is normal and not reported).
+3. LOOK: `screenshot` `{"target":"scene","region":{"x":0,"y":0,"width":1280,"height":720}}` shows exactly that area (the camera is restored afterwards); use a small `region` around a button or the HUD to see details (`clean:true` hides the grid and selection). A sharp picture needs a small region and `max_width` 900.
+4. Fix with `elements` `set` (positions, sizes, `Font Scale`, colors, `z`) and repeat from 2 until the check is clean and the picture looks right.
+Rules of thumb: margins >= 20 px from the screen edge; touch targets >= 64 px for controls; one font size per kind of text; keep 8 px or more between buttons; titles `Font Scale` 8+, HUD 3 to 5; keep contrast (light text on dark `Tint`).
 
 ## Touch
 

@@ -57,3 +57,11 @@ npm test            # starts wrangler dev --local, connects a fake phone, drives
 ```
 
 `src/tools.ts` is the tool catalog (what the AI sees). The implementations live in the app: `app/src/main/java/com/star4droid/star2d/remote/`. Keep both in sync when adding a tool.
+
+## API versions
+
+The server serves every API version side by side: `/v1/mcp/<secret>`, `/v1/api/<secret>/<tool>`, `/v1/ws/<secret>`, `/v1/AI.md`.
+`GET /version` lists the versions it supports (`{"versions":[1],"latest":1}`); the app reads it before connecting and shows
+"The server needs an update" when its own version is missing. The old unversioned paths (`/mcp`, `/api`, `/ws`, `/AI.md`) are aliases of v1.
+
+To release v2: write `handleV2` in `src/index.ts`, add it to `HANDLERS` and `SUPPORTED`, and raise `API_VERSION` in the app's `RemoteSettings`. Never change what v1 does.

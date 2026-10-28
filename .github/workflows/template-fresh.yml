@@ -1,0 +1,46 @@
+name: Template check
+
+# On pull requests / pushes that touch the game runtime:
+#   * verifies the committed template (hard check: broken template = red)
+#   * tells you when the template is older than the sources (only a warning: the "Build game template" workflow
+#     rebuilds it on master after the merge)
+
+on:
+  pull_request:
+    paths:
+      - "app/src/main/java/com/star4droid/template/**"
+      - "app/src/main/java/com/star4droid/star2d/ElementDefs/**"
+      - "app/src/main/java/com/star4droid/star2d/Helpers/rtl/**"
+      - "app/src/main/java/com/star4droid/star2d/Helpers/Pair.java"
+      - "app/src/main/java/com/badlogic/**"
+      - "app/src/main/assets/files/template.zip"
+      - "app/src/main/assets/java/**"
+      - "template/**"
+      - "tools/**"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Set up Android SDK (aapt2)
+        uses: android-actions/setup-android@v3
+
+      - name: Is the template older than the sources?
+        run: |
+          if ! python3 tools/make_template.py check; then
+            echo "::warning title=Game template is stale::The runtime changed after the template was built. It is rebuilt automatically after the merge to master (workflow 'Build game template'), or run that workflow by hand."
+          fi
+
+      - name: Verify the committed template
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          python3 tools/verify_template.py --allow-stale

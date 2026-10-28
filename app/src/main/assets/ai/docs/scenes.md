@@ -41,6 +41,7 @@ Light quality keys (only if you really need them): `Enable Blur`, `Blur Number`,
 - The **logic screen** is the coordinate space of your elements, in pixels. The game is scaled to fit the phone screen (letterboxed, aspect ratio kept). Pick ONE size and design everything for it.
 - Landscape: game width = `logicWidth`, height = `logicHeight`. Example `1280 x 720`.
 - Portrait: width = `logicHeight` (short side), height = `logicWidth` (long side). So a portrait 720 x 1280 game is `{"or":"portrait","logicWidth":1280,"logicHeight":720}`. In other words `logicWidth` is always the long side.
+- `configure` always stores the larger number as `logicWidth` (long side). If `status` shows `logic_size_warning` (stored width < height, the frame looks reversed), call `configure` with `{"swap_size":true}`. `logic_size` in `status` is the game screen as the game sees it (already swapped in portrait).
 - If the keys are missing the editor uses the phone's screen size. Always set both explicitly.
 - Coordinates: origin at the **bottom-left** of the logic screen, x to the right, y UP. Visible area is x in [0, width], y in [0, height] (before any camera movement).
 - Check the result with `scene_dump` and a `screenshot` (target `editor`, or `game` while running). The portrait runtime path is less tested than landscape: always verify a portrait game on screen.

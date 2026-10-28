@@ -90,8 +90,14 @@ public final class Bridge {
     /** One row of the elements list. */
     public static class ItemInfo {
         public String name, type, parent, image;
+        /** Prefab instance marks: pid of this element within its prefab ("" = not part of one), prefab path on the instance root. */
+        public String pid = "", prefab = "";
         public boolean visible, locked, selected, isLight;
         public int depth;
+        /** direct children, and whether a parent above is hidden / locked (then this one is too, visually) */
+        public int children;
+        public boolean ancHidden, ancLocked;
+        public String scene = "";
     }
 
     /** Elements in display order (roots then their children), on the GL thread. */
@@ -117,13 +123,14 @@ public final class Bridge {
         java.util.Collections.sort(order, (x, y) -> Float.compare(num(x.getString("z")), num(y.getString("z"))));
         for (PropertySet<String, Object> ps : order) {
             if (!ps.getString("parent").equals("") && byName.containsKey(ps.getString("parent"))) continue;
-            addTree(ps, 0, order, types, sel, out, new java.util.HashSet<>());
+            addTree(ps, 0, order, types, sel, out, new java.util.HashSet<>(), false, false, ed.getScene());
         }
         return out;
     }
 
     private static void addTree(PropertySet<String, Object> ps, int depth, ArrayList<PropertySet<String, Object>> all,
-                                HashMap<String, String> types, Actor sel, ArrayList<ItemInfo> out, java.util.HashSet<String> seen) {
+                                HashMap<String, String> types, Actor sel, ArrayList<ItemInfo> out, java.util.HashSet<String> seen,
+                                boolean ancHidden, boolean ancLocked, String scene) {
         String name = ps.getString("name");
         if (!seen.add(name)) return;
         ItemInfo i = new ItemInfo();
@@ -131,14 +138,21 @@ public final class Bridge {
         i.type = types.get(name);
         i.parent = ps.getString("parent");
         i.image = ps.containsKey("image") ? ps.getString("image") : "";
+        i.pid = ps.containsKey("pid") ? ps.getString("pid") : "";
+        i.prefab = ps.containsKey("prefab") ? ps.getString("prefab") : "";
         i.visible = !"false".equals(ps.getString("Visible"));
         i.locked = "true".equals(ps.getString("lock"));
         i.selected = sel != null && name.equals(sel.getName());
         i.isLight = i.type != null && i.type.toLowerCase().contains("light");
         i.depth = depth;
+        i.ancHidden = ancHidden;
+        i.ancLocked = ancLocked;
+        i.scene = scene == null ? "" : scene;
         out.add(i);
         for (PropertySet<String, Object> c : all)
-            if (name.equals(c.getString("parent"))) addTree(c, depth + 1, all, types, sel, out, seen);
+            if (name.equals(c.getString("parent")) && !name.equals(c.getString("name"))) i.children++;
+        for (PropertySet<String, Object> c : all)
+            if (name.equals(c.getString("parent"))) addTree(c, depth + 1, all, types, sel, out, seen, ancHidden || !i.visible, ancLocked || i.locked, scene);
     }
 
     public static float num(String s) {

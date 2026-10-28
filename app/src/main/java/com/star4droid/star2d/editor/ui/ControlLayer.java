@@ -332,7 +332,7 @@ public class ControlLayer extends Table {
 				scenesMenu.clear();
 				FileHandle scH = Gdx.files.absolute(app.getEditor().getProject().getScenesPath());
 				for(FileHandle fileHandle:scH.list()){
-					if(!fileHandle.isDirectory()){
+					if(!fileHandle.isDirectory() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(fileHandle.name())){
 						scenesMenu.addItem(new MenuItem(fileHandle.name(),drawable("scene.png"),new ChangeListener() {
 							@Override
 							public void changed (ChangeEvent event, Actor actor) {
@@ -699,6 +699,10 @@ public class ControlLayer extends Table {
 	/** Delete the selected item (undoable). */
 	public void actionDeleteSelected(){
 		if(app.getEditor()==null || app.getEditor().getSelectedActor()==null) return;
+		if(com.star4droid.star2d.prefab.PrefabSession.isFixedRoot(app.getEditor(),app.getEditor().getSelectedActor())){
+			app.toast(com.star4droid.star2d.ui.Tr.t("prefab_root_locked","The root of a prefab can't be deleted"));
+			return;
+		}
 		app.getEditor().getProject().deleteBody(PropertySet.getPropertySet(app.getEditor().getSelectedActor()).get("name").toString(), app.getEditor().getScene());
 		Actor actor = app.getEditor().getSelectedActor();
 		actor.remove();
@@ -718,7 +722,7 @@ public class ControlLayer extends Table {
 			app.getEditor().redo();
 	}
 
-	/** Add a body: 0 Box, 1 Circle, 2 Text, 3 Joystick, 4 Progress, 5 Custom, 6 Particle, 7 Camera, 8 TiledMap. */
+	/** Add a body: 0 Box, 1 Circle, 2 Text, 3 Joystick, 4 Progress, 5 Custom, 6 Particle, 7 Camera, 8 TiledMap, 9 Group. */
 	public void actionAddBody(int pos){
 		try {
 			EditorItem item = getItem(pos);
@@ -733,6 +737,7 @@ public class ControlLayer extends Table {
 			app.getEditor().selectActor((Actor)item);
 			EditorAction.itemAdded(app.getEditor(),(Actor)item);
 			item.update();
+			com.star4droid.star2d.prefab.PrefabSession.afterAdd(app.getEditor(),(Actor)item);
 		} catch(Error error){
 			showError("Error :\n"+Utils.getStackTraceString(error));
 		}
@@ -804,7 +809,7 @@ public class ControlLayer extends Table {
 		java.util.ArrayList<String> list = new java.util.ArrayList<>();
 		FileHandle scH = Gdx.files.absolute(app.getEditor().getProject().getScenesPath());
 		for(FileHandle fileHandle:scH.list())
-			if(!fileHandle.isDirectory()) list.add(fileHandle.name());
+			if(!fileHandle.isDirectory() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(fileHandle.name())) list.add(fileHandle.name());
 		java.util.Collections.sort(list, String.CASE_INSENSITIVE_ORDER);
 		return list;
 	}
@@ -969,8 +974,8 @@ public class ControlLayer extends Table {
 	
 	private PopupMenu createBodiesMenu(){
 		PopupMenu menu = new PopupMenu();
-		String[] names={"Box Body","Circle Body","Text Item","Joystick Item","Progress Bar","Custom Body","Particle Effect","Camera","TiledMap"};
-		String[] icons={"box","circle","text","joystick","progress","custom","particle","camera","map"};
+		String[] names={"Box Body","Circle Body","Text Item","Joystick Item","Progress Bar","Custom Body","Particle Effect","Camera","TiledMap","Group"};
+		String[] icons={"box","circle","text","joystick","progress","custom","particle","camera","map","group"};
 		for(int x = 0; x < names.length; x++){
 			final String name = names[x];
 			final int pos = x;
@@ -1002,6 +1007,7 @@ public class ControlLayer extends Table {
 			case 6: return new ParticleItem(app.getEditor());
 			case 7: return new EditorCameraItem(app.getEditor());
 			case 8: return new EditorMapItem(app.getEditor());
+			case 9: return new EditorGroupItem(app.getEditor());
 		}
 		return null;
 	}

@@ -90,3 +90,7 @@ Timer.schedule(new Timer.Task(){ public void run(){ target.destroy(); } }, 0.1f)
 for (com.badlogic.gdx.scenes.scene2d.Actor a : GameStage.getActors()) if (a.getName() != null && a.getName().startsWith("bullet")) { /* ... */ }
 ```
 Remember units: Box2D velocities are world units (px * 0.25), so 700 px/s is `175f`.
+
+## Editing code: patch, don't rewrite
+
+Use `files` `search` (find lines), `read` with `from_line`/`to_line` (numbered lines of one part) and `edit` (`{"edits":[{"old":"exact text","new":"replacement"}]}`, `old` unique or `all:true`, atomic) for `java/` files; `events` `edit` does the same for a raw-Java event. Rewrite a file with `write` only when it is new or really replaced. Always `build` afterwards: errors give file and line, then `read` that range and `edit` it.

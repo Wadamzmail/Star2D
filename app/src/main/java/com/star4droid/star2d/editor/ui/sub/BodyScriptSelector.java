@@ -116,7 +116,7 @@ public class BodyScriptSelector extends VisDialog {
 			}
 		}
 		for(FileHandle fileHandle:Gdx.files.absolute(app.getEditor().getProject().getScenesPath()).list()){
-			if(!fileHandle.name().equals(scene)){
+			if(!fileHandle.name().equals(scene) && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(fileHandle.name())){
 				VisRadioButton button = new VisRadioButton(otherScene+fileHandle.name());
 				//button.setChecked(checkedItem.equals(ps.getString("name")));
 				group.add(button);

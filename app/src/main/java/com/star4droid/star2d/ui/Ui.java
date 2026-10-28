@@ -84,6 +84,17 @@ public final class Ui {
         }
     }
 
+    /** Arrows that point in a reading direction: mirrored in Arabic (supportsRtl is off, so the system does not do it). */
+    public static boolean isDirectional(int drawable) {
+        return drawable == com.star4droid.star2d.evo.R.drawable.ic_s2_arrow_back || drawable == com.star4droid.star2d.evo.R.drawable.ic_s2_arrow_forward || drawable == com.star4droid.star2d.evo.R.drawable.ic_s2_chevron_right;
+    }
+
+    /** Sets a drawable and flips it horizontally when it is a direction arrow and the UI language is right-to-left. */
+    public static void setDirIcon(ImageView v, int drawable) {
+        v.setImageResource(drawable);
+        v.setScaleX(isDirectional(drawable) && isRtl(v.getContext()) ? -1f : 1f);
+    }
+
     public static boolean isRtl(Context c) {
         return "ar".equals(prefs(c).getString("lang", "en"));
     }
@@ -156,6 +167,7 @@ public final class Ui {
         ImageView b = new ImageView(c);
         Drawable d = ContextCompat.getDrawable(c, drawable);
         b.setImageDrawable(d);
+        if (isDirectional(drawable) && isRtl(c)) b.setScaleX(-1f);
         b.setImageTintList(ColorStateList.valueOf(TEXT));
         int size = dp(c, buttonDp(c));
         int pad = (size - dp(c, iconDp(c))) / 2;
@@ -172,9 +184,40 @@ public final class Ui {
         return b;
     }
 
+    /**
+     * Makes the icon buttons of a toolbar row always fit the screen, whatever the icon-size setting is.
+     * The title keeps at least {@code reserveDp}; if the buttons need more than the rest, they shrink evenly
+     * (touch size and glyph padding), never below 34 dp. Call after the row is filled; also in RTL and landscape
+     * (it measures the real screen width, so it works the same on every orientation).
+     */
+    public static void fitIconRow(Context c, LinearLayout row, int reserveDp) {
+        int count = 0;
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View v = row.getChildAt(i);
+            if (v instanceof ImageView && v.getLayoutParams() != null && v.getLayoutParams().width > 0) count++;
+        }
+        if (count == 0) return;
+        int avail = c.getResources().getDisplayMetrics().widthPixels - row.getPaddingLeft() - row.getPaddingRight() - dp(c, reserveDp);
+        int size = Math.min(dp(c, buttonDp(c)), avail / count);
+        size = Math.max(size, dp(c, 34));
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View v = row.getChildAt(i);
+            if (!(v instanceof ImageView) || v.getLayoutParams() == null || v.getLayoutParams().width <= 0) continue;
+            if (v.getLayoutParams().width <= size) continue;
+            int glyph = Math.min(dp(c, iconDp(c)), size - dp(c, 6));
+            int pad = Math.max(0, (size - glyph) / 2);
+            v.setPadding(pad, pad, pad, pad);
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) v.getLayoutParams();
+            lp.width = size;
+            lp.height = size;
+            v.setLayoutParams(lp);
+        }
+    }
+
     public static ImageView smallIcon(Context c, int drawable, int color, int sizeDp) {
         ImageView i = new ImageView(c);
         i.setImageDrawable(ContextCompat.getDrawable(c, drawable));
+        if (isDirectional(drawable) && isRtl(c)) i.setScaleX(-1f);
         i.setImageTintList(ColorStateList.valueOf(color));
         i.setLayoutParams(new LinearLayout.LayoutParams(dp(c, sizeDp), dp(c, sizeDp)));
         return i;
