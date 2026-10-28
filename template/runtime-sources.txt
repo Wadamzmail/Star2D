@@ -1,0 +1,8 @@
+# Runtime sources of the game, taken from app/src/main/java (relative to that folder).
+# Single source of truth: used by template/build.gradle (syncRuntimeSources) and tools/make_template.py (hash + game.zip).
+# Ant-style patterns, one per line.
+com/star4droid/template/**
+com/star4droid/star2d/ElementDefs/**
+com/star4droid/star2d/Helpers/rtl/**
+com/star4droid/star2d/Helpers/Pair.java
+com/badlogic/gdx/utils/StringBuilder.java

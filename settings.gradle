@@ -20,5 +20,6 @@ rootProject.name = "Star2D"
 
 include(
    ":app",
-   ":formatter"
+   ":formatter",
+   ":template"
 )

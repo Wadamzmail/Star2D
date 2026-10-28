@@ -91,11 +91,9 @@ public class ExportThread extends Thread {
 			String manifest = String.format(Utils.readAssetFile("java/manifest.xml",context),(Object[])manifest_values);
 			FileUtil.writeFile(export_temp+"/manifest",manifest);
 			if (img != null && !img.isEmpty() && FileUtil.isExistFile(img)) {
-            // Get the file extension from the original image path
-            String ext = img.substring(img.lastIndexOf(".") + 1);
-        
-            // Construct the destination path with the correct extension
-            String destinationPath = export_temp + "/res/drawable/icon." + ext;
+            // The template's resources.arsc points at res/drawable/icon.jpg, so the custom icon must be stored under
+            // exactly that name whatever its real format (Android decodes images by content, not by extension).
+            String destinationPath = export_temp + "/res/drawable/icon.jpg";
         
             // Delete the placeholder file
             FileUtil.deleteFile(export_temp + "/res/drawable/icon.jpg");
