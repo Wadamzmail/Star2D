@@ -17,6 +17,8 @@ public abstract class ItemDef {
             return ((ProgressDef) this).z;
         if (this instanceof TextDef)
             return ((TextDef) this).z;
+        if (this instanceof GroupDef)
+            return ((GroupDef) this).z;
         
         return 0; // default if no match
     }
@@ -50,6 +52,8 @@ public abstract class ItemDef {
             return ((ProgressDef) this).type;
         if (this instanceof TextDef)
             return ((TextDef) this).type;
+        if (this instanceof GroupDef)
+            return ((GroupDef) this).type;
         return "";
     }
     

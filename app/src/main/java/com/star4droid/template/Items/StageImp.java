@@ -373,6 +373,13 @@ public class StageImp extends ApplicationAdapter {
 	}
 	
 	private int framesAfterReady = 0;
+	private GroupFollower groupFollower;
+	/** Makes the parent links real (children follow their parents). */
+	public GroupFollower groups(){
+		if(groupFollower == null) groupFollower = new GroupFollower(this);
+		return groupFollower;
+	}
+
 	/** True when the assets are loaded, the scene's OnCreate ran and a few frames of the real scene were drawn (no loading screen). */
 	public boolean isReady(){
 		StageImp a = activeStage();
@@ -1036,6 +1043,7 @@ public class StageImp extends ApplicationAdapter {
 		Stage current=null;
 		GameStage.getCamera().update();
 		UiStage.getCamera().update();
+		groups().placeUi();
 		
 		com.badlogic.gdx.utils.Array<Actor> bodies = orderBodies();
 		for(int i=0;i<bodies.size;i++){
@@ -1061,6 +1069,7 @@ public class StageImp extends ApplicationAdapter {
 		            current.getBatch().end();
 		if(debugBox2d)
 		    drawDebug();
+		groups().prepare();
 		if(playing) for(int x=0;x<steps;x++)
 						world.step(getDelta(),8,3);
 		rayHandler.setCombinedMatrix(GameStage.getViewport().getCamera().combined);
@@ -1068,6 +1077,7 @@ public class StageImp extends ApplicationAdapter {
 		onDraw();
 		if(sceneScript!=null)
 			sceneScript.onDraw();
+		groups().follow();
 		return true;
 	}
 	

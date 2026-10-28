@@ -203,6 +203,11 @@ public class BoxBody extends Image implements PlayerItem {
 	}
 
 	@Override
+	public float[] getBodyOffset() {
+		return new float[]{StageImp.WORLD_SCALE * boxDef.ColliderX * -1, StageImp.WORLD_SCALE * boxDef.ColliderY * -1};
+	}
+
+	@Override
 	public Body getBody() {
 	    return body;
 	}

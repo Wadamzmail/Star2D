@@ -648,6 +648,7 @@ public class CodeGenerator {
             case "PARTICLE": return "ParticleDef";
             case "CAMERA": return "CameraDef";
             case "MAP": return "MapDef";
+            case "GROUP": return "GroupDef";
             default: return "Unknown";
         }
     }

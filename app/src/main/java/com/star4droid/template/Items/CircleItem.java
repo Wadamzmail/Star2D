@@ -186,6 +186,11 @@ public class CircleItem extends Image implements PlayerItem {
 	}
 
 	@Override
+	public float[] getBodyOffset() {
+		return new float[]{StageImp.WORLD_SCALE * circleDef.ColliderX * -1, StageImp.WORLD_SCALE * circleDef.ColliderY * -1};
+	}
+
+	@Override
 	public Body getBody() {
 	    return body;
 	}
