@@ -86,6 +86,203 @@ public final class RemoteDocs {
         return out;
     }
 
+    // ------------------------------------------------------------------ partial reading (read_docs)
+
+    /** A topic bigger than this is answered with its table of contents unless {@code full} or a section is asked for. */
+    private static final int WHOLE_TOPIC_LIMIT = 5000;
+    private static final int MAX_REPLY = 14000;
+    private static final HashMap<String, String> EXPANDED = new HashMap<>();
+
+    private static final class Head {
+        final int level, start;
+        int end;
+        final String title;
+
+        Head(int level, int start, String title) {
+            this.level = level;
+            this.start = start;
+            this.title = title;
+        }
+    }
+
+    private static synchronized String expanded(Context c, String id) {
+        String t = EXPANDED.get(id);
+        if (t == null) {
+            String raw = read(c, id);
+            if (raw == null) return null;
+            t = expand(c, raw);
+            EXPANDED.put(id, t);
+        }
+        return t;
+    }
+
+    /** Headings of levels 2-4 with the char range of their sections (a section ends at the next heading of the same or a higher level). */
+    private static List<Head> heads(String text) {
+        ArrayList<Head> hs = new ArrayList<>();
+        int pos = 0;
+        boolean code = false;
+        for (String line : text.split("\n", -1)) {
+            if (line.startsWith("```")) code = !code;
+            if (!code && line.startsWith("##")) {
+                int lv = 0;
+                while (lv < line.length() && line.charAt(lv) == '#') lv++;
+                if (lv >= 2 && lv <= 4 && lv < line.length() && line.charAt(lv) == ' ')
+                    hs.add(new Head(lv, pos, line.substring(lv + 1).trim()));
+            }
+            pos += line.length() + 1;
+        }
+        for (int i = 0; i < hs.size(); i++) {
+            Head h = hs.get(i);
+            h.end = text.length();
+            for (int j = i + 1; j < hs.size(); j++)
+                if (hs.get(j).level <= h.level) {
+                    h.end = hs.get(j).start;
+                    break;
+                }
+        }
+        return hs;
+    }
+
+    private static String normId(String t) {
+        String key = t == null ? "" : t.trim().toLowerCase(Locale.ROOT);
+        return key.endsWith(".md") ? key.substring(0, key.length() - 3) : key;
+    }
+
+    private static String validIds(Context c) {
+        StringBuilder ids = new StringBuilder();
+        for (String[] t : topics(c)) ids.append(ids.length() == 0 ? "" : ", ").append(t[0]);
+        return ids.toString();
+    }
+
+    /** read_docs: no arguments = the map; topic(s) = whole small topics or the table of contents of big ones; section = just that part; search = best matching parts. */
+    public static String read(Context c, String topic, String section, String search, boolean full) {
+        if (search != null && !search.trim().isEmpty()) return search(c, search.trim(), normId(topic));
+        boolean noTopic = topic == null || topic.trim().isEmpty();
+        boolean noSection = section == null || section.trim().isEmpty();
+        if (noTopic && noSection) return index(c);
+        if (noTopic) return sectionEverywhere(c, section.trim());
+        StringBuilder out = new StringBuilder();
+        for (String raw : topic.split(",")) {
+            String id = normId(raw);
+            if (id.isEmpty()) continue;
+            if (id.equals("index")) {
+                out.append(index(c));
+                continue;
+            }
+            String text = expanded(c, id);
+            if (text == null) {
+                out.append("Unknown topic '").append(raw.trim()).append("'. Valid topics: ").append(validIds(c)).append(".\n");
+                continue;
+            }
+            if (out.length() > 0) out.append("\n\n---\n\n");
+            if (!noSection) out.append(sectionOf(id, text, section.trim()));
+            else if (full || text.length() <= WHOLE_TOPIC_LIMIT) out.append(text);
+            else out.append(toc(id, text));
+        }
+        String r = out.toString();
+        if (r.length() > MAX_REPLY && noSection == false)
+            r = r.substring(0, MAX_REPLY) + "\n…(cut: ask a narrower section)";
+        return r;
+    }
+
+    private static String toc(String id, String text) {
+        List<Head> hs = heads(text);
+        StringBuilder sb = new StringBuilder();
+        String first = text.split("\n", 2)[0];
+        sb.append(first).append("\n\n");
+        sb.append("This topic is long (").append(text.length() / 4).append(" tokens). Read only what you need with read_docs {topic:'").append(id)
+                .append("', section:'<words of a heading>'} (or full:true for everything). Sections:\n");
+        int n = 0;
+        for (Head h : hs) {
+            if (h.level > 3) continue;
+            if (n++ >= 60) {
+                sb.append("- …\n");
+                break;
+            }
+            sb.append(h.level == 2 ? "- " : "  - ").append(h.title).append(" (").append((h.end - h.start) / 4).append(" tok)\n");
+        }
+        if (n == 0) sb.append("(no sections; use full:true)\n");
+        return sb.toString();
+    }
+
+    private static String sectionOf(String id, String text, String query) {
+        List<Head> hs = heads(text);
+        String q = query.toLowerCase(Locale.ROOT);
+        StringBuilder sb = new StringBuilder();
+        int lastEnd = -1, found = 0;
+        for (Head h : hs) {
+            if (h.start < lastEnd) continue; // already inside a section we returned
+            if (!h.title.toLowerCase(Locale.ROOT).contains(q)) continue;
+            sb.append(text, h.start, h.end).append("\n");
+            lastEnd = h.end;
+            if (++found >= 6) break;
+        }
+        if (found == 0) {
+            StringBuilder names = new StringBuilder();
+            for (Head h : hs) if (h.level <= 3) names.append(names.length() == 0 ? "" : " | ").append(h.title);
+            return "No section containing '" + query + "' in topic '" + id + "'. Sections: " + names;
+        }
+        return sb.toString();
+    }
+
+    private static String sectionEverywhere(Context c, String query) {
+        StringBuilder sb = new StringBuilder();
+        for (String[] t : topics(c)) {
+            if (t[0].equals("index")) continue;
+            String text = expanded(c, t[0]);
+            if (text == null) continue;
+            String r = sectionOf(t[0], text, query);
+            if (!r.startsWith("No section")) sb.append("[").append(t[0]).append("]\n").append(r).append("\n");
+            if (sb.length() > MAX_REPLY) break;
+        }
+        if (sb.length() == 0) return "No section containing '" + query + "' in any topic. Try read_docs {search:'" + query + "'}.";
+        return sb.length() > MAX_REPLY ? sb.substring(0, MAX_REPLY) + "\n…(cut: pass topic too)" : sb.toString();
+    }
+
+    /** Best matching sections for some words, as addresses with a one-line hint (cheap); then read_docs {topic, section} for the body. */
+    private static String search(Context c, String query, String onlyTopic) {
+        String[] tok = query.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}_]+");
+        ArrayList<Object[]> hits = new ArrayList<>(); // {score, topic, title, snippet}
+        for (String[] t : topics(c)) {
+            if (t[0].equals("index") || (!onlyTopic.isEmpty() && !onlyTopic.equals(t[0]))) continue;
+            String text = expanded(c, t[0]);
+            if (text == null) continue;
+            for (Head h : heads(text)) {
+                if (h.level > 3) continue;
+                String body = text.substring(h.start, h.end).toLowerCase(Locale.ROOT);
+                String title = h.title.toLowerCase(Locale.ROOT);
+                int score = 0;
+                for (String k : tok) {
+                    if (k.length() < 2) continue;
+                    if (title.contains(k)) score += 6;
+                    int from = 0, n = 0;
+                    while (n < 20 && (from = body.indexOf(k, from)) >= 0) {
+                        n++;
+                        from += k.length();
+                    }
+                    score += n;
+                }
+                if (score <= 0) continue;
+                String snippet = "";
+                for (String line : text.substring(h.start, h.end).split("\n")) {
+                    String l = line.trim();
+                    if (l.isEmpty() || l.startsWith("#") || l.startsWith("|---") || l.startsWith("```")) continue;
+                    snippet = l.length() > 140 ? l.substring(0, 140) + "…" : l;
+                    break;
+                }
+                hits.add(new Object[]{score, t[0], h.title, snippet});
+            }
+        }
+        if (hits.isEmpty()) return "Nothing found for '" + query + "'. Topics: " + validIds(c) + ".";
+        Collections.sort(hits, (a, b) -> Integer.compare((Integer) b[0], (Integer) a[0]));
+        StringBuilder sb = new StringBuilder("Best matches (read one with read_docs {topic, section}):\n");
+        for (int i = 0; i < Math.min(7, hits.size()); i++) {
+            Object[] h = hits.get(i);
+            sb.append("- ").append(h[1]).append(" › ").append(h[2]).append(": ").append(h[3]).append("\n");
+        }
+        return sb.toString();
+    }
+
     // ------------------------------------------------------------------ element tables
 
     private static final String[][] TYPES = {

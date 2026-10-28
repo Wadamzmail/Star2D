@@ -106,6 +106,10 @@ final class GameTools {
             });
             Gl.sleep(300);
         }
+        Gl.run(() -> {
+            InputSim.uninstall();
+            return null;
+        });
         RUNTIME_ERRORS.clear();
         final BuildResult res = new BuildResult();
         final Project proj = Gl.run(Proj::project);
@@ -167,17 +171,36 @@ final class GameTools {
                 String err = RUNTIME_ERRORS.isEmpty() ? "" : RUNTIME_ERRORS.get(RUNTIME_ERRORS.size() - 1);
                 return ToolResult.error("The game did not start." + (err.isEmpty() ? "" : "\n" + err));
             }
-            Gl.sleep(Math.max(0, Math.min(5000, CoreTools.i(a, "wait_ms", 500))));
+            long tReady = System.currentTimeMillis();
+            boolean ready = waitReady(40_000);
+            Gl.sleep(Math.max(0, Math.min(5000, CoreTools.i(a, "wait_ms", 200))));
             JsonObject o = new JsonObject();
             o.addProperty("ok", true);
             o.addProperty("running", true);
+            o.addProperty("ready", ready);
+            if (ready) o.addProperty("loaded_in_ms", System.currentTimeMillis() - tReady);
+            else o.addProperty("warning", "Still on the loading screen after 40 s (big assets or a crash in OnCreate). Check game_logs, then screenshot.");
             if (!RUNTIME_ERRORS.isEmpty()) o.addProperty("runtime_error", RUNTIME_ERRORS.get(RUNTIME_ERRORS.size() - 1));
-            o.addProperty("next", "Use screenshot / game_input / game_state / run_test to check it. The game screen covers the editor until stop_game.");
+            o.addProperty("next", "The game is loaded and running: use screenshot / game_input / game_state / run_test. The game screen covers the editor until stop_game.");
             return ToolResult.text(o.toString());
         } finally {
             ControlLayer.buildObserver = null;
             ControlLayer.buildOnly = false;
             RemoteSession.setGameBusy(false);
+        }
+    }
+
+    /** Waits (worker thread) until the running game finished loading (no loading screen, OnCreate ran, a few frames drawn). */
+    static boolean waitReady(long ms) throws Exception {
+        long end = System.currentTimeMillis() + ms;
+        while (true) {
+            boolean ready = Gl.run(() -> {
+                StageImp s = Bridge.app().getPlayingStage();
+                return s != null && s.isReady();
+            });
+            if (ready) return true;
+            if (System.currentTimeMillis() >= end) return false;
+            Gl.sleep(80);
         }
     }
 
@@ -214,6 +237,7 @@ final class GameTools {
         boolean playing = Gl.run(() -> Bridge.app().isPlaying());
         if (target.equals("auto")) target = playing ? "game" : "editor";
         if (target.equals("game") && !playing) return ToolResult.error("The game is not running. Use run_game first, or target 'editor'.");
+        if (playing && (target.equals("game") || target.equals("scene"))) waitReady(15_000);
         Bitmap bmp;
         if (target.equals("editor")) {
             bmp = windowShot();
@@ -360,6 +384,14 @@ final class GameTools {
                     case "wait":
                         Gl.sleep(Math.max(1, ms));
                         break;
+                    case "release":
+                        Gl.run(() -> {
+                            InputSim.uninstall();
+                            InputSim.install();
+                            return null;
+                        });
+                        break;
+                    case "hold":
                     case "tap": {
                         final int[] p = Gl.run(() -> screenPos(act));
                         Gl.run(() -> {
@@ -466,12 +498,14 @@ final class GameTools {
                         break;
                     }
                     default:
-                        throw new Gl.ToolError("unknown action '" + d + "' (tap|down|move|up|swipe|key|joystick|wait)");
+                        throw new Gl.ToolError("unknown action '" + d + "' (tap|hold|down|move|up|release|swipe|key|joystick|wait)");
                 }
             }
         } finally {
+            // a finger left pressed with 'down' stays pressed after this call (until 'up' or 'release'), so the AI can
+            // look at the game (screenshot / game_state) while holding.
             Gl.run(() -> {
-                InputSim.uninstall();
+                if (!InputSim.holding()) InputSim.uninstall();
                 return null;
             });
         }
@@ -484,10 +518,12 @@ final class GameTools {
             return null;
         });
         JsonArray log = new JsonArray();
+        if (!waitReady(30_000)) return ToolResult.error("The game is still loading (loading screen). Wait a few seconds and call again, or check game_logs.");
         long t0 = System.currentTimeMillis();
         runActions(a.getAsJsonArray("actions"), t0 + 45_000, log);
         JsonObject o = new JsonObject();
         o.addProperty("ok", true);
+        if (Gl.run(InputSim::holding)) o.addProperty("still_pressed", "a finger/key is still held down (from 'down'); send 'up' or 'release' to let go (auto-release after 60 s)");
         o.addProperty("took_ms", System.currentTimeMillis() - t0);
         if (log.size() > 0) o.add("notes", log);
         if (!RUNTIME_ERRORS.isEmpty()) o.addProperty("runtime_error", RUNTIME_ERRORS.get(RUNTIME_ERRORS.size() - 1));
@@ -656,6 +692,7 @@ final class GameTools {
                 active();
                 return null;
             });
+            if (!waitReady(30_000)) return ToolResult.error("The game is still loading (loading screen). Wait a few seconds and call run_test again.");
         }
         JsonArray steps = a.has("steps") && a.get("steps").isJsonArray() ? a.getAsJsonArray("steps") : new JsonArray();
         int shots = 0;
@@ -760,6 +797,10 @@ final class GameTools {
         ToolResult finalResult = new ToolResult();
         finalResult.addText(summary.toString());
         for (JsonElement img : result.content) finalResult.content.add(img);
+        Gl.run(() -> {
+            InputSim.uninstall();
+            return null;
+        });
         if (CoreTools.b(a, "stop", false)) stop();
         return finalResult;
     }

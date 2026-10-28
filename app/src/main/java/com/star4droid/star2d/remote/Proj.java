@@ -37,9 +37,20 @@ final class Proj {
     }
 
     static String rel(Project p, File f) {
-        String root = new File(p.getPath()).getAbsolutePath();
-        String a = f.getAbsolutePath();
-        return a.startsWith(root) ? a.substring(root.length()).replaceFirst("^/", "") : a;
+        // Compare canonical paths: on many phones the project path goes through a symlink (/sdcard, /storage/self...),
+        // and a plain absolute-path comparison would never match.
+        String root = canon(new File(p.getPath()));
+        String a = canon(f);
+        if (a.equals(root)) return "";
+        return a.startsWith(root + "/") ? a.substring(root.length() + 1) : a;
+    }
+
+    private static String canon(File f) {
+        try {
+            return f.getCanonicalPath();
+        } catch (Exception e) {
+            return f.getAbsolutePath();
+        }
     }
 
     /** All scene names (files of scenes/). */

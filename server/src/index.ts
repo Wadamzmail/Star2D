@@ -1,6 +1,6 @@
 import { handleMcp } from "./mcp";
 import { Hub, type Env } from "./hub";
-import { TOOL_BY_NAME } from "./tools";
+import { CORE_RULES, TOOL_BY_NAME } from "./tools";
 import AI_MD from "../AI.md";
 
 export { Hub };
@@ -25,7 +25,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const parts = url.pathname.split("/").filter(Boolean);
-    const guide = () => (AI_MD as string).replaceAll("{{SERVER}}", url.origin);
+    const guide = () => (AI_MD as string).replaceAll("{{SERVER}}", url.origin).replace("{{CORE}}", CORE_RULES);
 
     if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
 

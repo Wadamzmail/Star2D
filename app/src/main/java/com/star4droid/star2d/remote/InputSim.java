@@ -24,6 +24,9 @@ final class InputSim {
     private static final HashSet<Integer> KEYS = new HashSet<>();
     private static final HashMap<Integer, Long> KEY_AT = new HashMap<>();
     private static long lastDownAt;
+    private static volatile long lastEventAt;
+    private static final long AUTO_RELEASE_MS = 60_000;
+    private static java.util.Timer watchdog;
 
     static synchronized void install() {
         if (real != null) return;
@@ -33,6 +36,30 @@ final class InputSim {
         KEY_AT.clear();
         InvocationHandler h = (proxy, m, args) -> handle(m, args);
         Gdx.input = (Input) Proxy.newProxyInstance(Input.class.getClassLoader(), new Class[]{Input.class}, h);
+        lastEventAt = System.currentTimeMillis();
+        watchdog = new java.util.Timer("star2d-input-watchdog", true);
+        // fingers/keys the AI left pressed (down without up) are released after a minute without any input event
+        watchdog.schedule(new java.util.TimerTask() {
+            @Override
+            public void run() {
+                if (real == null) {
+                    cancel();
+                    return;
+                }
+                if (System.currentTimeMillis() - lastEventAt > AUTO_RELEASE_MS) {
+                    try {
+                        Gdx.app.postRunnable(InputSim::uninstall);
+                    } catch (Throwable ignored) {
+                    }
+                    cancel();
+                }
+            }
+        }, 5_000, 5_000);
+    }
+
+    /** True while a simulated finger or key is still pressed (it stays pressed between tool calls until 'up' / 'release'). */
+    static synchronized boolean holding() {
+        return real != null && (!DOWN.isEmpty() || !KEYS.isEmpty());
     }
 
     static synchronized void uninstall() {
@@ -51,6 +78,10 @@ final class InputSim {
         KEYS.clear();
         Gdx.input = real;
         real = null;
+        if (watchdog != null) {
+            watchdog.cancel();
+            watchdog = null;
+        }
     }
 
     static boolean active() {
@@ -124,6 +155,7 @@ final class InputSim {
     }
 
     static void down(int x, int y, int pointer) {
+        lastEventAt = System.currentTimeMillis();
         InputProcessor p = processor();
         synchronized (InputSim.class) {
             DOWN.put(pointer, new int[]{x, y});
@@ -133,6 +165,7 @@ final class InputSim {
     }
 
     static void move(int x, int y, int pointer) {
+        lastEventAt = System.currentTimeMillis();
         InputProcessor p = processor();
         synchronized (InputSim.class) {
             DOWN.put(pointer, new int[]{x, y});
@@ -141,6 +174,7 @@ final class InputSim {
     }
 
     static void up(int x, int y, int pointer) {
+        lastEventAt = System.currentTimeMillis();
         InputProcessor p = processor();
         synchronized (InputSim.class) {
             DOWN.remove(pointer);
@@ -149,6 +183,7 @@ final class InputSim {
     }
 
     static void keyDown(int key) {
+        lastEventAt = System.currentTimeMillis();
         InputProcessor p = processor();
         synchronized (InputSim.class) {
             KEYS.add(key);
@@ -158,6 +193,7 @@ final class InputSim {
     }
 
     static void keyUp(int key) {
+        lastEventAt = System.currentTimeMillis();
         InputProcessor p = processor();
         synchronized (InputSim.class) {
             KEYS.remove(key);

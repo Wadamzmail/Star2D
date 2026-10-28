@@ -257,6 +257,23 @@ final class EditTools {
             if (!ro.get("ok").getAsBoolean() || ro.has("info")) details.add(ro);
         }
         if (details.size() > 0) o.add("details", details);
+        final java.util.HashSet<String> touched = new java.util.HashSet<>();
+        for (JsonElement r : results) {
+            JsonObject ro = r.getAsJsonObject();
+            if (ro.get("ok").getAsBoolean() && ro.has("name")) touched.add(ro.get("name").getAsString());
+        }
+        final List<String> warns = Gl.run(() -> {
+            ArrayList<String> w = new ArrayList<>();
+            LibgdxEditor ed = Proj.editor();
+            w.addAll(Warnings.text(ed, touched));
+            w.addAll(Warnings.overlaps(ed, ed.getProject(), ed.getScene()));
+            return w;
+        });
+        if (!warns.isEmpty()) {
+            JsonArray wa = new JsonArray();
+            for (int k = 0; k < Math.min(8, warns.size()); k++) wa.add(warns.get(k));
+            o.add("warnings", wa);
+        }
         return bad == 0 ? ToolResult.text(o.toString()) : errorWith(o.toString());
     }
 

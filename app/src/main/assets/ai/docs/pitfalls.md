@@ -48,6 +48,12 @@ Read once before the first build. Each item says what happens and what to do.
 33. **`z` ordering**: higher in front; equal z has no guaranteed order; a MAP is always at z 0.
 34. **Persistent data** (`saveData`) survives runs: tests that depend on a clean state must write the value first.
 
+## Text and touch
+
+- A TEXT too narrow for its content wraps onto several lines (see the `ui-input` section "Text size"). Resize with `set`; the `elements` reply warns about it.
+- A TEXT on top of a button swallows the touch: give the TEXT the same events (`events` with `also_on`) or a lower `z`.
+- The test finger: `down` stays pressed until `up`/`release`; a game still on its loading screen is waited for by the tools, you do not need `wait`.
+
 ## Process
 
 35. Batch: one `elements` call for a whole scene, one `events` call for all events, one `run_test` for a whole scenario.

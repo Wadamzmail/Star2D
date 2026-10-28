@@ -83,6 +83,12 @@ final class CoreTools {
             o.add("open_tabs", tabs);
             o.addProperty("playing", app.isPlaying());
             o.addProperty("loading", ed.isLoading());
+            if (!ed.isLoading()) {
+                List<LinkedHashMap<String, String>> live = liveElements(ed);
+                o.addProperty("elements", live.size());
+                // changes whenever anything in the open scene changes: compare with the value from your last call to skip re-reading
+                o.addProperty("scene_rev", Integer.toHexString(live.toString().hashCode()));
+            }
             o.addProperty("orientation", ed.isLandscape() ? "landscape" : "portrait");
             JsonObject logic = new JsonObject();
             logic.addProperty("width", ed.getLogicWidth());
@@ -102,9 +108,9 @@ final class CoreTools {
     static ToolResult readDocs(JsonObject a) throws Exception {
         Activity act = RemoteClient.get().activity();
         if (act == null) return ToolResult.error("The app is not on screen.");
-        String topic = s(a, "topic").trim();
-        String text = topic.isEmpty() ? RemoteDocs.index(act) : RemoteDocs.topic(act, topic);
-        return ToolResult.text(text);
+        String topic = s(a, "topic").trim(), section = s(a, "section").trim(), search = s(a, "search").trim();
+        boolean full = b(a, "full", false);
+        return ToolResult.text(RemoteDocs.read(act, topic, section, search, full));
     }
 
     // ------------------------------------------------------------------ plan
@@ -306,7 +312,12 @@ final class CoreTools {
             } catch (Exception ignored) {
             }
             JsonArray els = new JsonArray();
-            for (LinkedHashMap<String, String> m : live ? liveElements(ed) : fileElements(p, scene)) els.add(nonDefault(m));
+            boolean brief = b(a, "brief", false);
+            for (LinkedHashMap<String, String> m : live ? liveElements(ed) : fileElements(p, scene)) {
+                if (brief) els.add(m.get("name") + " " + m.get("TYPE") + " @" + m.get("x") + "," + m.get("y") + " " + m.get("width") + "x" + m.get("height")
+                        + (m.get("image") != null && !m.get("image").isEmpty() ? " " + m.get("image") : ""));
+                else els.add(nonDefault(m));
+            }
             o.add("elements", els);
             o.add("joints", EditTools.jointsOf(p, scene));
             FileHandle vf = Gdx.files.absolute(p.getVariables(scene));
@@ -340,6 +351,10 @@ final class CoreTools {
                 if (!type.isEmpty() && !type.equals(String.valueOf(m.get("TYPE")).toUpperCase())) continue;
                 missing.remove(n);
                 JsonObject e = new JsonObject();
+                if (props.isEmpty() && !b(a, "full", false)) {
+                    els.add(nonDefault(m)); // only what differs from the defaults
+                    continue;
+                }
                 for (Map.Entry<String, String> en : m.entrySet())
                     if (props.isEmpty() || props.contains(en.getKey()) || en.getKey().equals("name")) e.addProperty(en.getKey(), en.getValue());
                 els.add(e);

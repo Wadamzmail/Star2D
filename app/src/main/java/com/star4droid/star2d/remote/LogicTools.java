@@ -69,7 +69,7 @@ final class LogicTools {
     // ================================================================== locating event files
 
     /** [scene, body] for the element's events (body is the element's Script property, "scene/name" allowed). */
-    private static String[] bodyOf(Project p, LibgdxEditor ed, String scene, String element) {
+    static String[] bodyOf(Project p, LibgdxEditor ed, String scene, String element) {
         String script = null;
         if (scene.equals(ed.getScene())) {
             com.badlogic.gdx.scenes.scene2d.Actor ac = com.star4droid.star2d.ui.Bridge.actor(element);
@@ -95,7 +95,7 @@ final class LogicTools {
         return new String[]{sc, body};
     }
 
-    private static boolean hasCode(String path) {
+    static boolean hasCode(String path) {
         FileHandle j = Gdx.files.absolute(path + ".java"), v = Gdx.files.absolute(path + ".visual");
         return (j.exists() && j.length() > 0) || (v.exists() && v.length() > 2);
     }
@@ -125,6 +125,7 @@ final class LogicTools {
         final String defScene = CoreTools.s(a, "scene");
         final JsonArray ops = EditTools.opsOf(a);
         final JsonArray results = new JsonArray();
+        final java.util.HashSet<String> touchScenes = new java.util.HashSet<>();
         Gl.run(() -> {
             ensureCatalog();
             LibgdxEditor ed = Proj.editor();
@@ -193,6 +194,16 @@ final class LogicTools {
                                 how = "java";
                             } else throw new Gl.ToolError("give 'blocks' (preferred) or 'java'");
                             m.save(new File(path + ".visual"));
+                            if (isEl && o.has("also_on") && o.get("also_on").isJsonArray()) {
+                                // same logic on other elements (typically the TEXT label lying on a button, which would swallow the touch)
+                                for (JsonElement t : o.getAsJsonArray("also_on")) {
+                                    String[] tb = bodyOf(p, ed, scene, t.getAsString());
+                                    File tf = new File(p.getEventPath(tb[0], tb[1], event) + ".visual");
+                                    if (tf.getParentFile() != null) tf.getParentFile().mkdirs();
+                                    m.save(tf);
+                                }
+                            }
+                            if (isEl && (event.equals("onClick") || event.equals("onTouchStart") || event.equals("onTouchEnd"))) touchScenes.add(scene);
                             // the plain event file marks "this event exists" for older code paths
                             results.add(ok(op, label, how + " saved" + (m.formatFailures.isEmpty() ? "" : "; WARNING a block template failed to format")));
                             break;
@@ -204,6 +215,18 @@ final class LogicTools {
                     results.add(fail(op, label, t.getMessage()));
                 } catch (Throwable t) {
                     results.add(fail(op, label, String.valueOf(t)));
+                }
+            }
+            if (touchScenes.contains(ed.getScene())) {
+                java.util.List<String> w = Warnings.overlaps(ed, p, ed.getScene());
+                if (!w.isEmpty()) {
+                    JsonObject r = new JsonObject();
+                    r.addProperty("op", "warnings");
+                    r.addProperty("ok", true);
+                    JsonArray wa = new JsonArray();
+                    for (String x : w) wa.add(x);
+                    r.add("warnings", wa);
+                    results.add(r);
                 }
             }
             return null;

@@ -230,13 +230,20 @@ final class FileTools {
 
     // ================================================================== assets
 
+    /** Accepts "images/x.png", "/images/x.png", "/x.png" and "x.png": a bare name goes into the first allowed folder. */
     private static File assetTarget(Project p, String path, String... folders) throws Exception {
-        File f = Proj.safe(p, path);
+        String given = path;
+        String clean = path.trim().replace('\\', '/').replaceFirst("^/+", "");
+        boolean inFolder = false;
+        for (String d : folders) if (clean.toLowerCase().startsWith(d.toLowerCase() + "/")) inFolder = true;
+        if (!inFolder && folders.length == 1) clean = folders[0] + "/" + clean;
+        File f = Proj.safe(p, clean);
         guard(p, f);
         String rel = Proj.rel(p, f);
         boolean ok = false;
         for (String d : folders) if (rel.startsWith(d + "/")) ok = true;
-        if (!ok) throw new Gl.ToolError("path must be inside " + Arrays.toString(folders) + " (e.g. " + folders[0] + "/name)");
+        if (!ok) throw new Gl.ToolError("Cannot place '" + given + "' inside " + Arrays.toString(folders) + " (resolved to '" + rel
+                + "'). Use a plain name like 'hero.png' or '" + folders[0] + "/hero.png'. See read_docs {topic:'assets', section:'paths'}.");
         File parent = f.getParentFile();
         if (parent != null) parent.mkdirs();
         return f;
