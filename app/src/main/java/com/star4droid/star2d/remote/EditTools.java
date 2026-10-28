@@ -266,7 +266,6 @@ final class EditTools {
             ArrayList<String> w = new ArrayList<>();
             LibgdxEditor ed = Proj.editor();
             w.addAll(Warnings.text(ed, touched));
-            w.addAll(Warnings.overlaps(ed, ed.getProject(), ed.getScene()));
             return w;
         });
         if (!warns.isEmpty()) {

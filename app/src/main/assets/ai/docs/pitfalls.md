@@ -51,8 +51,12 @@ Read once before the first build. Each item says what happens and what to do.
 ## Text and touch
 
 - A TEXT too narrow for its content wraps onto several lines (see the `ui-input` section "Text size"). Resize with `set`; the `elements` reply warns about it.
-- A TEXT on top of a button swallows the touch: give the TEXT the same events (`events` with `also_on`) or a lower `z`.
+- A TEXT/PROGRESS label WITHOUT touch events is click-through: put `onClick`/`onTouchStart` on the BOX button only. A TEXT that has its own touch event captures the touch.
 - The test finger: `down` stays pressed until `up`/`release`; a game still on its loading screen is waited for by the tools, you do not need `wait`.
+
+## Editing code: patch, don't rewrite
+
+Never send a whole script again to change a few lines (slow, costs shared quota, risks losing code). `files` `search` finds the lines (`{"op":"search","path":"java","pattern":"onHit","context":2}`), `read` with `from_line`/`to_line` shows just that part, `edit` replaces exact text (`{"op":"edit","path":"java/Game.java","edits":[{"old":"speed = 200","new":"speed = 260"}]}`; `old` must match once or set `all:true`; all edits apply or none). For raw-Java events use `events` `{"op":"edit",...,"edits":[...]}` the same way. `write` is for new files.
 
 ## Process
 

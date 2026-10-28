@@ -133,8 +133,9 @@ public final class FilePickerDialog {
                 com.star4droid.star2d.ui.tutorial.Tut.tag(cell, up ? "pick:.." : "pick:" + f.getName());
                 tv.setTypeface(!up && f.isDirectory() ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
                 iv.setTag(null);
+                iv.setScaleX(1f);
                 iv.setImageTintList(android.content.res.ColorStateList.valueOf(up || f.isDirectory() ? 0xFFFFCA28 : Ui.TEXT_2));
-                if (up) iv.setImageResource(R.drawable.ic_s2_arrow_back);
+                if (up) Ui.setDirIcon(iv, R.drawable.ic_s2_arrow_back);
                 else if (f.isDirectory()) iv.setImageResource(R.drawable.ic_s2_folder);
                 else if (isImage(f.getName())) {
                     iv.setImageResource(R.drawable.ic_s2_image);

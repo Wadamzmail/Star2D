@@ -177,6 +177,9 @@ public final class RemoteOverlay extends FrameLayout implements RemoteSession.Li
         List<RemoteSession.Task> tasks = RemoteSession.tasks();
 
         pill.setVisibility(locked ? VISIBLE : GONE);
+        boolean lost = RemoteSession.isReconnecting();
+        pillText.setText(lost ? Tr.t("rc_lost", "Connection lost - waiting…") : Tr.t("rc_working", "Claude is working…"));
+        pillDot.setBackground(Ui.rounded(lost ? 0xFFFFB300 : Ui.ACCENT, Ui.dp(c, 5)));
         if (locked) {
             if (pulse == null) {
                 pulse = ObjectAnimator.ofFloat(pillDot, "alpha", 1f, 0.25f);

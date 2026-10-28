@@ -84,6 +84,17 @@ public final class Ui {
         }
     }
 
+    /** Arrows that point in a reading direction: mirrored in Arabic (supportsRtl is off, so the system does not do it). */
+    public static boolean isDirectional(int drawable) {
+        return drawable == com.star4droid.star2d.evo.R.drawable.ic_s2_arrow_back || drawable == com.star4droid.star2d.evo.R.drawable.ic_s2_arrow_forward || drawable == com.star4droid.star2d.evo.R.drawable.ic_s2_chevron_right;
+    }
+
+    /** Sets a drawable and flips it horizontally when it is a direction arrow and the UI language is right-to-left. */
+    public static void setDirIcon(ImageView v, int drawable) {
+        v.setImageResource(drawable);
+        v.setScaleX(isDirectional(drawable) && isRtl(v.getContext()) ? -1f : 1f);
+    }
+
     public static boolean isRtl(Context c) {
         return "ar".equals(prefs(c).getString("lang", "en"));
     }
@@ -156,6 +167,7 @@ public final class Ui {
         ImageView b = new ImageView(c);
         Drawable d = ContextCompat.getDrawable(c, drawable);
         b.setImageDrawable(d);
+        if (isDirectional(drawable) && isRtl(c)) b.setScaleX(-1f);
         b.setImageTintList(ColorStateList.valueOf(TEXT));
         int size = dp(c, buttonDp(c));
         int pad = (size - dp(c, iconDp(c))) / 2;
@@ -175,6 +187,7 @@ public final class Ui {
     public static ImageView smallIcon(Context c, int drawable, int color, int sizeDp) {
         ImageView i = new ImageView(c);
         i.setImageDrawable(ContextCompat.getDrawable(c, drawable));
+        if (isDirectional(drawable) && isRtl(c)) i.setScaleX(-1f);
         i.setImageTintList(ColorStateList.valueOf(color));
         i.setLayoutParams(new LinearLayout.LayoutParams(dp(c, sizeDp), dp(c, sizeDp)));
         return i;

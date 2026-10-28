@@ -523,7 +523,7 @@ public class AnimationEditorActivity extends AppCompatActivity {
             TextView tv = (TextView) cell.getChildAt(1);
             iv.setTag(null);
             if (f == null || f.isDirectory()) {
-                iv.setImageResource(f == null ? R.drawable.ic_s2_arrow_back : R.drawable.ic_s2_folder);
+                Ui.setDirIcon(iv, f == null ? R.drawable.ic_s2_arrow_back : R.drawable.ic_s2_folder);
                 iv.setImageTintList(ColorStateList.valueOf(0xFFFFCA28));
                 tv.setText(f == null ? ".." : f.getName());
             } else {

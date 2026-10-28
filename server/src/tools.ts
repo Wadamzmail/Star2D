@@ -193,14 +193,14 @@ export const TOOLS: ToolDef[] = [
   {
     name: "events",
     description:
-      "Batch get/set/delete/list event code. scope 'scene' (events: OnCreate, OnStep, OnPause, OnResume, onCollisionStart, onCollisionEnd) or 'element' (events: onClick, OnBodyCreated, OnBodyUpdate, onTouchStart, onTouchEnd, onBodyCollided, onBodyCollideEnd). Names are case-insensitive and common aliases (onUpdate, onStart...) are mapped. Write events with `blocks` (preferred; nested JSON, see read_docs('blocks')) or raw `java` only when no block fits. Writing replaces the event.",
-    inputSchema: opsOf("operations", ["set", "get", "delete", "list"], {
+      "Batch get/set/edit/delete/list event code. scope 'scene' (events: OnCreate, OnStep, OnPause, OnResume, onCollisionStart, onCollisionEnd) or 'element' (events: onClick, OnBodyCreated, OnBodyUpdate, onTouchStart, onTouchEnd, onBodyCollided, onBodyCollideEnd). Names are case-insensitive and common aliases (onUpdate, onStart...) are mapped. Write events with `blocks` (preferred; nested JSON, see read_docs('blocks')) or raw `java` only when no block fits. set replaces the whole event; edit patches a raw-Java event ({edits:[{old,new}]}, like files edit) - use it instead of rewriting.",
+    inputSchema: opsOf("operations", ["set", "edit", "get", "delete", "list"], {
       scope: str("scene|element", { enum: ["scene", "element"] }),
       element: str("element name when scope=element"),
       event: str("event name, e.g. OnCreate, OnStep, onClick, OnBodyUpdate, onBodyCollided"),
       blocks: arr(anyObj("a block: {block:'title', fields:{...}, do:[...], else:[...]}"), "block sequence (preferred)"),
       java: str("raw Java body (only when no block can express it)"),
-      also_on: arr(str("element"), "write the same event on these elements too (e.g. the TEXT lying on a button)"),
+      edits: arr(anyObj("{old, new}"), "edit: exact replacements inside the raw-Java event"),
       scene: str("scene, default = the open one"),
     }),
   },
@@ -237,11 +237,18 @@ export const TOOLS: ToolDef[] = [
   {
     name: "files",
     description:
-      "Batch file operations inside the project: list, read, write, delete, move, copy, mkdir. Paths are relative to the project root (e.g. 'images/hero.png', 'java/Player.java'). Java files are compiled with the game.",
-    inputSchema: opsOf("operations", ["list", "read", "write", "delete", "move", "copy", "mkdir"], {
-      path: str("path"),
+      "Batch file operations inside the project: list, read, search, edit, write, delete, move, copy, mkdir. Paths are relative to the project root (e.g. 'images/hero.png', 'java/Player.java'). Java files are compiled with the game. NEVER rewrite a big file to change a part: search (find lines), read with from_line/to_line (numbered lines), then edit ({path, edits:[{old,new}]}: 'old' must match exactly once, or set all:true; all edits apply or none). write is for new files.",
+    inputSchema: opsOf("operations", ["list", "read", "search", "edit", "write", "delete", "move", "copy", "mkdir"], {
+      path: str("file or folder (search also accepts a folder)"),
       to: str("move/copy target"),
       content: str("write: file content"),
+      from_line: num("read: first line (1-based); gives numbered lines"),
+      to_line: num("read: last line (max 400 lines per read)"),
+      pattern: str("search: text (or regex if regex:true)"),
+      regex: bool("search: pattern is a regular expression"),
+      context: num("search: lines around each match (0-5)"),
+      max: num("search: max matches, default 40"),
+      edits: arr(anyObj("{old: exact text, new: replacement, all?: true}"), "edit: replacements, applied in order"),
     }),
   },
   {
@@ -345,12 +352,21 @@ export const TOOLS: ToolDef[] = [
   {
     name: "screenshot",
     description:
-      "Picture of the phone screen: target 'game' (the running game canvas), 'editor' (the whole editor window including panels and bars), 'scene' (only the scene canvas, no UI) or 'auto' (game if running, else editor). Returns an image. Works only while the app is visible; the user's editing is locked for a moment while it is taken.",
+      "Picture of the phone screen: target 'game' (the running game canvas), 'editor' (the whole editor window including panels and bars), 'scene' (only the scene canvas, no UI) or 'auto' (game if running, else editor). For scene: camera {x,y,zoom} moves the editor camera for the shot, region {x,y,width,height} (scene px) frames exactly that area (zoom is chosen for you); the camera is restored afterwards. Use it to LOOK at a layout you built, zoomed on the part you care about. Works only while the app is visible; the user's editing is locked for a moment while it is taken.",
     inputSchema: obj({
       target: str("game|editor|scene|auto", { enum: ["game", "editor", "scene", "auto"] }),
+      camera: anyObj("scene target: {x,y,zoom} editor camera for this shot"),
+      region: anyObj("scene target: {x,y,width,height} in scene px (x,y = bottom-left) to frame"),
+      clean: bool("scene target: hide editor overlays (grid, selection) if possible"),
       max_width: num("downscale to this width, default 720"),
       quality: num("JPEG quality 30-90, default 70"),
     }),
+  },
+  {
+    name: "layout_check",
+    description:
+      "Geometry check of a scene's layout (no picture): elements outside the logic screen, overlapping UI elements, TEXT too narrow for its content (wraps), touch targets smaller than 48 px, text hidden under its box. Compact list of problems with the fix. Run it after building a screen, then screenshot (target scene, region) to look.",
+    inputSchema: obj({ scene: str("scene name, default = the open one") }),
   },
   {
     name: "game_input",
@@ -432,20 +448,20 @@ export const TOOL_BY_NAME: Map<string, ToolDef> = new Map(TOOLS.map((t) => [t.na
 /** The rules every AI needs from the first message (also inserted into AI.md). Keep it short: it is paid for on every conversation. */
 export const CORE_RULES = `You control the user's Star2D game-engine editor on THEIR ANDROID PHONE through these tools. The engine exists only there: never compile, run or test the game in your own sandbox or server.
 
-Start: call status. If it says app_not_connected, tell the user in their language "Open the Star2D editor now and keep it open on screen, Claude works in the background", then call wait_for_app. Next set_plan (title + tasks), work while calling update_task, and end with finish_work. The user watches the plan live and cannot edit meanwhile.
+Start: call status. If app_not_connected, tell the user in their language "Open the Star2D editor now and keep it open on screen, Claude works in the background", then wait_for_app. Next set_plan, work with update_task, end with finish_work. The user watches the plan and cannot edit meanwhile.
 
 Rules:
-1. Blocks first: logic = events with blocks (the user can edit them); raw Java only when no block fits; define_blocks creates new blocks/categories.
+1. Blocks first: logic = events with blocks (the user can edit them); raw Java only when no block fits; define_blocks makes new blocks/categories.
 2. Batch: elements, events, files, variables, joints take lists of ops; every call costs shared quota. Skip re-reading a scene when status.scene_rev is unchanged.
-3. Units: editor px, origin BOTTOM-LEFT, y up, x/y = element's bottom-left corner (Box2D/Java world = px * 0.25). Names: letters, digits, _.
-4. Events. Scene: OnCreate OnStep onCollisionStart onCollisionEnd OnPause OnResume. Element: onClick onTouchStart onTouchEnd OnBodyCreated OnBodyUpdate onBodyCollided onBodyCollideEnd.
-5. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); speeds <= 450 px/s; use scene collision events, isSensor pickups, hide + destroyLater to remove things.
-6. Images: create_image name.png -> element property image "/name.png". Sounds: create_sound.
-7. TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT lying on a button swallows touches: write the same events on it (events also_on).
-8. Test: run_game returns when the game finished loading (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
+3. Never rewrite a script to change a part: files search / read from_line,to_line / edit, or events edit.
+4. Units: editor px, origin BOTTOM-LEFT, y up, x/y = element's bottom-left corner (Box2D/Java world = px * 0.25). Names: letters, digits, _.
+5. Events. Scene: OnCreate OnStep onCollisionStart onCollisionEnd OnPause OnResume. Element: onClick onTouchStart onTouchEnd OnBodyCreated OnBodyUpdate onBodyCollided onBodyCollideEnd.
+6. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); speeds <= 450 px/s; scene collision events, isSensor pickups, hide + destroyLater to remove.
+7. Images: create_image name.png -> element image "/name.png". TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT/PROGRESS without touch events is click-through: put onClick/onTouchStart on the BOX button only.
+8. UI: after building a screen run layout_check, then screenshot (target scene, region/camera) and fix what you see.
+9. Test: run_game returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
 
-Docs are generated by the app and long: read only what you are about to use. read_docs {} = map; {topic, section} (e.g. elements/JOYSTICK, blocks, events, physics, ui-input, assets, testing, recipes, pitfalls); {search:'words'} finds the section. Topics: overview scenes elements physics events blocks blocks-examples blocks-examples-2 blocks-catalog variables ui-input assets joints java-api recipes recipes-2 testing pitfalls. A tool error names the section to read.
-Cheap project reading: status -> scene_dump {brief:true} -> get_elements {names:[...]}.`;
+Docs are long: read only what you need. read_docs {} = topic map; {topic, section} (e.g. elements/JOYSTICK); {search:'words'}. Tool errors name the section to read. Cheap project reading: status -> scene_dump {brief:true} -> get_elements {names}.`;
 
 /** What the model reads once, when the connection starts. */
 export const INSTRUCTIONS = CORE_RULES;

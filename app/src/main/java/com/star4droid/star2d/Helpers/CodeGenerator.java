@@ -379,6 +379,14 @@ public class CodeGenerator {
                         if (!isLight) {
                             fixZ = fixZ + String.format(fixZIndexDefault, name);
                         }
+
+                        // A TEXT / PROGRESS that reacts to no touch lets the touch pass to what lies below it (label on a button).
+                        if (!isLight) {
+                            String tp = propertySet.getString("TYPE");
+                            if (("TEXT".equals(tp) || "PROGRESS".equals(tp)) && !reactsToTouch(project, eventsList, script, scriptScene)) {
+                                fixZ = fixZ + "\n" + name + ".getActor().setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);\n";
+                            }
+                        }
                         
                         // Handle parent-child relationships
                         if ((!isLight) && propertySet.getParent() != null) {
@@ -487,6 +495,20 @@ public class CodeGenerator {
         if (fs != null) for (java.io.File f : fs) if (f.isFile()) out.add(f.getName());
         java.util.Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
         return out;
+    }
+
+    /** True when the element has code for onClick / onTouchStart / onTouchEnd (events or a Java script that mentions them). */
+    private static boolean reactsToTouch(com.star4droid.star2d.Helpers.editor.Project project, String[] events, String script, String scriptScene) {
+        for (int i = 0; i < 3; i++) {
+            String e = events[i] == null ? "" : events[i].replaceAll("(?s)/\\*.*?\\*/|//[^\n]*", "").trim();
+            if (!e.isEmpty()) return true;
+        }
+        try {
+            String code = FileUtil.readFile(project.getBodyScriptPath(script, scriptScene));
+            if (code != null && (code.contains("touchStart") || code.contains("touchEnd") || code.contains("click"))) return true;
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     /** The saved items of a scene (what the scene editor wrote with Save), parents re-linked. */

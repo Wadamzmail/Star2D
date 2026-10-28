@@ -73,6 +73,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     public final SettingsPanel settings;
     public final AddItemPanel addItem;
     public final com.star4droid.star2d.ui.panels.RemotePanel remote;
+    public final com.star4droid.star2d.ui.panels.AiHubPanel aiHub;
     private RemoteOverlay remoteOverlay;
     /** Dimming layers over the editing bars; shown while an AI works (see applyRemoteLock). */
     private final ArrayList<View> shields = new ArrayList<>();
@@ -126,6 +127,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         settings = new SettingsPanel(this);
         addItem = new AddItemPanel(this);
         remote = new com.star4droid.star2d.ui.panels.RemotePanel(this);
+        aiHub = new com.star4droid.star2d.ui.panels.AiHubPanel(this, remote, ai);
         com.star4droid.star2d.remote.RemoteSession.addListener(sessionListener);
         com.star4droid.star2d.remote.RemoteClient.get().addListener((st, d) -> applyRemoteLock());
 
@@ -240,6 +242,12 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         applyRemoteLock();
     }
 
+    /** Opens the AI panel on its "API" tab (used when an error is sent to the in-editor assistant). */
+    public void showAiApi() {
+        aiHub.select(ai);
+        panels.show(aiHub);
+    }
+
     /** Wraps a bar so it can be dimmed and made untouchable while an AI is working. */
     private View shield(View v, boolean matchWidth) {
         FrameLayout f = new FrameLayout(activity);
@@ -261,16 +269,16 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             for (View s : shields) s.setVisibility(locked ? VISIBLE : GONE);
             for (int i = 0; i < railButtons.size(); i++) {
                 PanelHost.Panel p = railPanels.get(i);
-                boolean allowed = !locked || p == files || p == remote;
+                boolean allowed = !locked || p == files || p == aiHub;
                 railButtons.get(i).setAlpha(allowed ? 1f : 0.35f);
-                if (p == remote) {
+                if (p == aiHub) {
                     boolean on = com.star4droid.star2d.remote.RemoteClient.get().state() == com.star4droid.star2d.remote.RemoteClient.State.CONNECTED;
                     railButtons.get(i).setImageTintList(ColorStateList.valueOf(on ? Ui.SUCCESS : Ui.TEXT));
                 }
             }
             if (locked) {
                 PanelHost.Panel cur = panels.current();
-                if (cur != null && cur != files && cur != remote) panels.hide();
+                if (cur != null && cur != files && cur != aiHub) panels.hide();
             }
             if (remote != null) remote.refresh();
         });
@@ -391,9 +399,8 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         addRail(c, rail, joints);
         addRail(c, rail, variables);
         addRail(c, rail, files);
-        addRail(c, rail, ai);
+        addRail(c, rail, aiHub);
         addRail(c, rail, git);
-        addRail(c, rail, remote);
         return rail;
     }
 
@@ -512,7 +519,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     }
 
     public void togglePanel(PanelHost.Panel p) {
-        if (com.star4droid.star2d.remote.RemoteSession.isLocked() && p != files && p != remote) {
+        if (com.star4droid.star2d.remote.RemoteSession.isLocked() && p != files && p != aiHub) {
             Ui.toast(activity, Tr.t("rc_locked_toast", "The AI is working. Press “Take control” to edit."));
             return;
         }
@@ -782,7 +789,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
                         playDialog.setButton(AlertDialog.BUTTON_POSITIVE, Tr.t("close", "Close"), (d, w) -> d.dismiss());
                         playDialog.setButton(AlertDialog.BUTTON_NEUTRAL, Tr.t("copy", "Copy"), (d, w) -> Dialogs.copy(activity, err));
                         playDialog.setButton(AlertDialog.BUTTON_NEGATIVE, Tr.t("ui_ask_ai", "Ask AI to fix"), (d, w) -> {
-                            panels.show(ai);
+                            showAiApi();
                             ai.askToFix(err);
                         });
                         playDialog.dismiss();
@@ -792,7 +799,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
                                 .setPositiveButton(Tr.t("close", "Close"), null)
                                 .setNeutralButton(Tr.t("copy", "Copy"), (x, w) -> Dialogs.copy(activity, err))
                                 .setNegativeButton(Tr.t("ui_ask_ai", "Ask AI to fix"), (x, w) -> {
-                                    panels.show(ai);
+                                    showAiApi();
                                     ai.askToFix(err);
                                 })
                                 .create();
@@ -901,7 +908,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         Ui.ui(() -> {
             AlertDialog d = Dialogs.longText(activity, Tr.t("ui_runtime_error", "Game error"), text);
             d.setButton(AlertDialog.BUTTON_NEGATIVE, Tr.t("ui_ask_ai", "Ask AI to fix"), (x, w) -> {
-                panels.show(ai);
+                showAiApi();
                 ai.askToFix(text);
             });
         });

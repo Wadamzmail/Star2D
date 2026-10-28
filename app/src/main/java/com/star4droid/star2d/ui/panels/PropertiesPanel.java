@@ -223,7 +223,7 @@ public class PropertiesPanel implements PanelHost.Panel {
         head.setOnClickListener(x -> {
             boolean col = body.getVisibility() == View.VISIBLE;
             body.setVisibility(col ? View.GONE : View.VISIBLE);
-            arrow.setImageResource(col ? R.drawable.ic_s2_chevron_right : R.drawable.ic_s2_expand_more);
+            Ui.setDirIcon(arrow, col ? R.drawable.ic_s2_chevron_right : R.drawable.ic_s2_expand_more);
             if (col) collapsed.add(title); else collapsed.remove(title);
         });
 

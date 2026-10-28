@@ -13,15 +13,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * Cheap checks run after editing, so the AI learns about two classic traps immediately instead of after a failed test:
- * (1) a TEXT too narrow for its content wraps onto several lines, (2) a TEXT lying on top of a button swallows the touch.
+ * Cheap check run after editing, so the AI learns immediately that a TEXT too narrow for its content wraps onto several lines.
  * All methods: GL thread.
  */
 final class Warnings {
     private Warnings() {}
 
     private static BitmapFont font;
-    static final String[] TOUCH_EVENTS = {"onClick", "onTouchStart", "onTouchEnd"};
 
     private static BitmapFont font() {
         if (font == null) font = new BitmapFont(Gdx.files.internal("files/default.fnt"));
@@ -71,47 +69,6 @@ final class Warnings {
         } catch (Throwable ignored) {
         }
         return out;
-    }
-
-    /** TEXT elements lying on top of an element that reacts to touch while the text itself does not. */
-    static List<String> overlaps(LibgdxEditor ed, Project p, String scene) {
-        ArrayList<String> out = new ArrayList<>();
-        try {
-            List<LinkedHashMap<String, String>> all = CoreTools.liveElements(ed);
-            for (LinkedHashMap<String, String> t : all) {
-                if (!isText(t)) continue;
-                String tn = t.get("name");
-                if (hasTouch(ed, p, scene, tn)) continue;
-                float tx = f(t, "x", 0), ty = f(t, "y", 0), tw = f(t, "width", 0), th = f(t, "height", 0), tz = f(t, "z", 0);
-                if (tw <= 0 || th <= 0) continue;
-                for (LinkedHashMap<String, String> b : all) {
-                    if (b == t || isText(b)) continue;
-                    String bn = b.get("name");
-                    float bz = f(b, "z", 0);
-                    if (tz < bz) continue; // the other one is above the text: it gets the touch
-                    float bw = f(b, "width", f(b, "radius", 0) * 2), bh = f(b, "height", f(b, "radius", 0) * 2);
-                    if (bw <= 0 || bh <= 0) continue;
-                    float bx = f(b, "x", 0), by = f(b, "y", 0);
-                    float ix = Math.min(tx + tw, bx + bw) - Math.max(tx, bx), iy = Math.min(ty + th, by + bh) - Math.max(ty, by);
-                    if (ix <= 0 || iy <= 0 || ix * iy < 0.3f * tw * th) continue;
-                    if (!hasTouch(ed, p, scene, bn)) continue;
-                    out.add("TEXT '" + tn + "' lies on top of '" + bn + "' (which has a touch event) and will swallow the touch. Fix: write the same event on the text too"
-                            + " (events set with also_on:['" + tn + "']) or give the text a lower z than '" + bn + "'.");
-                    break;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-        return out;
-    }
-
-    private static boolean hasTouch(LibgdxEditor ed, Project p, String scene, String element) {
-        try {
-            String[] sb = LogicTools.bodyOf(p, ed, scene, element);
-            for (String ev : TOUCH_EVENTS) if (LogicTools.hasCode(p.getEventPath(sb[0], sb[1], ev))) return true;
-        } catch (Throwable ignored) {
-        }
-        return false;
     }
 
     private static String shorten(String s) {

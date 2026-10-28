@@ -29,7 +29,7 @@ One call = start the game (default), play a scenario, report. At most about 45 s
  {"do":"read","elements":["player"]},
  {"do":"joystick","element":"joy","jx":1,"jy":0,"ms":1000},
  {"do":"assert","element":"player","prop":"x","op":">","value":150},
- {"do":"tap","element":"jumpBtn"},
+ {"do":"tap","element":"jumpBox"},
  {"do":"wait","ms":250},
  {"do":"assert","element":"player","prop":"vy","op":">","value":0},
  {"do":"wait","ms":1200},
@@ -49,7 +49,8 @@ Include `start:false` to test the game that is already running. Use `scene` to s
 
 - `run_game` (and `run_test` with `start`) return only when the game finished loading: the reply says `ready:true`. If you start `game_input` / `screenshot` earlier the tool waits for the loading screen to end by itself, so never guess waiting times after a start.
 - A finger pressed with `down` STAYS pressed after the call (even across `wait` steps and separate calls) until you send `up` or `{"do":"release"}`; it is released automatically after 60 s without input. Look at the game with `screenshot` / `game_state` while holding.
-- `hold` = `tap` with `ms`: `{"do":"hold","element":"jumpBtn","ms":800}`.
+- Tap the BOX button (its events live there; the label TEXT on it is click-through).
+- `hold` = `tap` with `ms`: `{"do":"hold","element":"jumpBox","ms":800}`.
 - Tests run in real time on the phone (45 s per call). For a long scenario use several `run_test` calls with `"start":false`; the game keeps running between them.
 
 ## game_input

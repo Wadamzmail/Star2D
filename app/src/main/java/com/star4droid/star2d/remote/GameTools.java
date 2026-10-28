@@ -239,12 +239,80 @@ final class GameTools {
         if (target.equals("game") && !playing) return ToolResult.error("The game is not running. Use run_game first, or target 'editor'.");
         if (playing && (target.equals("game") || target.equals("scene"))) waitReady(15_000);
         Bitmap bmp;
-        if (target.equals("editor")) {
-            bmp = windowShot();
-            if (bmp == null) bmp = glShot();
-        } else bmp = glShot(); // game or scene: the GL canvas
+        String label = target;
+        final boolean sceneView = target.equals("scene") && !playing;
+        final boolean framed = sceneView && (a.has("camera") || a.has("region") || CoreTools.b(a, "clean", false));
+        final double[] saved = new double[3];
+        final Object[] savedUi = new Object[2]; // grids flag, selected actor
+        if (framed) {
+            label = Gl.run(() -> frameScene(a, saved, savedUi));
+            Gl.sleep(220); // let the editor draw a frame with the new camera
+        }
+        try {
+            if (target.equals("editor")) {
+                bmp = windowShot();
+                if (bmp == null) bmp = glShot();
+            } else bmp = glShot(); // game or scene: the GL canvas
+        } finally {
+            if (framed) Gl.run(() -> {
+                restoreScene(saved, savedUi);
+                return null;
+            });
+        }
         if (bmp == null) return ToolResult.error("Could not capture the screen. Is the Star2D app visible on the phone? Ask the user to keep the editor open.");
-        return image(bmp, maxW, q, target);
+        return image(bmp, maxW, q, label);
+    }
+
+    /** Moves the editor camera / hides overlays for a scene shot. GL thread. Returns the label. */
+    private static String frameScene(JsonObject a, double[] saved, Object[] savedUi) throws Exception {
+        com.star4droid.star2d.editor.LibgdxEditor ed = Proj.editor();
+        com.badlogic.gdx.graphics.OrthographicCamera cam = (com.badlogic.gdx.graphics.OrthographicCamera) ed.getCamera();
+        saved[0] = cam.position.x;
+        saved[1] = cam.position.y;
+        saved[2] = cam.zoom;
+        String label = "scene";
+        if (a.has("region") && a.get("region").isJsonObject()) {
+            JsonObject r = a.getAsJsonObject("region");
+            double w = Math.max(8, r.has("width") ? r.get("width").getAsDouble() : 400), h = Math.max(8, r.has("height") ? r.get("height").getAsDouble() : 300);
+            double x = r.has("x") ? r.get("x").getAsDouble() : 0, y = r.has("y") ? r.get("y").getAsDouble() : 0;
+            cam.position.x = (float) (x + w / 2);
+            cam.position.y = (float) (y + h / 2);
+            cam.zoom = (float) Math.max(w / cam.viewportWidth, h / cam.viewportHeight) * 1.03f;
+            label = "scene region x=" + Math.round(x) + " y=" + Math.round(y) + " w=" + Math.round(w) + " h=" + Math.round(h);
+        } else if (a.has("camera") && a.get("camera").isJsonObject()) {
+            JsonObject c = a.getAsJsonObject("camera");
+            if (c.has("x")) cam.position.x = c.get("x").getAsFloat();
+            if (c.has("y")) cam.position.y = c.get("y").getAsFloat();
+            if (c.has("zoom")) cam.zoom = Math.max(0.05f, c.get("zoom").getAsFloat());
+            label = "scene camera x=" + Math.round(cam.position.x) + " y=" + Math.round(cam.position.y) + " zoom=" + cam.zoom;
+        }
+        cam.update();
+        if (CoreTools.b(a, "clean", false)) {
+            try {
+                java.lang.reflect.Field f = ed.getClass().getDeclaredField("SHOW_GRIDS");
+                f.setAccessible(true);
+                savedUi[0] = f.getBoolean(ed);
+                ed.showGrids(false);
+                savedUi[1] = ed.getSelectedActor();
+                if (savedUi[1] != null) ed.selectActor(null);
+            } catch (Throwable ignored) {
+            }
+        }
+        return label;
+    }
+
+    private static void restoreScene(double[] saved, Object[] savedUi) {
+        try {
+            com.star4droid.star2d.editor.LibgdxEditor ed = Proj.editor();
+            com.badlogic.gdx.graphics.OrthographicCamera cam = (com.badlogic.gdx.graphics.OrthographicCamera) ed.getCamera();
+            cam.position.x = (float) saved[0];
+            cam.position.y = (float) saved[1];
+            cam.zoom = (float) saved[2];
+            cam.update();
+            if (savedUi[0] != null) ed.showGrids((Boolean) savedUi[0]);
+            if (savedUi[1] instanceof com.badlogic.gdx.scenes.scene2d.Actor) ed.selectActor((com.badlogic.gdx.scenes.scene2d.Actor) savedUi[1]);
+        } catch (Throwable ignored) {
+        }
     }
 
     static ToolResult image(Bitmap bmp, int maxW, int quality, String label) {

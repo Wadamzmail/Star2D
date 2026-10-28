@@ -139,6 +139,13 @@ public class PanelHost extends FrameLayout {
         if (onVisibilityChanged != null) onVisibilityChanged.run();
     }
 
+    /** Rebuilds the header buttons of the current panel (a panel with tabs changes them per tab). */
+    public void refreshHeader() {
+        if (current == null) return;
+        actions.removeAllViews();
+        for (View a : current.headerActions(getContext())) actions.addView(a);
+    }
+
     /** Re-run layout (e.g. after rotation or icon-size change). */
     public void refreshLayout() {
         layoutSheet();
