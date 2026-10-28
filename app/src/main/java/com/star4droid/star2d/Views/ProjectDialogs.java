@@ -77,9 +77,19 @@ public final class ProjectDialogs {
         TextView tip = Ui.text(a, T("home_orientation_tip", "You can change it later from Edit project."), 11.5f, Ui.TEXT_3);
         tip.setPadding(0, Ui.dp(a, 8), 0, 0);
         col.addView(tip);
+        final com.star4droid.star2d.git.ui.UploadForm upload = new com.star4droid.star2d.git.ui.UploadForm(a, col, def);
+        name.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int x, int y, int z) {}
+            public void onTextChanged(CharSequence s, int x, int y, int z) {}
+            public void afterTextChanged(android.text.Editable s) {
+                upload.projectNameChanged(s.toString().trim().replace(" ", "_"));
+            }
+        });
+        android.widget.ScrollView scroll = new android.widget.ScrollView(a);
+        scroll.addView(col);
         AlertDialog d = new AlertDialog.Builder(a)
                 .setTitle(T("home_new_project", "New project"))
-                .setView(col)
+                .setView(scroll)
                 .setPositiveButton(T("home_create", "Create"), null)
                 .setNegativeButton(T("cancel", "Cancel"), null)
                 .create();
@@ -91,6 +101,11 @@ public final class ProjectDialogs {
                 name.setError(err);
                 return;
             }
+            String uerr = upload.validate();
+            if (uerr != null) {
+                Snack.show(uerr);
+                return;
+            }
             File dir = new File(projectsDir, nm);
             if (!dir.mkdirs()) {
                 name.setError(T("ui_failed", "Failed"));
@@ -99,7 +114,28 @@ public final class ProjectDialogs {
             for (String p : new String[]{"sounds", "anims", "images", "files", "icon"}) new File(dir, p).mkdirs();
             writeOrientation(a, dir, land[0]);
             d.dismiss();
-            done.on(dir);
+            if (!upload.enabled()) {
+                done.on(dir);
+                return;
+            }
+            final String rn = upload.repoName(), rd = upload.description();
+            final boolean priv = upload.isPrivate();
+            final com.star4droid.star2d.git.ui.BusyDialog busy =
+                    new com.star4droid.star2d.git.ui.BusyDialog(a, T("gh_uploading", "Uploading to GitHub"), false).show();
+            com.star4droid.star2d.git.GitHubSession.background(() -> {
+                String fail = null;
+                try {
+                    com.star4droid.star2d.git.ProjectGit.publish(a, dir, rn, rd, priv, busy);
+                } catch (Exception e) {
+                    fail = e.getMessage() == null ? e.toString() : e.getMessage();
+                }
+                final String f = fail;
+                Ui.ui(() -> {
+                    busy.dismiss();
+                    Snack.show(f == null ? T("gh_uploaded", "Uploaded to GitHub") : T("gh_upload_failed", "Upload failed") + ": " + f);
+                    done.on(dir);
+                });
+            });
         }));
         d.show();
     }
@@ -158,7 +194,10 @@ public final class ProjectDialogs {
         Snack.show(T("home_creating", "Creating project..."));
         new Thread(() -> {
             try {
-                com.star4droid.star2d.ui.panels.FilesPanel.copy(project, new File(project.getParentFile(), fnm));
+                File copy = new File(project.getParentFile(), fnm);
+                com.star4droid.star2d.ui.panels.FilesPanel.copy(project, copy);
+                // a duplicate is a new project: it must not share the original's GitHub repository
+                com.star4droid.star2d.git.ui.CloneDialog.deleteTree(new File(copy, ".git"));
                 Ui.ui(() -> {
                     Snack.show(T("home_created", "Project created") + ": " + fnm);
                     done.run();

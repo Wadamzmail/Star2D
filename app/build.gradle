@@ -63,6 +63,7 @@ android {
         }
     }
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
@@ -94,6 +95,12 @@ dependencies {
     implementation(fileTree(dir: "libs", include: ["*.jar","*.aar"]))
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    // Git (HTTPS only): JGit 5.13 is the last line that runs on Java 8 / Android
+    implementation("org.eclipse.jgit:org.eclipse.jgit:5.13.3.202401111512-r") {
+        exclude group: 'org.slf4j'
+    }
+    implementation("org.slf4j:slf4j-nop:1.7.36")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
     implementation("com.google.guava:guava:32.0.1-android")
     implementation("com.android.tools:r8:8.1.56")
     implementation(platform("io.github.rosemoe:editor-bom:0.24.5"))

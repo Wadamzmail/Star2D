@@ -43,6 +43,16 @@
             android:layout_weight="1" />
 
         <ImageView
+            android:id="@+id/home_clone"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Clone from GitHub"
+            android:padding="9dp"
+            android:src="@drawable/ic_s2_download"
+            android:tint="@color/home_text" />
+
+        <ImageView
             android:id="@+id/home_gear"
             android:layout_width="42dp"
             android:layout_height="42dp"

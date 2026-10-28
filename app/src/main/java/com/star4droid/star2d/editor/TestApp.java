@@ -429,6 +429,18 @@ public class TestApp implements ApplicationListener {
 	public void closeProject(){
 	    closeProject(true);
 	}
+
+	/** Closes and opens the current project again (its files changed on disk, e.g. after a git pull). */
+	public boolean reloadProject(){
+		if(project == null || !canExitFromProject){
+			toast("please wait...");
+			return false;
+		}
+		String path = project.getPath();
+		closeProject(false);
+		openProject(new Project(path));
+		return true;
+	}
 	
 	public void closeProject(boolean changeOrienation){
 		if(!canExitFromProject){

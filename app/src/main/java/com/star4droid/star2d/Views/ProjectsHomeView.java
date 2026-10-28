@@ -95,6 +95,12 @@ public class ProjectsHomeView extends FrameLayout {
         setupCommunity();
         setupSettings();
         findViewById(R.id.home_gear).setOnClickListener(v -> selectTab(4));
+        View cloneBtn = findViewById(R.id.home_clone);
+        cloneBtn.setContentDescription(T("gh_clone_title", "Clone from GitHub"));
+        cloneBtn.setOnClickListener(v -> com.star4droid.star2d.git.ui.CloneDialog.show(activity, projectsDir, dir -> {
+            refresh();
+            host.openProject(dir);
+        }));
         selectTab(0);
         refresh();
         askLanguageOnFirstRun();
@@ -434,6 +440,7 @@ public class ProjectsHomeView extends FrameLayout {
 
         // icon size (small / medium / large) used by the editor toolbars
         LinearLayout card = (LinearLayout) findViewById(R.id.setting_undo).getParent();
+        addGitHubCard((LinearLayout) card.getParent(), card);
         TextView label = new TextView(activity);
         label.setText(T("ui_icon_size", "Icon size"));
         label.setTextColor(color(R.color.home_text_secondary));
@@ -451,6 +458,52 @@ public class ProjectsHomeView extends FrameLayout {
                 prefs().edit().putString(Ui.PREF_ICON_SIZE, sizeKeys[position]).apply()));
         box.addView(sizes, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
         card.addView(box, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    /** "GitHub" row of the settings page: shows the account and opens the connection page. */
+    private void addGitHubCard(LinearLayout parent, View before) {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.home_card_bg);
+        row.setPadding(dp(16), dp(14), dp(16), dp(14));
+        android.widget.ImageView icon = new android.widget.ImageView(activity);
+        icon.setImageResource(R.drawable.ic_s2_git);
+        icon.setColorFilter(color(R.color.home_text));
+        row.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        LinearLayout texts = new LinearLayout(activity);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.setPadding(dp(14), 0, dp(14), 0);
+        TextView title = new TextView(activity);
+        title.setText(T("gh_title", "GitHub"));
+        title.setTextColor(color(R.color.home_text));
+        title.setTextSize(16);
+        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        final TextView sub = new TextView(activity);
+        sub.setTextColor(color(R.color.home_text_secondary));
+        sub.setTextSize(13);
+        texts.addView(title);
+        texts.addView(sub);
+        row.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView arrow = new TextView(activity);
+        arrow.setText(Ui.isRtl(activity) ? "‹" : "›");
+        arrow.setTextColor(color(R.color.home_text_secondary));
+        arrow.setTextSize(24);
+        row.addView(arrow);
+        final Runnable refreshSub = () -> {
+            com.star4droid.star2d.git.GitHubApi.User u = com.star4droid.star2d.git.GitHubSession.user(activity);
+            boolean on = com.star4droid.star2d.git.GitHubSession.connected(activity);
+            sub.setText(on ? T("gh_connected_as", "Connected as") + " @" + (u == null ? "" : u.login)
+                    : T("gh_not_connected", "Not connected"));
+            sub.setTextColor(on ? color(R.color.home_accent) : color(R.color.home_text_secondary));
+        };
+        refreshSub.run();
+        row.setOnClickListener(v -> com.star4droid.star2d.git.ui.GitHubConnect.show(activity, refreshSub));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(18);
+        parent.addView(row, parent.indexOfChild(before), lp);
+        // the original card had its own top margin; keep spacing even
+        ((LinearLayout.LayoutParams) before.getLayoutParams()).topMargin = dp(14);
     }
 
     private void bindSwitch(int id, String key) {

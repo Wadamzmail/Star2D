@@ -69,6 +69,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     public final VariablesPanel variables;
     public final FilesPanel files;
     public final AiPanel ai;
+    public final com.star4droid.star2d.ui.panels.GitPanel git;
     public final SettingsPanel settings;
     public final AddItemPanel addItem;
 
@@ -111,6 +112,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         variables = new VariablesPanel(this);
         files = new FilesPanel(this);
         ai = new AiPanel(this);
+        git = new com.star4droid.star2d.ui.panels.GitPanel(this);
         settings = new SettingsPanel(this);
         addItem = new AddItemPanel(this);
 
@@ -305,6 +307,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         addRail(c, rail, variables);
         addRail(c, rail, files);
         addRail(c, rail, ai);
+        addRail(c, rail, git);
         return rail;
     }
 
@@ -631,6 +634,27 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     @Override
     public void onBuildErrors(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors) {
         pendingErrors = errors == null || errors.isEmpty() ? null : new ArrayList<>(errors);
+        recordBuild(errors);
+    }
+
+    /** Leaves the result of the build in the project for STATE.md (AI assistants read it through GitHub). */
+    private void recordBuild(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors) {
+        try {
+            String path = Bridge.editor().getProject().getPath();
+            java.io.File f = new java.io.File(path, com.star4droid.star2d.git.AiDocs.BUILD_LOG);
+            f.getParentFile().mkdirs();
+            StringBuilder sb = new StringBuilder();
+            sb.append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.ENGLISH).format(new java.util.Date())).append("\n");
+            if (errors == null || errors.isEmpty()) sb.append("No errors reported.");
+            else for (com.star4droid.star2d.CodeEditor.smart.BuildError e : errors) {
+                String where = e.origin != null && !e.origin.isEmpty() ? e.origin : new java.io.File(e.file == null ? "" : e.file).getName() + ":" + e.line;
+                sb.append(e.warning ? "warning " : "error ").append(where).append(": ").append(e.message).append("\n");
+            }
+            try (java.io.FileOutputStream o = new java.io.FileOutputStream(f)) {
+                o.write(sb.toString().getBytes("UTF-8"));
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
