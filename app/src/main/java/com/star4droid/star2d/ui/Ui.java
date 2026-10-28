@@ -184,6 +184,36 @@ public final class Ui {
         return b;
     }
 
+    /**
+     * Makes the icon buttons of a toolbar row always fit the screen, whatever the icon-size setting is.
+     * The title keeps at least {@code reserveDp}; if the buttons need more than the rest, they shrink evenly
+     * (touch size and glyph padding), never below 34 dp. Call after the row is filled; also in RTL and landscape
+     * (it measures the real screen width, so it works the same on every orientation).
+     */
+    public static void fitIconRow(Context c, LinearLayout row, int reserveDp) {
+        int count = 0;
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View v = row.getChildAt(i);
+            if (v instanceof ImageView && v.getLayoutParams() != null && v.getLayoutParams().width > 0) count++;
+        }
+        if (count == 0) return;
+        int avail = c.getResources().getDisplayMetrics().widthPixels - row.getPaddingLeft() - row.getPaddingRight() - dp(c, reserveDp);
+        int size = Math.min(dp(c, buttonDp(c)), avail / count);
+        size = Math.max(size, dp(c, 34));
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View v = row.getChildAt(i);
+            if (!(v instanceof ImageView) || v.getLayoutParams() == null || v.getLayoutParams().width <= 0) continue;
+            if (v.getLayoutParams().width <= size) continue;
+            int glyph = Math.min(dp(c, iconDp(c)), size - dp(c, 6));
+            int pad = Math.max(0, (size - glyph) / 2);
+            v.setPadding(pad, pad, pad, pad);
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) v.getLayoutParams();
+            lp.width = size;
+            lp.height = size;
+            v.setLayoutParams(lp);
+        }
+    }
+
     public static ImageView smallIcon(Context c, int drawable, int color, int sizeDp) {
         ImageView i = new ImageView(c);
         i.setImageDrawable(ContextCompat.getDrawable(c, drawable));

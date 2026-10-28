@@ -41,14 +41,21 @@ public class ElementsPanel implements PanelHost.Panel {
     private final ArrayList<Bridge.ItemInfo> shown = new ArrayList<>();
     private final Adapter adapter = new Adapter();
     private boolean pending;
-    /** Collapsed groups per scene (kept while the app runs). Searching shows everything. */
-    private static final java.util.HashMap<String, java.util.HashSet<String>> COLLAPSED = new java.util.HashMap<>();
+    /** Expanded parents per scene (kept while the app runs): every parent starts COLLAPSED. Searching shows everything. */
+    private static final java.util.HashMap<String, java.util.HashSet<String>> EXPANDED = new java.util.HashMap<>();
+    /** Last selected element seen: when the selection moves into a collapsed parent, its ancestors open. */
+    private String lastSelected = "";
+    private static final long ANIM_MS = 200;
 
-    private static java.util.HashSet<String> collapsedOf(String scene) {
+    private static java.util.HashSet<String> expandedOf(String scene) {
         String k = scene == null ? "" : scene;
-        java.util.HashSet<String> h = COLLAPSED.get(k);
-        if (h == null) { h = new java.util.HashSet<>(); COLLAPSED.put(k, h); }
+        java.util.HashSet<String> h = EXPANDED.get(k);
+        if (h == null) { h = new java.util.HashSet<>(); EXPANDED.put(k, h); }
         return h;
+    }
+
+    private static boolean isCollapsed(Bridge.ItemInfo i) {
+        return i.children > 0 && !expandedOf(i.scene).contains(i.name);
     }
 
     public ElementsPanel(EditorShell shell) {
@@ -82,7 +89,14 @@ public class ElementsPanel implements PanelHost.Panel {
         list = new RecyclerView(c);
         list.setLayoutManager(new LinearLayoutManager(c));
         list.setAdapter(adapter);
-        list.setItemAnimator(null);
+        // expand / collapse: the rows fade in / out and the ones below slide (insert / remove range, no full rebuild)
+        androidx.recyclerview.widget.DefaultItemAnimator anim = new androidx.recyclerview.widget.DefaultItemAnimator();
+        anim.setSupportsChangeAnimations(false);
+        anim.setAddDuration(ANIM_MS);
+        anim.setRemoveDuration(ANIM_MS * 3 / 4);
+        anim.setMoveDuration(ANIM_MS);
+        anim.setChangeDuration(0);
+        list.setItemAnimator(anim);
         col.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         root = col;
         return root;
@@ -108,30 +122,96 @@ public class ElementsPanel implements PanelHost.Panel {
             pending = false;
             all.clear();
             all.addAll(items);
+            boolean reveal = revealSelection();
             filter();
+            if (reveal) scrollToSelected();
         });
     }
 
     private void filter() {
         if (list == null) return;
+        buildShown();
+        adapter.notifyDataSetChanged();
+        empty.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean searching() {
+        return search != null && !search.getText().toString().trim().isEmpty();
+    }
+
+    /** Fills `shown` (+ tree guides) from `all`: collapsed parents hide their children, a search shows every match. */
+    private void buildShown() {
         String q = search.getText().toString().toLowerCase(Locale.ROOT).trim();
         shown.clear();
         if (q.isEmpty()) {
-            // the children of a collapsed group are not listed
             int skipBelow = -1;
             for (Bridge.ItemInfo i : all) {
                 if (skipBelow >= 0 && i.depth > skipBelow) continue;
                 skipBelow = -1;
                 shown.add(i);
-                if (i.children > 0 && collapsedOf(i.scene).contains(i.name)) skipBelow = i.depth;
+                if (isCollapsed(i)) skipBelow = i.depth;
             }
         } else {
             for (Bridge.ItemInfo i : all)
                 if (i.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(i);
         }
         computeTree(q.isEmpty());
-        adapter.notifyDataSetChanged();
-        empty.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    /** Expand / collapse one parent with an animation: only the rows below it are inserted or removed. */
+    private void toggle(Bridge.ItemInfo info, Holder h) {
+        if (searching()) return;
+        int pos = h.getAdapterPosition();
+        if (pos < 0 || pos >= shown.size() || shown.get(pos) != info) { filter(); return; }
+        java.util.HashSet<String> set = expandedOf(info.scene);
+        boolean open = set.contains(info.name);
+        if (open) set.remove(info.name); else set.add(info.name);
+        int before = shown.size();
+        buildShown();
+        int diff = shown.size() - before;
+        h.chevron.animate().cancel();
+        h.chevron.animate().rotation(chevronRotation(!open)).setDuration(ANIM_MS)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        if (diff > 0) adapter.notifyItemRangeInserted(pos + 1, diff);
+        else if (diff < 0) adapter.notifyItemRangeRemoved(pos + 1, -diff);
+    }
+
+    /** Down arrow when open; turned toward the reading direction when closed (mirrored for Arabic). */
+    private float chevronRotation(boolean open) {
+        if (open) return 0f;
+        return Ui.isRtl(root != null ? root.getContext() : list.getContext()) ? 90f : -90f;
+    }
+
+    /** A new selection inside collapsed parents opens them (true when the selection changed and is now reachable). */
+    private boolean revealSelection() {
+        String sel = "";
+        Bridge.ItemInfo selInfo = null;
+        for (Bridge.ItemInfo i : all) if (i.selected) { sel = i.name; selInfo = i; break; }
+        if (sel.equals(lastSelected)) return false;
+        lastSelected = sel;
+        if (selInfo == null) return false;
+        java.util.HashMap<String, Bridge.ItemInfo> byName = new java.util.HashMap<>();
+        for (Bridge.ItemInfo i : all) byName.put(i.name, i);
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        Bridge.ItemInfo p = byName.get(selInfo.parent);
+        while (p != null && seen.add(p.name)) {
+            expandedOf(p.scene).add(p.name);
+            p = byName.get(p.parent);
+        }
+        return true;
+    }
+
+    private void scrollToSelected() {
+        for (int k = 0; k < shown.size(); k++) {
+            if (!shown.get(k).selected) continue;
+            final int idx = k;
+            list.post(() -> {
+                androidx.recyclerview.widget.LinearLayoutManager lm = (androidx.recyclerview.widget.LinearLayoutManager) list.getLayoutManager();
+                if (lm == null) return;
+                if (idx < lm.findFirstCompletelyVisibleItemPosition() || idx > lm.findLastCompletelyVisibleItemPosition()) lm.scrollToPositionWithOffset(idx, Ui.dp(list.getContext(), 60));
+            });
+            return;
+        }
     }
 
     /** Per shown row: bit L set = draw a vertical guide in column L; bit 31 = last child. */
@@ -416,21 +496,18 @@ public class ElementsPanel implements PanelHost.Panel {
                 if (img.isFile()) com.star4droid.star2d.ui.FilePickerDialog.thumb(h.icon, img, Ui.dp(c, 32));
             }
             h.name.setText(i.name);
-            boolean searching = !search.getText().toString().trim().isEmpty();
+            boolean searching = searching();
             boolean hiddenNow = !i.visible || i.ancHidden;
             h.name.setAlpha(hiddenNow ? 0.5f : 1f);
             String typeLabel = i.type == null ? "" : Tr.t("ui_type_" + i.type.toLowerCase(Locale.ROOT), i.type);
             if (i.children > 0) typeLabel += " · " + String.format(Locale.US, Tr.t("ui_n_children", "%d inside"), i.children);
             // group chevron: open / closed
+            h.chevron.animate().cancel();
             if (i.children > 0 && !searching) {
-                boolean closed = collapsedOf(i.scene).contains(i.name);
                 h.chevron.setVisibility(View.VISIBLE);
-                Ui.setDirIcon(h.chevron, closed ? R.drawable.ic_s2_chevron_right : R.drawable.ic_s2_expand_more);
-                h.chevron.setOnClickListener(v -> {
-                    java.util.HashSet<String> set = collapsedOf(i.scene);
-                    if (!set.remove(i.name)) set.add(i.name);
-                    filter();
-                });
+                h.chevron.setImageResource(R.drawable.ic_s2_expand_more);
+                h.chevron.setRotation(chevronRotation(!isCollapsed(i)));
+                h.chevron.setOnClickListener(v -> toggle(i, h));
             } else {
                 h.chevron.setVisibility(View.INVISIBLE);
                 h.chevron.setOnClickListener(null);

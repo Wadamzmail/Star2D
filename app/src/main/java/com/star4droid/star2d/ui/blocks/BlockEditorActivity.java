@@ -325,8 +325,11 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         TextView t = Ui.text(c, Tr.t(eventName), 15, Ui.TEXT);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setMaxLines(1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         titles.addView(t);
         TextView sub = Ui.text(c, Tr.t("visualScripting", "Blocks"), 11.5f, Ui.TEXT_3);
+        sub.setMaxLines(1);
+        sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
         titles.addView(sub);
         top.addView(titles, Ui.weight(1));
         undoBtn = Ui.iconButton(c, R.drawable.ic_s2_undo, Tr.t("undo", "Undo"), v -> undo());
@@ -345,6 +348,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         save.setBackground(Ui.ripple(Ui.ACCENT, Ui.dp(c, 10)));
         Tut.tag(save, "blocks:save");
         top.addView(save);
+        Ui.fitIconRow(c, top, 64); // all 6 buttons stay on screen at any icon size; the title keeps 64 dp
         root.addView(top, Ui.matchWrap());
 
         // body
