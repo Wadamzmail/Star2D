@@ -63,7 +63,9 @@ public class PropertySet<K, V> extends HashMap<String,Object> {
 		}
 		if(getString("name").equals(propertySet.getString("name"))) return false;
 		if(containsChild(propertySet)) return false;
-		propertySet.childs.add(this);
+		// leave the previous parent first, a set can only be in one list
+		if(parent!=null) parent.childs.remove(this);
+		if(!propertySet.childs.contains(this)) propertySet.childs.add(this);
 		parent = propertySet;
 		return true;
 	}

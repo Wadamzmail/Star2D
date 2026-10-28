@@ -324,7 +324,7 @@ public class CodeGenerator {
                             String propertyKey = entry.getKey();
                             
                             // Skip certain properties
-                            if ("(TYPE)(Shape)(lock)(parent)".contains("(" + propertyKey + ")")) {
+                            if ("(TYPE)(Shape)(lock)(parent)(prefab)(pid)(pbase)".contains("(" + propertyKey + ")")) {
                                 continue;
                             }
                             if (propertyKey.equals("lock")) {
@@ -492,7 +492,7 @@ public class CodeGenerator {
     public static ArrayList<String> sceneNames(com.star4droid.star2d.Helpers.editor.Project project) {
         ArrayList<String> out = new ArrayList<>();
         java.io.File[] fs = new java.io.File(project.getScenesPath()).listFiles();
-        if (fs != null) for (java.io.File f : fs) if (f.isFile()) out.add(f.getName());
+        if (fs != null) for (java.io.File f : fs) if (f.isFile() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.getName())) out.add(f.getName());
         java.util.Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
         return out;
     }

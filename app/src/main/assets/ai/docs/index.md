@@ -27,6 +27,7 @@ Star2D is a 2D game-engine editor on an Android phone (LibGDX + Box2D). Do NOT r
 - `ui-input`: TEXT sizing, buttons, designing UI (layout_check + screenshot loop), touch, keyboard, joystick, camera follow.
 - `assets`: images, animations, sounds, particles, maps, fonts, paths, `create_image` / `create_sound`.
 - `joints`: the `joints` tool, which types are safe.
+- `prefabs`: reusable groups of elements saved as files: the `prefabs` tool (create, add, apply, revert, unpack, link), overrides, scripts. Before repeating the same enemy/UI piece.
 - `java-api`: Java API, file locations, package rules (only for raw Java).
 - `recipes`, `recipes-2`: complete small games as ordered tool calls (platformer, shooter, clicker, breakout, runner, ...). Read ONE recipe section.
 - `testing`: `run_test` / `game_input` examples and limits.

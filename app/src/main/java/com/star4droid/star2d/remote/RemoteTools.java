@@ -20,6 +20,7 @@ public final class RemoteTools {
             case "scenes": return "read_docs {topic:'scenes'}";
             case "variables": return "read_docs {topic:'variables'}";
             case "joints": return "read_docs {topic:'joints'}";
+            case "prefabs": return "read_docs {topic:'prefabs'}";
             case "files": return "read_docs {topic:'overview'}";
             default: return null;
         }
@@ -64,6 +65,7 @@ public final class RemoteTools {
                 case "scenes": return EditTools.scenes(args);
                 case "elements": return EditTools.elements(args);
                 case "joints": return EditTools.joints(args);
+                case "prefabs": return PrefabTools.prefabs(args);
                 case "variables": return EditTools.variables(args);
                 case "editor": return EditTools.editor(args);
                 case "block_catalog": return LogicTools.blockCatalog(args);

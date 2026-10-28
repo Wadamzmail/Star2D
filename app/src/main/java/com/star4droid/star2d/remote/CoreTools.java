@@ -285,7 +285,7 @@ final class CoreTools {
                 o.addProperty(k, e.getValue());
                 continue;
             }
-            if (k.equals("Version")) continue;
+            if (k.equals("Version") || k.equals("pbase") || k.equals("pid")) continue;
             String d = def.get(k);
             if (d != null && ItemDefaults.same(e.getValue(), d)) continue;
             // "Script" defaults to the element's own name

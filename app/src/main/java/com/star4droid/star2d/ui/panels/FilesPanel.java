@@ -296,6 +296,7 @@ public class FilesPanel implements PanelHost.Panel {
             case "scenes": return 0xFF26C6DA;
             case "files": return 0xFF8D6E63;
             case "events": return 0xFFFFCA28;
+            case "prefabs": return com.star4droid.star2d.ui.PrefabUi.COLOR;
         }
         return 0xFFFFCA28;
     }
@@ -303,6 +304,7 @@ public class FilesPanel implements PanelHost.Panel {
     static int fileIcon(File f) {
         String n = f.getName().toLowerCase(Locale.ROOT);
         if (f.isDirectory()) return R.drawable.ic_s2_folder;
+        if (n.endsWith(".prefab")) return com.star4droid.star2d.ui.PrefabUi.ICON;
         if (FilePickerDialog.isImage(n)) return R.drawable.ic_s2_image;
         if (n.endsWith(".java") || n.endsWith(".code") || n.endsWith(".json") || n.endsWith(".visual") || n.endsWith(".xml")) return R.drawable.ic_s2_code;
         if (n.endsWith(".mp3") || n.endsWith(".wav") || n.endsWith(".ogg")) return R.drawable.ic_s2_sound;
@@ -317,12 +319,90 @@ public class FilesPanel implements PanelHost.Panel {
     static int fileColor(File f) {
         if (f.isDirectory()) return folderColor(f.getName());
         int i = fileIcon(f);
+        if (i == com.star4droid.star2d.ui.PrefabUi.ICON) return com.star4droid.star2d.ui.PrefabUi.COLOR;
         if (i == R.drawable.ic_s2_code) return 0xFF42A5F5;
         if (i == R.drawable.ic_s2_sound) return 0xFFFFA726;
         if (i == R.drawable.ic_s2_font) return 0xFFEC407A;
         if (i == R.drawable.ic_s2_map) return 0xFF8D6E63;
         if (i == R.drawable.ic_s2_particle) return 0xFFEF5350;
         return Ui.TEXT_2;
+    }
+
+    // ------------------------------------------------------------ prefabs
+
+    private File prefabsDir() {
+        return rootDir == null || logsMode ? null : new File(rootDir, "prefabs");
+    }
+
+    /** Path relative to prefabs/ ("enemies/Slime") for a .prefab file or a folder inside prefabs/; null otherwise. */
+    private String prefabRel(File f) {
+        File pd = prefabsDir();
+        if (pd == null) return null;
+        String base = pd.getAbsolutePath(), p = f.getAbsolutePath();
+        if (p.equals(base)) return f.isDirectory() ? "" : null;
+        if (!p.startsWith(base + "/")) return null;
+        String rel = p.substring(base.length() + 1);
+        if (f.isDirectory()) return rel;
+        return rel.endsWith(".prefab") ? rel.substring(0, rel.length() - ".prefab".length()) : null;
+    }
+
+    private boolean inPrefabs(File d) {
+        return prefabRel(d) != null && d.isDirectory();
+    }
+
+    private com.star4droid.star2d.Helpers.editor.Project proj() {
+        return new com.star4droid.star2d.Helpers.editor.Project(projectPath);
+    }
+
+    /** Create an empty prefab (in the folder being browsed when it is inside prefabs/) and open it in the prefab editor. */
+    private void createPrefab(Context c) {
+        File pd = prefabsDir();
+        if (pd == null) return;
+        final String folder = inPrefabs(dir) ? prefabRel(dir) : "";
+        Dialogs.input(c, Tr.t("prefab_new", "New prefab"), Tr.t("name", "Name"), "Prefab", v -> {
+            String n = v.trim();
+            if (n.isEmpty() || n.contains("/") || n.contains("\\")) return Tr.t("ui_bad_char", "Not allowed");
+            if (com.star4droid.star2d.prefab.PrefabStore.exists(proj(), (folder.isEmpty() ? "" : folder + "/") + n)) return Tr.t("ui_name_used", "Name already used");
+            return null;
+        }, v -> {
+            try {
+                String path = com.star4droid.star2d.prefab.PrefabStore.create(proj(), (folder.isEmpty() ? "" : folder + "/") + v.trim());
+                dir = pd;
+                File target = new File(pd, path).getParentFile();
+                if (target != null && target.isDirectory()) dir = target;
+                reload();
+                shell.panels.hide();
+                shell.openPrefab(path);
+            } catch (Exception e) {
+                Ui.toast(c, e.getMessage() == null ? e.toString() : e.getMessage());
+            }
+        });
+    }
+
+    /** Rename / move a prefab or a prefab folder; every instance in the scenes follows. */
+    private void renamePrefab(Context c, File f, String rel) {
+        String name = f.isDirectory() ? f.getName() : f.getName().substring(0, f.getName().length() - ".prefab".length());
+        String parent = rel.contains("/") ? rel.substring(0, rel.lastIndexOf('/')) : "";
+        Dialogs.input(c, Tr.t("rename", "Rename"), Tr.t("name", "Name"), name, v -> {
+            if (v.trim().isEmpty() || v.contains("/") || v.contains("\\")) return Tr.t("ui_bad_char", "Not allowed");
+            String np = (parent.isEmpty() ? "" : parent + "/") + v.trim();
+            if (!np.equals(rel) && (new File(f.getParentFile(), v.trim() + (f.isDirectory() ? "" : ".prefab")).exists())) return Tr.t("ui_name_used", "Name already used");
+            return null;
+        }, v -> {
+            String np = (parent.isEmpty() ? "" : parent + "/") + v.trim();
+            com.star4droid.star2d.ui.PrefabUi.run(shell, null, () -> {
+                com.star4droid.star2d.prefab.PrefabStore.rename(Bridge.editor().getProject(), rel, np);
+                return Boolean.TRUE;
+            }, ok -> reload());
+        });
+    }
+
+    private void deletePrefab(Context c, File f, String rel) {
+        Dialogs.confirm(c, Tr.t("delete", "Delete"), f.getName() + "\n" + Tr.t("prefab_delete_msg", "Instances in scenes stay as normal elements.") + "\n" + Tr.t("areYouSure", "Are you sure?"), Tr.t("delete", "Delete"), () ->
+                com.star4droid.star2d.ui.PrefabUi.run(shell, null, () -> {
+                    com.star4droid.star2d.prefab.PrefabStore.delete(Bridge.editor().getProject(), rel);
+                    return Boolean.TRUE;
+                }, ok -> reload()));
     }
 
     // ------------------------------------------------------------ actions
@@ -335,6 +415,12 @@ public class FilesPanel implements PanelHost.Panel {
             return;
         }
         String n = f.getName().toLowerCase(Locale.ROOT);
+        String prel = prefabRel(f);
+        if (prel != null) {
+            shell.panels.hide();
+            shell.openPrefab(prel);
+            return;
+        }
         String parent = f.getParentFile() == null ? "" : f.getParentFile().getName().toLowerCase(Locale.ROOT);
         if (!logsMode && parent.equals("anims") && f.getParentFile().getParentFile() != null
                 && f.getParentFile().getParentFile().getAbsolutePath().equals(rootDir.getAbsolutePath())) {
@@ -440,10 +526,15 @@ public class FilesPanel implements PanelHost.Panel {
         m.getMenu().add(0, 4, 3, Tr.t("ui_copy_path", "Copy path"));
         if (!f.isDirectory()) m.getMenu().add(0, 6, 4, Tr.t("ui_share", "Share"));
         m.getMenu().add(0, 5, 5, Tr.t("delete", "Delete"));
+        final String prel = prefabRel(f);
         m.setOnMenuItemClickListener(it -> {
             switch (it.getItemId()) {
                 case 1: open(c, f); break;
                 case 2:
+                    if (prel != null && !prel.isEmpty()) {
+                        renamePrefab(c, f, prel);
+                        break;
+                    }
                     Dialogs.input(c, Tr.t("rename", "Rename"), Tr.t("name", "Name"), f.getName(), v -> {
                         if (v.trim().isEmpty() || v.contains("/")) return Tr.t("ui_bad_char", "Not allowed");
                         if (new File(f.getParentFile(), v).exists()) return Tr.t("ui_name_used", "Name already used");
@@ -454,6 +545,21 @@ public class FilesPanel implements PanelHost.Panel {
                     });
                     break;
                 case 3:
+                    if (prel != null && !prel.isEmpty() && !f.isDirectory()) {
+                        String parentRel = prel.contains("/") ? prel.substring(0, prel.lastIndexOf('/') + 1) : "";
+                        String nm = prel.substring(parentRel.length());
+                        String to = parentRel + nm + "_copy";
+                        int k = 2;
+                        while (com.star4droid.star2d.prefab.PrefabStore.exists(proj(), to)) to = parentRel + nm + "_copy" + (k++);
+                        final String dest = to;
+                        try {
+                            com.star4droid.star2d.prefab.PrefabStore.duplicate(proj(), prel, dest);
+                        } catch (Exception e) {
+                            Ui.toast(c, e.getMessage() == null ? e.toString() : e.getMessage());
+                        }
+                        reload();
+                        break;
+                    }
                     io.execute(() -> {
                         try {
                             String base = f.getName(), ext = "";
@@ -471,6 +577,10 @@ public class FilesPanel implements PanelHost.Panel {
                     break;
                 case 4: Dialogs.copy(c, FilePickerDialog.isImage(f.getName()) ? imagePath(f) : relative(f)); break;
                 case 5:
+                    if (prel != null && !prel.isEmpty()) {
+                        deletePrefab(c, f, prel);
+                        break;
+                    }
                     Dialogs.confirm(c, Tr.t("delete", "Delete"), f.getName() + "\n" + Tr.t("areYouSure", "Are you sure?"), Tr.t("delete", "Delete"), () -> {
                         deleteRec(f);
                         reload();
@@ -497,8 +607,13 @@ public class FilesPanel implements PanelHost.Panel {
         m.getMenu().add(0, 2, 1, Tr.t("file", "File"));
         m.getMenu().add(0, 3, 2, Tr.t("ui_animation", "Animation (in anims)"));
         m.getMenu().add(0, 4, 3, Tr.t("bitmapFont", "Bitmap font"));
+        m.getMenu().add(0, 5, 4, Tr.t("prefab_new", "New prefab"));
         m.setOnMenuItemClickListener(it -> {
             int id = it.getItemId();
+            if (id == 5) {
+                createPrefab(c);
+                return true;
+            }
             if (id == 4) {
                 shell.panels.hide();
                 File d = dir;

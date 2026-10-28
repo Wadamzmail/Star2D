@@ -100,6 +100,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private TextView loadingText;
     private java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> pendingErrors;
     private boolean errorsHandled;
+    /** Prefab edit mode: the prefab is open in a hidden temp scene (see openPrefab). */
+    private volatile String prefabPath, prefabTemp, prefabReturn;
+    private volatile boolean prefabBusy;
+    private volatile String projectPathCache;
 
     public EditorShell(Activity activity, Host host) {
         super(activity);
@@ -197,13 +201,13 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         chrome.addView(root, Ui.match());
 
         root.addView(shield(buildTopBar(c, land), true), Ui.matchWrap());
-        if (!land) {
+        if (!land && !inPrefabMode()) {
             LinearLayout tools = bar(c);
             tools.setBackgroundColor(0xEC1C1F24);
             addSceneTools(c, tools);
             root.addView(shield(wrapScroll(c, tools, false), true), Ui.matchWrap());
             root.addView(shield(buildTabsBar(c), true), Ui.matchWrap());
-        }
+        } else tabsRow = null;
 
         // middle: canvas is visible through here; rails float on the sides
         FrameLayout middle = new FrameLayout(c);
@@ -303,7 +307,8 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     private LinearLayout buildTopBar(Context c, boolean land) {
         LinearLayout top = bar(c);
-        ImageView back = Ui.iconButton(c, R.drawable.ic_s2_arrow_back, Tr.t("exit", "Exit"), v -> exitProject());
+        final boolean pm = inPrefabMode();
+        ImageView back = Ui.iconButton(c, R.drawable.ic_s2_arrow_back, pm ? Tr.t("prefab_leave", "Leave prefab") : Tr.t("exit", "Exit"), v -> exitProject());
         back.setScaleX(Ui.isRtl(c) ? -1 : 1);
         Tut.tag(back, "top:exit");
         top.addView(back);
@@ -314,7 +319,12 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         titleView.setTypeface(Typeface.DEFAULT_BOLD);
         titleView.setMaxLines(1);
         titleBox.addView(titleView);
-        if (land) {
+        if (pm) {
+            titleView.setTextColor(PrefabUi.COLOR);
+            titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            top.addView(titleBox, Ui.weight(1));
+            tabsRow = null;
+        } else if (land) {
             // tabs + scene tools inline (scrollable) in landscape
             top.addView(titleBox);
             LinearLayout inline = Ui.row(c);
@@ -335,6 +345,13 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         Tut.tag(redoBtn, "top:redo");
         top.addView(undoBtn);
         top.addView(redoBtn);
+        if (pm) {
+            top.addView(Ui.button(c, R.drawable.ic_s2_close, Tr.t("cancel", "Cancel"), false, v -> cancelPrefab()),
+                    Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 4, 0, 2, 0));
+            top.addView(Ui.button(c, R.drawable.ic_s2_check, Tr.t("save", "Save"), true, v -> savePrefab()),
+                    Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 2, 0, 4, 0));
+            return top;
+        }
         ImageView save = Ui.iconButton(c, R.drawable.ic_s2_save, Tr.t("save", "Save"), v -> save());
         Tut.tag(save, "top:save");
         top.addView(save);
@@ -396,6 +413,11 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         addRail(c, rail, elements);
         addRail(c, rail, properties);
         addRail(c, rail, events);
+        if (inPrefabMode()) {
+            // a prefab has no joints / variables of its own, and no AI or git while it is being edited
+            addRail(c, rail, files);
+            return rail;
+        }
         addRail(c, rail, joints);
         addRail(c, rail, variables);
         addRail(c, rail, files);
@@ -529,12 +551,18 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     // =============================================================== scene tabs
 
     public void refreshTabs() {
+        if (inPrefabMode()) {
+            if (titleView != null) titleView.setText(Tr.t("prefab_editing", "Editing prefab") + ": " + PrefabUi.shortName(prefabPath));
+            return;
+        }
         if (tabsRow == null || !Bridge.ready()) return;
         Bridge.query(() -> {
             ArrayList<String> names = new ArrayList<>();
             TestApp app = Bridge.app();
-            for (LibgdxEditor e : app.editors) names.add(e.getScene());
-            names.add("\u0000" + app.getEditor().getScene());
+            for (LibgdxEditor e : app.editors) if (!com.star4droid.star2d.prefab.PrefabStore.isTempScene(e.getScene())) names.add(e.getScene());
+            String curScene = app.getEditor().getScene();
+            if (com.star4droid.star2d.prefab.PrefabStore.isTempScene(curScene) && !names.isEmpty()) curScene = names.get(0);
+            names.add("\u0000" + curScene);
             return names;
         }, names -> {
             Context c = activity;
@@ -620,11 +648,184 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     // =============================================================== actions
 
     private void exitProject() {
+        if (inPrefabMode()) {
+            leavePrefab();
+            return;
+        }
         Dialogs.confirm(activity, Tr.t("exit", "Exit"), Tr.t("exitConfirm", "Close this project and go back?"), Tr.t("exit", "Exit"), () -> {
             panels.hide();
             Bridge.gl(() -> Bridge.app().closeProject());
         });
     }
+
+    // =============================================================== prefab edit mode
+
+    public boolean inPrefabMode() { return prefabTemp != null; }
+
+    /** Path of the prefab being edited (relative to prefabs/, no extension), or null. */
+    public String prefabPath() { return prefabPath; }
+
+    /** Folder of the open project (cached; valid after the first editor change). */
+    public String projectPath() { return projectPathCache; }
+
+    private void clearPrefabMode() {
+        prefabPath = null;
+        prefabTemp = null;
+        prefabReturn = null;
+        prefabBusy = false;
+        build();
+        refreshAll();
+    }
+
+    /**
+     * Open a prefab in the editor: it is copied to a hidden scene, shown with only the buttons that make sense for it,
+     * and written back to the prefab file with Save (or thrown away with Cancel).
+     */
+    public void openPrefab(String path) {
+        if (!Bridge.ready()) return;
+        if (inPrefabMode() || prefabBusy) {
+            Ui.toast(activity, Tr.t("prefab_finish_first", "Finish editing the open prefab first"));
+            return;
+        }
+        if (com.star4droid.star2d.remote.RemoteSession.isLocked()) {
+            Ui.toast(activity, Tr.t("rc_locked_toast", "The AI is working. Press “Take control” to edit."));
+            return;
+        }
+        prefabBusy = true;
+        panels.hide();
+        Ui.toast(activity, Tr.t("prefab_opening", "Opening prefab…"));
+        Bridge.gl(() -> {
+            try {
+                LibgdxEditor ed = Bridge.editor();
+                String back = ed.getScene();
+                Bridge.controls().actionSave();
+                String temp = com.star4droid.star2d.prefab.PrefabOps.beginEdit(ed.getProject(), path);
+                prefabPath = path;
+                prefabReturn = back;
+                prefabTemp = temp;
+                Bridge.app().openSceneInNewEditor(temp);
+                Ui.ui(() -> {
+                    prefabBusy = false;
+                    panels.hide();
+                    build();
+                    refreshAll();
+                    focusPrefabRoot(80);
+                });
+            } catch (Throwable t) {
+                prefabPath = null;
+                prefabTemp = null;
+                prefabReturn = null;
+                Ui.ui(() -> {
+                    prefabBusy = false;
+                    Ui.toast(activity, PrefabUi.message(t));
+                });
+            }
+        });
+    }
+
+    /** Select the prefab root and bring it into view once the temp scene has finished loading. */
+    private void focusPrefabRoot(int tries) {
+        if (tries <= 0) return;
+        Bridge.query(() -> {
+            LibgdxEditor ed = Bridge.editor();
+            if (ed == null || !com.star4droid.star2d.prefab.PrefabSession.isTemp(ed)) return 1;
+            if (ed.isLoading()) return 0;
+            com.badlogic.gdx.scenes.scene2d.Actor r = com.star4droid.star2d.prefab.PrefabSession.findRoot(ed);
+            if (r != null) {
+                ed.selectActor(r);
+                ed.centerCamera();
+            }
+            return 1;
+        }, st -> {
+            if (st == 0) postDelayed(() -> focusPrefabRoot(tries - 1), 150);
+        });
+    }
+
+    /** Save the prefab: the temp scene is written, closed, and merged into the prefab file and all its instances. */
+    public void savePrefab() {
+        if (!inPrefabMode() || prefabBusy) return;
+        final String temp = prefabTemp, path = prefabPath, back = prefabReturn;
+        prefabBusy = true;
+        Ui.toast(activity, Tr.t("prefab_saving", "Saving prefab…"));
+        Bridge.gl(() -> {
+            try {
+                LibgdxEditor ed = Bridge.editor();
+                if (!temp.equals(ed.getScene())) throw new IllegalStateException(Tr.t("prefab_not_open", "The prefab is not open in the editor"));
+                if (ed.isLoading()) {
+                    Ui.ui(() -> {
+                        prefabBusy = false;
+                        Ui.toast(activity, Tr.t("ui_loading_scene", "Loading scene…"));
+                    });
+                    return;
+                }
+                com.star4droid.star2d.Helpers.editor.Project proj = ed.getProject();
+                proj.save(ed);
+                Bridge.app().closeSceneEditorQuiet(temp, back);
+                final String projPath = proj.getPath();
+                Ui.ui(() -> commitPrefab(projPath, temp, path));
+            } catch (Throwable t) {
+                Ui.ui(() -> {
+                    prefabBusy = false;
+                    Ui.toast(activity, PrefabUi.message(t));
+                });
+            }
+        });
+    }
+
+    private void commitPrefab(String projPath, String temp, String path) {
+        com.star4droid.star2d.prefab.PrefabEditorSync.runAsync(() -> {
+            com.star4droid.star2d.prefab.PrefabOps.commitEdit(new com.star4droid.star2d.Helpers.editor.Project(projPath), temp, path);
+            return Boolean.TRUE;
+        }, o -> {
+            if (o.error != null) {
+                // nothing is lost: the temp scene is still on disk, so go back into it
+                Ui.toast(activity, PrefabUi.message(o.error));
+                Bridge.gl(() -> Bridge.app().openSceneInNewEditor(temp));
+                prefabBusy = false;
+                return;
+            }
+            Ui.toast(activity, Tr.t("prefab_saved", "Prefab saved") + ": " + PrefabUi.shortName(path));
+            clearPrefabMode();
+        });
+    }
+
+    /** Cancel: asks first when something was changed. */
+    public void cancelPrefab() {
+        if (!inPrefabMode() || prefabBusy) return;
+        Bridge.query(() -> Bridge.editor() != null && Bridge.editor().canUndo(), dirty -> {
+            if (dirty) Dialogs.confirm(activity, Tr.t("prefab_discard", "Discard changes"), Tr.t("prefab_discard_msg", "Close the prefab without saving your changes?"), Tr.t("prefab_discard", "Discard changes"), this::discardPrefab);
+            else discardPrefab();
+        });
+    }
+
+    private void discardPrefab() {
+        if (!inPrefabMode() || prefabBusy) return;
+        final String temp = prefabTemp, back = prefabReturn;
+        prefabBusy = true;
+        Bridge.gl(() -> {
+            com.star4droid.star2d.Helpers.editor.Project proj = Bridge.editor().getProject();
+            Bridge.app().closeSceneEditorQuiet(temp, back);
+            new Thread(() -> {
+                try { com.star4droid.star2d.prefab.PrefabOps.discardEdit(proj, temp); } catch (Throwable ignored) {}
+                try { proj.deleteScene(temp); } catch (Throwable ignored) {}
+                Ui.ui(this::clearPrefabMode);
+            }).start();
+        });
+    }
+
+    /** Back key / exit while a prefab is open: save, discard or keep editing. */
+    private void leavePrefab() {
+        if (!inPrefabMode() || prefabBusy) return;
+        new AlertDialog.Builder(activity)
+                .setTitle(Tr.t("prefab_leave", "Leave prefab"))
+                .setMessage(Tr.t("prefab_leave_msg", "Save the changes to the prefab?"))
+                .setPositiveButton(Tr.t("save", "Save"), (d, w) -> savePrefab())
+                .setNegativeButton(Tr.t("prefab_discard_short", "Discard"), (d, w) -> cancelPrefabNow())
+                .setNeutralButton(Tr.t("prefab_continue", "Keep editing"), null)
+                .show();
+    }
+
+    private void cancelPrefabNow() { discardPrefab(); }
 
     public void save() {
         Bridge.gl(() -> {
@@ -690,6 +891,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     // =============================================================== play
 
     public void play() {
+        if (inPrefabMode()) {
+            Ui.toast(activity, Tr.t("prefab_finish_first", "Finish editing the open prefab first"));
+            return;
+        }
         panels.hide();
         Context c = activity;
         LinearLayout box = Ui.column(c);
@@ -884,6 +1089,11 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         Ui.ui(() -> {
             projectOpen = true;
             updateVisibility();
+            if (Bridge.ready()) Bridge.query(() -> new Object[]{Bridge.editor().getProject().getPath(), Bridge.app().hasTempSceneOpen()}, r -> {
+                projectPathCache = (String) r[0];
+                // the hidden scene vanished behind our back (project reloaded): leave prefab mode
+                if (inPrefabMode() && !prefabBusy && !(Boolean) r[1]) clearPrefabMode();
+            });
             refreshAll();
             // keep the chosen tool for the new editor
             Bridge.gl(() -> Bridge.controls().actionSetTouchMode(tool));
@@ -918,6 +1128,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     public void onProjectClosed() {
         com.star4droid.star2d.ui.tutorial.Tutorial.onProjectClosed();
         projectOpen = false;
+        prefabPath = null;
+        prefabTemp = null;
+        prefabReturn = null;
+        prefabBusy = false;
         panels.hide();
         updateVisibility();
     }
@@ -949,6 +1163,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         if (panels.current() != null) {
             if (panels.current() instanceof FilesPanel && files.goUp()) return true;
             panels.hide();
+            return true;
+        }
+        if (inPrefabMode()) {
+            leavePrefab();
             return true;
         }
         return false;

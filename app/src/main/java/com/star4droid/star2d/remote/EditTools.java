@@ -164,11 +164,12 @@ final class EditTools {
 
     // ================================================================== elements
 
-    private static final String[] KINDS = {"BOX", "CIRCLE", "TEXT", "JOYSTICK", "PROGRESS", "CUSTOM", "PARTICLE", "CAMERA", "MAP"};
+    private static final String[] KINDS = {"BOX", "CIRCLE", "TEXT", "JOYSTICK", "PROGRESS", "CUSTOM", "PARTICLE", "CAMERA", "MAP", "GROUP"};
 
     private static int kindIndex(String type) {
         String t = type.toUpperCase(Locale.ROOT).replace(" ", "");
         if (t.equals("TILEDMAP") || t.equals("TILEMAP")) t = "MAP";
+        if (t.equals("CONTAINER") || t.equals("EMPTY") || t.equals("FOLDER")) t = "GROUP";
         for (int i = 0; i < KINDS.length; i++) if (KINDS[i].equals(t)) return i;
         return -1;
     }
@@ -294,7 +295,7 @@ final class EditTools {
             switch (op) {
                 case "add": {
                     String type = CoreTools.s(o, "type");
-                    if (type.isEmpty()) return res(op, name, false, "type is required (BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP, LIGHT)");
+                    if (type.isEmpty()) return res(op, name, false, "type is required (BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP, GROUP, LIGHT)");
                     if (!name.isEmpty() && ed.getBodiesList().contains(name)) return res(op, name, false, "an element named '" + name + "' already exists (use set)");
                     if (!name.isEmpty() && !name.matches("[A-Za-z_][A-Za-z0-9_]*")) return res(op, name, false, "name must be letters, digits and _ (not starting with a digit)");
                     String t = type.toUpperCase(Locale.ROOT).replace(" ", "");
@@ -304,7 +305,7 @@ final class EditTools {
                         app.getControlLayer().actionAddLight(idx);
                     } else {
                         int idx = kindIndex(type);
-                        if (idx < 0) return res(op, name, false, "unknown type '" + type + "'. Use BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP or LIGHT");
+                        if (idx < 0) return res(op, name, false, "unknown type '" + type + "'. Use BOX, CIRCLE, TEXT, JOYSTICK, PROGRESS, CUSTOM, PARTICLE, CAMERA, MAP, GROUP or LIGHT");
                         app.getControlLayer().actionAddBody(idx);
                     }
                     Actor actor = ed.getSelectedActor();

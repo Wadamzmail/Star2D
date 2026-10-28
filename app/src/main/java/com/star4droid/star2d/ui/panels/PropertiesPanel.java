@@ -545,7 +545,7 @@ public class PropertiesPanel implements PanelHost.Panel {
             }
             ArrayList<String> scenes = new ArrayList<>();
             for (FileHandle fh : Gdx.files.absolute(Bridge.editor().getProject().getScenesPath()).list())
-                if (!fh.isDirectory() && !fh.name().equals(target)) scenes.add(fh.name());
+                if (!fh.isDirectory() && !fh.name().equals(target) && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(fh.name())) scenes.add(fh.name());
             return new Object[]{scene, target, bodies, scenes};
         }, r -> {
             String scene = (String) r[0], target = (String) r[1];

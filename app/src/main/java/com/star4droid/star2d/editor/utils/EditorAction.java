@@ -6,11 +6,15 @@ import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.editor.items.*;
 import com.star4droid.template.Utils.Utils;
+import java.util.ArrayList;
+import java.util.List;
 
 public class EditorAction {
 	ACTION action;
 	LibgdxEditor editor;
 	PropertySet<String,Object> values = new PropertySet<>();
+	/** sub actions of a BATCH (one undo step made of several), built from the "subs" json when needed. */
+	private List<EditorAction> subs;
 	
 	public EditorAction(LibgdxEditor editor){
 		this(editor,ACTION.NO_ACTION);
@@ -41,6 +45,7 @@ public class EditorAction {
 				case CHANGE_PROPERTY:
 					PropertySet<String,Object> ps = PropertySet.getFrom(get("old"));
 					propertySet.putAll(ps);
+					if(ps.containsKey("parent")) { com.star4droid.star2d.editor.Hierarchy.relink(editor); com.star4droid.star2d.editor.Hierarchy.refreshLists(editor); }
 					editor.toast("property changed : "+get("message"));
 					//Gdx.files.external("logs/app_logs.txt").writeString("changed to : \n"+ps.toString()+",result : \n"+propertySet.toString()+"\n"+"__".repeat(5)+"\n",true);
 				break;
@@ -85,11 +90,19 @@ public class EditorAction {
 					Actor actor1 = getActor();
 						if(actor1 == null) actor1 = (Actor)createBody(PropertySet.getFrom(get("item")));
 					editor.addActor(actor1);
+					com.star4droid.star2d.editor.Hierarchy.relink(editor);
 					editor.toast("Item Added : "+actor1.getName());
 				break;
 				case RENAME_SCENE:
 					editor.getProject().renameScene(editor.getScene(),get("old"));
 					editor.setScene(get("old"));
+				break;
+				case BATCH:
+					List<EditorAction> list = subs();
+					for(int i = list.size() - 1; i >= 0; i--)
+						list.get(i).undo();
+					com.star4droid.star2d.editor.Hierarchy.relink(editor);
+					com.star4droid.star2d.editor.Hierarchy.refreshLists(editor);
 				break;
 			}
 			if(get("set").toString().equals("true"))
@@ -142,6 +155,7 @@ public class EditorAction {
 				case CHANGE_PROPERTY:
 					PropertySet<String,Object> ps = PropertySet.getFrom(get("new"));
 					propertySet.putAll(ps);
+					if(ps.containsKey("parent")) { com.star4droid.star2d.editor.Hierarchy.relink(editor); com.star4droid.star2d.editor.Hierarchy.refreshLists(editor); }
 					editor.toast("property changed : "+get("message"));
 					//Gdx.files.external("logs/app_logs.txt").writeString("changed to : \n"+ps.toString()+",result : \n"+propertySet.toString(),true);
 				break;
@@ -166,6 +180,7 @@ public class EditorAction {
 					Actor actor = getActor();
 						if(actor==null) actor = (Actor)(createBody(PropertySet.getFrom(get("item"))));
 					editor.addActor(actor);
+					com.star4droid.star2d.editor.Hierarchy.relink(editor);
 					editor.toast("Item Added : "+actor.getName());
 				break;
 				case SCENE_CONFIG:
@@ -184,6 +199,12 @@ public class EditorAction {
 					editor.getProject().renameScene(editor.getScene(),get("new"));
 					editor.setScene(get("new"));
 				break;
+				case BATCH:
+					for(EditorAction sub : subs())
+						sub.redo();
+					com.star4droid.star2d.editor.Hierarchy.relink(editor);
+					com.star4droid.star2d.editor.Hierarchy.refreshLists(editor);
+				break;
 			}
 			if(get("set").toString().equals("true"))
 				((EditorItem)editor.findActor(get("name"))).setProperties(propertySet);
@@ -197,6 +218,21 @@ public class EditorAction {
 			editor.toast("Redo Error : "+exception.toString());
 		}
 		return this;
+	}
+	
+	private List<EditorAction> subs(){
+		if(subs == null){
+			subs = new ArrayList<>();
+			try {
+				String[] list = new com.google.gson.Gson().fromJson(get("subs"), String[].class);
+				if(list != null)
+					for(String json : list)
+						subs.add(getFrom(json, editor));
+			} catch(Exception ex){
+				Gdx.files.external("logs/app_logs.txt").writeString("batch parse error : "+ex+"\n",true);
+			}
+		}
+		return subs;
 	}
 	
 	private Actor getActor(){
@@ -234,6 +270,15 @@ public class EditorAction {
 			break;
 			case "PARTICLE":
 			item = new ParticleItem(editor);
+			break;
+			case "CAMERA":
+			item = new EditorCameraItem(editor);
+			break;
+			case "MAP":
+			item = new EditorMapItem(editor);
+			break;
+			case "GROUP":
+			item = new EditorGroupItem(editor);
 			break;
 		}
 		
@@ -289,6 +334,14 @@ public class EditorAction {
 	}
 	
 	public static EditorAction propertiesChanged(LibgdxEditor editor,String name,String message,String[] values,String[] old){
+		EditorAction action = propertiesChangedQuiet(editor,name,message,values,old);
+		if(action != null)
+			editor.pushUndoEvent(action);
+		return action;
+	}
+	
+	/** Like {@link #propertiesChanged} but the action is only returned (not pushed), to be part of a {@link #batch}. */
+	public static EditorAction propertiesChangedQuiet(LibgdxEditor editor,String name,String message,String[] values,String[] old){
 		EditorAction action = new EditorAction(editor,ACTION.CHANGE_PROPERTY);
 		PropertySet<String,Object> ps = new PropertySet<>(),
 			oldP = new PropertySet<>();
@@ -304,8 +357,59 @@ public class EditorAction {
 		action.put("name",name);
 		action.put("new",ps.toString());
 		action.put("old",oldP.toString());
-		//editor.toast("Undo Redo Pushed!");
-		editor.pushUndoEvent(action);
+		return action;
+	}
+	
+	/** One property changed, the new or the old value may be empty (the normal factory skips empty values). Pushed. */
+	public static EditorAction propertyChangedRaw(LibgdxEditor editor,String name,String message,String key,String newValue,String oldValue){
+		EditorAction action = propertyChangedQuiet(editor,name,message,key,newValue,oldValue);
+		if(action != null)
+			editor.pushUndoEvent(action);
+		return action;
+	}
+	
+	/** Like {@link #propertyChangedRaw} but only returned (for a {@link #batch}). */
+	public static EditorAction propertyChangedQuiet(LibgdxEditor editor,String name,String message,String key,String newValue,String oldValue){
+		if(newValue.equals(oldValue)) return null;
+		EditorAction action = new EditorAction(editor,ACTION.CHANGE_PROPERTY);
+		PropertySet<String,Object> ps = new PropertySet<>(),
+			oldP = new PropertySet<>();
+		ps.put(key,newValue);
+		oldP.put(key,oldValue);
+		action.put("message",message);
+		action.put("name",name);
+		action.put("new",ps.toString());
+		action.put("old",oldP.toString());
+		return action;
+	}
+	
+	/** Several actions as ONE undo step (undone in reverse order). The sub actions must not be pushed themselves. */
+	public static EditorAction batch(LibgdxEditor editor,String message,List<EditorAction> list){
+		EditorAction action = new EditorAction(editor,ACTION.BATCH);
+		action.subs = new ArrayList<>(list);
+		ArrayList<String> json = new ArrayList<>();
+		for(EditorAction sub : list)
+			json.add(sub.toString());
+		action.put("message",message);
+		action.put("subs",new com.google.gson.Gson().toJson(json));
+		return action;
+	}
+	
+	/** Item added, returned only (for a {@link #batch}). */
+	public static EditorAction itemAddedQuiet(LibgdxEditor editor,Actor actor){
+		EditorAction action = new EditorAction(editor,ACTION.ITEM_ADD);
+		action.put("name",actor.getName());
+		action.put("actor",actor);
+		action.put("item",PropertySet.getPropertySet(actor));
+		return action;
+	}
+	
+	/** Item removed, returned only (for a {@link #batch}). */
+	public static EditorAction itemRemovedQuiet(LibgdxEditor editor,Actor actor){
+		EditorAction action = new EditorAction(editor,ACTION.ITEM_DELETED);
+		action.put("name",actor.getName());
+		action.put("actor",actor);
+		action.put("item",PropertySet.getPropertySet(actor).toString());
 		return action;
 	}
 	
@@ -356,6 +460,6 @@ public class EditorAction {
 	
 	public enum ACTION {
 		CHANGE_PROPERTY,RENAME_ITEM,ITEM_ADD,
-		SCENE_CONFIG,ITEM_DELETED,RENAME_SCENE,NO_ACTION
+		SCENE_CONFIG,ITEM_DELETED,RENAME_SCENE,BATCH,NO_ACTION
 	}
 }

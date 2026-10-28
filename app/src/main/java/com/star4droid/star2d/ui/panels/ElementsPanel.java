@@ -204,6 +204,7 @@ public class ElementsPanel implements PanelHost.Panel {
             case "Particle": return R.drawable.ic_s2_particle;
             case "Camera": return R.drawable.ic_s2_videocam;
             case "Map": return R.drawable.ic_s2_map;
+            case "Group": return R.drawable.ic_s2_container;
             case "Light": return R.drawable.ic_s2_light;
         }
         return R.drawable.ic_s2_square;
@@ -220,6 +221,7 @@ public class ElementsPanel implements PanelHost.Panel {
             case "Particle": return 0xFFEC407A;
             case "Camera": return 0xFF78909C;
             case "Map": return 0xFF8D6E63;
+            case "Group": return 0xFFFFC107;
             case "Light": return 0xFFFFEE58;
         }
         return Ui.ACCENT;
@@ -243,16 +245,25 @@ public class ElementsPanel implements PanelHost.Panel {
                             Actor a = Bridge.actor(info.name);
                             return a == null ? "?" : ItemActions.rename(Bridge.app(), a, v);
                         }, err -> { if (err != null) Ui.toast(c, err); refresh(); })));
-        m.add(R.drawable.ic_s2_copy, Tr.t("ui_duplicate", "Duplicate"), () -> {
+        final boolean fixedRoot = shell.inPrefabMode() && "root".equals(info.pid);
+        if (!fixedRoot) m.add(R.drawable.ic_s2_copy, Tr.t("ui_duplicate", "Duplicate"), () -> {
             Bridge.gl(() -> {
                 try { ItemActions.duplicate(Bridge.app(), Bridge.actor(info.name)); } catch (Exception e) { throw new RuntimeException(e); }
             });
             refreshLater();
         });
+        if (!shell.inPrefabMode()) {
+            if (info.prefab != null && !info.prefab.isEmpty()) {
+                m.add(com.star4droid.star2d.ui.PrefabUi.ICON, com.star4droid.star2d.ui.PrefabUi.COLOR, Tr.t("prefab_open", "Open prefab"), () -> shell.openPrefab(info.prefab));
+                m.add(R.drawable.ic_s2_link, Ui.TEXT_2, Tr.t("prefab_unpack", "Unpack"), () -> com.star4droid.star2d.ui.PrefabUi.unpack(shell, info.name));
+            } else if (info.pid == null || info.pid.isEmpty()) {
+                m.add(com.star4droid.star2d.ui.PrefabUi.ICON, com.star4droid.star2d.ui.PrefabUi.COLOR, Tr.t("prefab_save_as", "Save as prefab"), () -> com.star4droid.star2d.ui.PrefabUi.saveAsPrefab(shell, info.name));
+            }
+        }
         m.add(R.drawable.ic_s2_arrow_up, Tr.t("ui_bring_forward", "Bring forward"), () -> { Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), 1)); refreshLater(); });
         m.add(R.drawable.ic_s2_arrow_down, Tr.t("ui_send_backward", "Send backward"), () -> { Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), -1)); refreshLater(); });
         m.divider();
-        m.add(R.drawable.ic_s2_delete, 0xFFFF8A80, Tr.t("delete", "Delete"), () ->
+        if (!fixedRoot) m.add(R.drawable.ic_s2_delete, 0xFFFF8A80, Tr.t("delete", "Delete"), () ->
                 Dialogs.confirm(c, Tr.t("delete", "Delete"), Tr.t("areYouSure", "Are you sure?") + "\n" + info.name, Tr.t("delete", "Delete"),
                         () -> { Bridge.gl(() -> {
                             Actor a = Bridge.actor(info.name);
@@ -339,6 +350,11 @@ public class ElementsPanel implements PanelHost.Panel {
             h.name.setText(i.name);
             h.name.setAlpha(i.visible ? 1f : 0.5f);
             String typeLabel = i.type == null ? "" : Tr.t("ui_type_" + i.type.toLowerCase(Locale.ROOT), i.type);
+            // prefab instances: the name is tinted, the root also shows which prefab it is
+            boolean inst = i.pid != null && !i.pid.isEmpty();
+            h.name.setTextColor(inst ? com.star4droid.star2d.ui.PrefabUi.COLOR : Ui.TEXT);
+            if (i.prefab != null && !i.prefab.isEmpty()) typeLabel += "  ·  " + Tr.t("prefab", "Prefab") + ": " + com.star4droid.star2d.ui.PrefabUi.shortName(i.prefab);
+            else if (inst && "root".equals(i.pid)) typeLabel += "  ·  " + Tr.t("prefab_root", "prefab root");
             h.type.setText(typeLabel);
             h.row.setBackground(i.selected ? Ui.rounded(Ui.ACCENT_SOFT, Ui.dp(c, 8), Ui.ACCENT, Ui.dp(c, 1)) : Ui.ripple(0, Ui.dp(c, 8)));
             h.eye.setImageResource(i.visible ? R.drawable.ic_s2_visible : R.drawable.ic_s2_visible_off);

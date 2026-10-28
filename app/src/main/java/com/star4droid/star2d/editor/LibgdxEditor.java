@@ -73,6 +73,9 @@ public class LibgdxEditor extends Stage {
 	ToastManager toastManager;
 	boolean lockX = false,lockY = false;
 	String[] startTransform;
+	// the descendants of the selected element move / rotate with it: they and their start pose (for one undo step)
+	private final ArrayList<Actor> dragKids = new ArrayList<>();
+	private ArrayList<String[]> dragKidsStart = new ArrayList<>();
 	float prevDistance = -1,startAngle=0,ratioScale =1,gridSizeX=50,logicalWidth=1600,logicalHeight=720,gridSizeY=50;
 	
 	public LibgdxEditor(Project project){
@@ -214,8 +217,18 @@ public class LibgdxEditor extends Stage {
 				"Collider Height",ps.getString("Collider Height")
 			};
 			try {
-			    EditorAction.propertiesChanged(this,getSelectedActor().getName(),touch_mode == TOUCHMODE.ROTATE ? "rotation" : (touch_mode == TOUCHMODE.SCALE ? "scale" : "position"),endTransform,startTransform).updateEditorProperties().updateItemProperties();
+				String msg = touch_mode == TOUCHMODE.ROTATE ? "rotation" : (touch_mode == TOUCHMODE.SCALE ? "scale" : "position");
+				if(dragKids.isEmpty()){
+			    	EditorAction.propertiesChanged(this,getSelectedActor().getName(),msg,endTransform,startTransform).updateEditorProperties().updateItemProperties();
+				} else {
+					// the group and everything inside it: one undo step
+					EditorAction main = EditorAction.propertiesChangedQuiet(this,getSelectedActor().getName(),msg,endTransform,startTransform);
+					if(main != null) main.updateEditorProperties().updateItemProperties();
+					Hierarchy.pushMove(this,main,dragKidsStart,msg);
+				}
 			} catch(Exception ex){}
+			dragKids.clear();
+			dragKidsStart = new ArrayList<>();
 			getSaveState();
 			if(controlLayer!=null)
 				controlLayer.updateUndoRedo();
@@ -241,6 +254,14 @@ public class LibgdxEditor extends Stage {
 					centerY = selectedActor.getY() + selectedActor.getHeight() / 2.0f;
 			double angle = Math.atan2(Gdx.input.getY() - centerY, Gdx.input.getX() - centerX);
 			startAngle = (float)Math.toDegrees(angle) - 90;
+		}
+		dragKids.clear();
+		dragKidsStart = new ArrayList<>();
+		if(selectedActor!=null && (touch_mode == TOUCHMODE.MOVE || touch_mode == TOUCHMODE.ROTATE)){
+			try {
+				dragKids.addAll(Hierarchy.descendantsOf(this,selectedActor.getName()));
+				dragKidsStart = Hierarchy.snapshot(dragKids);
+			} catch(Throwable ignored){}
 		}
 		if(selectedActor!=null){
 			PropertySet<String,Object> ps = PropertySet.getPropertySet(selectedActor);
@@ -393,6 +414,7 @@ public class LibgdxEditor extends Stage {
 			case "PARTICLE": return new ParticleItem(this);
 			case "CAMERA": return new EditorCameraItem(this);
 			case "MAP": return new EditorMapItem(this);
+			case "GROUP": return new EditorGroupItem(this);
 		}
 		return null;
 	}
@@ -935,6 +957,9 @@ public class LibgdxEditor extends Stage {
 					case "MAP":
 					item = new EditorMapItem(this);
 					break;
+					case "GROUP":
+					item = new EditorGroupItem(this);
+					break;
 				}
 				
 				if (item == null)
@@ -1072,7 +1097,7 @@ public class LibgdxEditor extends Stage {
 			PropertySet<String,Object> propertySet = (selectedActor != null && selectedActor instanceof EditorItem) ? ((EditorItem)selectedActor).getPropertySet():null;
 			float deltaX = lockY ? 0 : (-Gdx.input.getDeltaX() * camera.zoom * 0.5f);
 			float deltaY = lockX ? 0 : (Gdx.input.getDeltaY() * camera.zoom * 0.5f);
-			boolean locked = propertySet != null && propertySet.getString("lock").equals("true");
+			boolean locked = propertySet != null && Hierarchy.isLocked(propertySet);
 			if(touch_mode == TOUCHMODE.GRID || com.star4droid.star2d.remote.RemoteSession.isLocked() || selectedActor == null || locked || !(selectedActor instanceof EditorItem)){
 				//movement
 				camera.translate(deltaX,deltaY);
@@ -1080,6 +1105,7 @@ public class LibgdxEditor extends Stage {
 				propertySet.put("x",propertySet.getFloat("x") - deltaX);
 				propertySet.put("y",propertySet.getFloat("y") - deltaY);
 				((EditorItem)selectedActor).update();
+				if(!dragKids.isEmpty()) Hierarchy.move(dragKids,-deltaX,-deltaY);
 				
 				//selectedActor.setPosition(selectedActor.getX()+deltaX,selectedActor.getY()+deltaX);
 			} else if(touch_mode == TOUCHMODE.ROTATE){
@@ -1107,6 +1133,7 @@ public class LibgdxEditor extends Stage {
 					angle += 360;
 				propertySet.put("rotation", angle);
 				((EditorItem)selectedActor).update();
+				if(!dragKids.isEmpty()) Hierarchy.rotate(dragKids,centerX,centerY,(float)deltaRotation);
 				
 			} else if(touch_mode == TOUCHMODE.SCALE){
 			    deltaY = -deltaY;
@@ -1249,6 +1276,7 @@ public class LibgdxEditor extends Stage {
 		shapeRenderer.end();
 		Gdx.gl.glLineWidth(1f);
 		
+		try { Hierarchy.applyVisibility(this); } catch(Throwable ignored){}
 		super.draw();
 		updateProperties();
 		try {

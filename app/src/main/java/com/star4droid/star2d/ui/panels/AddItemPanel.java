@@ -40,6 +40,7 @@ public class AddItemPanel implements PanelHost.Panel {
             {"particleEffect", "Particles", "Particle", "Fire, smoke, sparks, rain effects.", "تأثيرات: نار، دخان، شرر، مطر."},
             {"camera", "Camera", "Camera", "Controls what part of the world is visible.", "تتحكم في الجزء الظاهر من العالم."},
             {"tiledMap", "Tiled map", "Map", "Load a level made with Tiled (.tmx).", "تحميل مرحلة مصممة ببرنامج Tiled."},
+            {"groupItem", "Group", "Group", "Empty container: move, rotate, hide or delete several elements together.", "حاوية فارغة: حرّك أو دوّر أو أخفِ أو احذف عدة عناصر معاً."},
     };
     private static final String[][] LIGHTS = {
             {"pointLight", "Point light", "Light", "Light that shines in all directions.", "ضوء ينير في كل الاتجاهات."},
@@ -56,6 +57,18 @@ public class AddItemPanel implements PanelHost.Panel {
         col.addView(grid(c, BODIES, ar, false));
         col.addView(Ui.sectionLabel(c, Tr.t("newLight", "Lights")));
         col.addView(grid(c, LIGHTS, ar, true));
+        if (!shell.inPrefabMode() && shell.projectPath() != null) {
+            col.addView(Ui.sectionLabel(c, Tr.t("prefabs", "Prefabs")));
+            com.star4droid.star2d.ui.PrefabUi.Browser pb = new com.star4droid.star2d.ui.PrefabUi.Browser(c, shell.projectPath(), false, p -> {
+                shell.panels.hide();
+                com.star4droid.star2d.ui.PrefabUi.addToScene(shell, p);
+            });
+            LinearLayout pcard = Ui.column(c);
+            pcard.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 10), Ui.BORDER, 1));
+            pcard.setPadding(Ui.dp(c, 6), Ui.dp(c, 2), Ui.dp(c, 6), Ui.dp(c, 4));
+            pcard.addView(pb.view(), Ui.matchWrap());
+            col.addView(pcard, Ui.margins(Ui.matchWrap(), c, 4, 0, 4, 4));
+        }
         LinearLayout settings = Ui.button(c, R.drawable.ic_s2_settings, Tr.t("lightSettings", "Light settings"), false,
                 v -> { shell.panels.hide(); com.star4droid.star2d.ui.LightSettings.show(shell.activity()); });
         LinearLayout.LayoutParams lp = Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 4, 8, 4, 0);

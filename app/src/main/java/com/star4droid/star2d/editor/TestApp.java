@@ -280,6 +280,7 @@ public class TestApp implements ApplicationListener {
 	}
 	
 	private void onLoad(Project project){
+		cleanTempScenes(project);
 		editors.clear();
 		UiStage.clear();
 		toastManager = new ToastManager(UiStage);
@@ -341,6 +342,50 @@ public class TestApp implements ApplicationListener {
 		LibgdxEditor editor = createSceneEditor(scene);
 		editors.add(editor);
 		setCurrentEditor(editors.size - 1);
+	}
+	
+	/**
+	 * Closes the editor of a scene (used for the hidden prefab-edit scene) and goes back to another tab:
+	 * the one of "returnScene" when it is open, else the first other one. Does nothing when it is the only editor.
+	 */
+	public boolean closeSceneEditorQuiet(String scene,String returnScene){
+		LibgdxEditor target = null, back = null, firstOther = null;
+		for(LibgdxEditor ed:editors){
+			if(ed.getScene().equals(scene)) target = ed;
+			else {
+				if(firstOther == null) firstOther = ed;
+				if(returnScene != null && ed.getScene().equals(returnScene)) back = ed;
+			}
+		}
+		if(target == null) return false;
+		if(back == null) back = firstOther;
+		if(back == null) return false;
+		if(this.editor == target) setCurrentEditor(editors.indexOf(back,true));
+		editors.removeValue(target,true);
+		try { target.dispose(); } catch(Throwable ignored){}
+		currentEditorPos = Math.max(0,editors.indexOf(this.editor,true));
+		setCurrentEditorQuiet();
+		return true;
+	}
+	
+	/** True when a (hidden) prefab-edit scene is open in an editor. */
+	public boolean hasTempSceneOpen(){
+		for(LibgdxEditor ed:editors)
+			if(com.star4droid.star2d.prefab.PrefabStore.isTempScene(ed.getScene())) return true;
+		return false;
+	}
+	
+	/** Leftovers of a prefab edit that was cut short (app killed): removed when a project opens. */
+	private void cleanTempScenes(Project project){
+		try {
+			java.io.File[] fs = new java.io.File(project.getScenesPath()).listFiles();
+			if(fs == null) return;
+			for(java.io.File f:fs){
+				if(!com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.getName())) continue;
+				try { com.star4droid.star2d.prefab.PrefabOps.discardEdit(project,f.getName()); } catch(Throwable ignored){}
+				if(f.exists()) project.deleteScene(f.getName());
+			}
+		} catch(Throwable ignored){}
 	}
 	
 	/** A loaded (it loads in chunks) editor for a scene, set up like the ones of the other tabs. Not added to the tabs. */

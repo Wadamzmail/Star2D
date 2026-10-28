@@ -15,7 +15,7 @@ final class ItemDefaults {
 
     private static final HashMap<String, LinkedHashMap<String, String>> CACHE = new HashMap<>();
 
-    /** type: BOX, CIRCLE, CUSTOM, TEXT, PROGRESS, JOYSTICK, PARTICLE, CAMERA, MAP or LIGHT (lightType: point|directional|cone). */
+    /** type: BOX, CIRCLE, CUSTOM, TEXT, PROGRESS, JOYSTICK, PARTICLE, CAMERA, MAP, GROUP or LIGHT (lightType: point|directional|cone). */
     static synchronized LinkedHashMap<String, String> of(String type, String lightType) {
         String t = type == null ? "" : type.toUpperCase();
         String key = t + (t.equals("LIGHT") ? "/" + (lightType == null || lightType.isEmpty() ? "point" : lightType.toLowerCase()) : "");
@@ -32,6 +32,7 @@ final class ItemDefaults {
             case "PARTICLE": file = "particle.json"; break;
             case "CAMERA": file = "camera.json"; break;
             case "MAP": file = "map.json"; break;
+            case "GROUP": file = "group.json"; break;
             case "LIGHT": file = "Lights/" + key.substring(key.indexOf('/') + 1) + ".json"; break;
             default: file = null;
         }

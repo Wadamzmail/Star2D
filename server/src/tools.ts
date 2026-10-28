@@ -173,6 +173,21 @@ export const TOOLS: ToolDef[] = [
     }),
   },
   {
+    name: "prefabs",
+    description:
+      "Prefabs: reusable groups of elements saved in prefabs/ (read_docs('prefabs')). Batch ops: list | create {path, from_element?} | add {path, x, y, name?} | apply|revert|unpack {element} | link {element, path} | info {element} | rename|duplicate {path, to} | delete {path} | mkdir {path}. Edit a prefab by changing one instance, then apply.",
+    inputSchema: opsOf("operations", ["list", "create", "add", "apply", "revert", "unpack", "link", "info", "rename", "duplicate", "delete", "mkdir"], {
+      path: str("prefab path without extension, e.g. enemies/Slime"),
+      to: str("new path (rename, duplicate)"),
+      from_element: str("create: element (and everything under it) to turn into the prefab"),
+      element: str("instance root or element of an instance (apply, revert, unpack, link, info)"),
+      name: str("add: name of the new instance"),
+      x: num("add: x"),
+      y: num("add: y"),
+      scene: str("scene, default = the open one"),
+    }),
+  },
+  {
     name: "variables",
     description: "Batch add/set/delete/list the scene's variables (type int|float|String|boolean|...; see read_docs('variables')).",
     inputSchema: opsOf("operations", ["add", "set", "delete", "list"], {

@@ -57,7 +57,7 @@ final class Proj {
     static ArrayList<String> scenes(Project p) {
         ArrayList<String> list = new ArrayList<>();
         FileHandle dir = Gdx.files.absolute(p.getScenesPath());
-        if (dir.exists()) for (FileHandle f : dir.list()) if (!f.isDirectory()) list.add(f.name());
+        if (dir.exists()) for (FileHandle f : dir.list()) if (!f.isDirectory() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.name())) list.add(f.name());
         java.util.Collections.sort(list, String.CASE_INSENSITIVE_ORDER);
         return list;
     }

@@ -128,7 +128,7 @@ public final class AiActions {
                     int light = type.contains("point") ? 0 : type.contains("directional") ? 1 : type.contains("cone") ? 2 : -1;
                     if (light >= 0) app.getControlLayer().actionAddLight(light);
                     else {
-                        String[] kinds = {"box", "circle", "text", "joystick", "progress", "custom", "particle", "camera", "map"};
+                        String[] kinds = {"box", "circle", "text", "joystick", "progress", "custom", "particle", "camera", "map", "group"};
                         int pos = 0;
                         for (int i = 0; i < kinds.length; i++) if (type.contains(kinds[i])) pos = i;
                         if (type.contains("tiled")) pos = 8;
