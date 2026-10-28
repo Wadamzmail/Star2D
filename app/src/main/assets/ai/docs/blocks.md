@@ -57,7 +57,7 @@ Value blocks produce Java types: arithmetic and `x of ___` give numbers; compari
 
 1. Element names and variable names must exist (scene elements are fields of the scene class).
 2. A reporter's arg count must match its `___` count.
-3. Inside `waitSeconds` / `everySeconds` / `_DoAfter` / `_repeatEvery` / `destroyAfter` do not use `current`, `body1`, `body2`, `event` (not final in Java 7): copy first with `{"block":"codeLine","fields":{"code":"final PlayerItem me = current;"}}`, then use `me`.
+3. Inside `waitSeconds` / `everySeconds` / `_DoAfter` / `_repeatEvery` / `destroyAfter` do not use `current`, `body1`, `body2`, `event` or a local made by `spawnCopy` (none is final in Java 7): copy first with `{"block":"codeLine","fields":{"code":"final PlayerItem me = current;"}}`, then use `me`. The helper block `destroyLater` (below) does this for you.
 4. Body blocks (`moveBy`, `goTo`, `setVelocityX`, `x of ___`...) crash on UI-type elements (no body). For TEXT/PROGRESS/UI use `setText`, `setProgress`, `setVisibility`, or Java on `getActor()`.
 5. Do not use the blocks marked BROKEN / NO-OP in the catalog (`saveValue`, `setsplits`, `setAlpha`, `moveTowardBody`).
 6. Java types are checked: assigning a float (`x of ___`, `speed y of ___`, `frame time`, `random` is int) to an `int` variable fails to compile: wrap it in `to int ___`, or declare the variable `float`. Variables are `int`/`float`/`String`/`boolean`; `saved number ___` is an int. Float variables need values like `0.5f` in the `variables` tool.
@@ -91,3 +91,16 @@ Rules:
 - `defaults` are in field order; the `title` must be unique (redefining a title replaces it).
 - Code runs inside the scene class: elements and variables are directly visible; Java 7 only (no lambdas).
 - Using it: `{"block":"killEnemy","fields":{"enemy":"body2","points":20}}`, `{"block":"repeatWhileAlive","fields":{"times":5},"do":[ ... ]}`, and the value block as `{"r":"half of ___","args":["score"]}`.
+
+## Standard helper: `destroyLater` (define it once, use it everywhere)
+
+Destroying a body twice (for example a bullet that hits an enemy AND has a 2 second timer) can crash the game, and the built-in `destroyAfter` / `destroy` blocks do not protect against it. This helper destroys an element after a delay only if it still exists, and copies its argument into a `final` local so it also works with `body1`/`body2`/`current`/spawned clones. Call `define_blocks` with it at the start of any project that spawns or removes things (redefining it is harmless):
+
+```json
+{"category":"Helpers","color":"#6D4C41","blocks":[
+ {"title":"destroyLater","kind":"statement","fields":["item(Body)","seconds"],"defaults":["current","0.05"],
+  "code":"{ final PlayerItem __d = %1$s; Timer.schedule(new Timer.Task(){ public void run(){ if(__d.getActor().getStage() != null) __d.destroy(); } }, (float)(%2$s)); }\n%3$s"}
+]}
+```
+
+Use: `{"block":"destroyLater","fields":{"item":"body2","seconds":0.05}}` (usually after `hide` of the same element so it stops being visible and interacting at once). Never destroy inside a collision callback directly; the delay makes it safe.

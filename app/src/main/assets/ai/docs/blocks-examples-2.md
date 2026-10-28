@@ -1,6 +1,6 @@
 # Block examples (2 of 2): shooting, spawning, game over, saving, camera, animation
 
-Same conventions as `blocks-examples` (field labels, quotes only in raw-Java fields, `final` copies before timers).
+Same conventions as `blocks-examples` (field labels, quotes only in raw-Java fields, `final` copies before timers). These use the helper block `destroyLater` (see `blocks`, last section; define it first).
 
 Assumed extra elements: BOX `bulletTemplate` (DYNAMIC, `Gravity Scale` 0, `Bullet` true, `Collision` `(player)`, placed off-screen at x -300), BOX `meteor` (DYNAMIC, off-screen template), BOX `fireBtn` (UI), TEXT `msg` (UI), PROGRESS `hpBar` (UI, Max 100). Variables: `shots` int, `spawned` int, `lives` int = 3, `walking` boolean = false, `enemyDir` int = 1.
 
@@ -14,13 +14,12 @@ Assumed extra elements: BOX `bulletTemplate` (DYNAMIC, `Gravity Scale` 0, `Bulle
    "newName":{"r":"join ___ ___","args":[{"r":"\"___\"","args":["bullet"]},"shots"]},
    "x":{"r":"___ + ___","args":[{"r":"x of ___","args":["player"]},70]},
    "y":{"r":"y of ___","args":["player"]}}},
- {"block":"setVelocityX","fields":{"body":"b","speed":800}},
- {"block":"codeLine","fields":{"code":"final PlayerItem fb = b;"}},
- {"block":"destroyAfter","fields":{"body":"fb","seconds":2}},
+ {"block":"setVelocityX","fields":{"body":"b","speed":450}},
+ {"block":"destroyLater","fields":{"item":"b","seconds":2}},
  {"block":"playSound","fields":{"Sound":"shoot.wav"}}
 ]
 ```
-`spawnCopy` clones the template at a pixel position (center) and stores the clone in a new Java variable (`var`). Clone names must be unique (`bullet1`, `bullet2`...), always clone the original template, never a clone. Bullets are cleaned up after 2 s. The `Collision` filter `(player)` on the template stops the bullet from pushing the player.
+`spawnCopy` clones the template at a pixel position (center) and stores the clone in a new Java variable (`var`). Clone names must be unique (`bullet1`, `bullet2`...), always clone the original template, never a clone. Bullets are cleaned up after 2 s by `destroyLater` (safe even if the bullet was already destroyed by a hit). The `Collision` filter `(player)` on the template stops the bullet from pushing the player.
 
 ## 10. Spawning on a timer: scene `OnCreate` (falling meteors)
 
@@ -34,12 +33,11 @@ Assumed extra elements: BOX `bulletTemplate` (DYNAMIC, `Gravity Scale` 0, `Bulle
      "newName":{"r":"join ___ ___","args":[{"r":"\"___\"","args":["meteor"]},"spawned"]},
      "x":{"r":"random ___ to ___","args":[60,1220]},
      "y":760}},
-   {"block":"codeLine","fields":{"code":"final PlayerItem fm = m;"}},
-   {"block":"destroyAfter","fields":{"body":"fm","seconds":8}}
+   {"block":"destroyLater","fields":{"item":"m","seconds":8}}
  ]}
 ]
 ```
-`everySeconds` repeats until the scene ends. Elements and variables of the scene are fine inside the timer; `m` is a local, hence the `final` copy. To stop spawning, wrap the body in `ifThen` with a boolean variable (`running`).
+`everySeconds` repeats until the scene ends. Elements and variables of the scene are fine inside the timer; `m` is a local of the timer body; `destroyLater` copies it to a `final` variable itself. To stop spawning, wrap the body in `ifThen` with a boolean variable (`running`).
 
 ## 11. Damage, lives, health bar, game over: scene `onCollisionStart` part
 

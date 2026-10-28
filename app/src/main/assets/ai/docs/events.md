@@ -58,7 +58,7 @@ Imports available in the generated class: `Vector2`, `Gdx`, `World`, Box2D joint
 
 ## Timers and the `final` rule (Java source level 7)
 
-The blocks `waitSeconds`, `everySeconds`, `_DoAfter`, `_repeatEvery`, `destroyAfter` run their inner blocks later on a timer (an anonymous class). In Java 7 such code may only use **final** local variables. The event variables `current`, `body1`, `body2`, `event` are NOT final, so they cause a compile error when used inside those blocks. Fix: before the timer block add `{"block":"codeLine","fields":{"code":"final PlayerItem me = current;"}}` and use `me`, or refer to the element by its field name (`player`). Scene variables and elements named in the scene are fine.
+The blocks `waitSeconds`, `everySeconds`, `_DoAfter`, `_repeatEvery`, `destroyAfter` run their inner blocks later on a timer (an anonymous class). In Java 7 such code may only use **final** local variables. The event variables `current`, `body1`, `body2`, `event` are NOT final, so they cause a compile error when used inside those blocks. Fix: use the helper block `destroyLater` for removing things (see `blocks`); for other timer code, before the timer block add `{"block":"codeLine","fields":{"code":"final PlayerItem me = current;"}}` and use `me`, or refer to the element by its field name (`player`). Scene variables and elements named in the scene are fine.
 
 `everySeconds` / `_repeatEvery` keep running until the scene ends (they are not cancelled by `Pause`). To stop one, guard it with a variable (`ifThen` on `running`). `cancelTimer` only works in the same event that created a `_DoAfter`/`_repeatEvery` timer.
 

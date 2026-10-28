@@ -12,24 +12,24 @@
 By default the engine runs the physics 6 times per frame (6x real-time speed), so speeds in px/s would be about 6x too fast and the default gravity is about 1400 px/s2. The block **`setWorldGravity`** sets "steps per frame = 1" and gravity to `strength` px/s2. After it, all px/s numbers in blocks are true pixels per real second. Put it FIRST in `OnCreate` of every scene that has dynamic bodies:
 
 ```json
-{"block":"setWorldGravity","fields":{"strength":1500}}
+{"block":"setWorldGravity","fields":{"strength":800}}
 ```
 
-Platformer/side view: strength 1200 to 1800. Top-down or space game: strength 0 (nothing falls). Floaty moon: 500. Do not use the `setGravity` block unless you need a sideways gravity (it takes raw world units like `0f`, `-9.8f`, and keeps the 6x steps).
+Platformer/side view: strength 700 to 1000 (see the speed limit below). Top-down or space game: strength 0 (nothing falls). Floaty moon: 500. Do not use the `setGravity` block unless you need a sideways gravity (it takes raw world units like `0f`, `-9.8f`, and keeps the 6x steps).
 
 ## Typical numbers (logic screen 1280 x 720, player about 64 x 96 px)
 
 | What | Value |
 |---|---|
-| Gravity | 1500 px/s2 |
+| Gravity | 800 px/s2 |
 | Walk / run speed | 250 to 350 px/s (`setVelocityX`) |
-| Jump | `jump` power 650 to 750 px/s (height = power^2 / (2*gravity): 700 gives 163 px with gravity 1500) |
-| Bullet | 600 to 900 px/s |
+| Jump | `jump` power 400 to 450 px/s (height = power^2 / (2*gravity): 450 gives 126 px with gravity 800) |
+| Bullet | 400 to 450 px/s |
 | Enemy walker | 80 to 150 px/s |
 | Top-down player | 300 px/s |
 | Falling/air time of a jump | 2 * power / gravity seconds |
 
-Keep speeds below about 450 px/s per axis for normal bodies (very fast bodies can tunnel through thin walls; set `Bullet` true for fast small bodies, and make walls at least 20 px thick). Always confirm speeds with `game_state` (`vx` is world units: px/s = vx * 4).
+**Speed limit**: Box2D moves a body at most 2 world units (8 px) per physics step, so with one step per frame the speed is capped at about 480 px/s at 60 fps (less when the frame rate drops). A faster `jump` power or velocity is silently cut down. Keep every speed (also falling speed and bullets) at or below about 450 px/s, make walls at least 20 px thick, and set `Bullet` true on fast small bodies. To get a higher jump raise the power only up to 450 and LOWER the gravity instead. Always confirm real speeds with `game_state` (`vx`, `vy` are world units per second: px/s = value * 4).
 
 ## Body types (`type` property)
 
@@ -64,7 +64,7 @@ Two bodies collide (push each other) unless one of them is a sensor or the `Coll
 - **`Collision` property**: a text of names, e.g. `(enemy)(coin)`. Pairs where either body's `Collision` text contains the other's name do not collide AND fire no events. Use it for "player passes through enemy bullets" style filtering, not for pickups.
 - **Events**: use the SCENE event `onCollisionStart` (variables `body1`, `body2`, both `PlayerItem`) and `onCollisionEnd`. Test who collided with the reporter `___ is named ___` (args: an element variable, the plain name) or with a raw Java condition such as `body2.getName().startsWith("coin")` in an `ifThen`. The element events `onBodyCollided`/`onBodyCollideEnd` exist, but the engine currently runs the first body's handler twice and never the second body's own handler, so they are unreliable: prefer the scene events (see `events`).
 - `___ touches ___` (reporter) / `ifCollision` (block): true while the two named elements are in contact.
-- Never create, destroy or deactivate bodies inside a collision event (the physics world is locked and a new body may be null). To remove something that was touched use `destroyAfter(item, 0.05)` (it waits a moment on a timer). `hide` alone is safe, but a hidden sensor still triggers: combine `hide` with `destroyAfter`.
+- Never create, destroy or deactivate bodies inside a collision event (the physics world is locked and a new body may be null). To remove something that was touched use `hide` plus the helper `destroyLater(item, 0.05)` (defined in `blocks`; it waits a moment on a timer and is safe to call twice). `hide` alone is safe, but a hidden sensor still triggers. The built-in `destroy`/`destroyAfter` blocks are NOT safe to run twice on the same element (a second destroy can crash the game).
 
 ## Grounded check for jumping
 
@@ -73,7 +73,7 @@ Option B (accurate): count ground contacts with a variable `ground` (int): in `o
 
 ## Clones and bullets
 
-`spawnCopy(body, var, newName, x, y)` clones an element at a pixel position (center) while the game runs. Clone from the original template element (keep a hidden or off-screen template, or the original itself), give each clone a unique name (join a counter), and clean up with `destroyAfter`. The clone keeps the template's properties and events. A clone created inside a collision event must be avoided.
+`spawnCopy(body, var, newName, x, y)` clones an element at a pixel position (center) while the game runs. Clone from the original template element (keep a hidden or off-screen template, or the original itself), give each clone a unique name (join a counter), and clean up with `destroyLater`. The clone keeps the template's properties and events. A clone created inside a collision event must be avoided.
 
 ## Quick recipes of physics properties
 
@@ -81,5 +81,5 @@ Option B (accurate): count ground contacts with a variable `ground` (int): in `o
 - Ground/wall: `type STATIC, restitution 0, friction 0.4`.
 - Coin: `type STATIC, isSensor true`.
 - Enemy walker: `type DYNAMIC, Fixed Rotation true, restitution 0`, velocity set each time it turns.
-- Bullet: `type DYNAMIC, Gravity Scale 0, Bullet true, isSensor true` (or normal) and `destroyAfter` 2 seconds.
+- Bullet: `type DYNAMIC, Gravity Scale 0, Bullet true, isSensor true` (or normal) and `destroyLater` 2 seconds.
 - Ball (breakout/pong): `CIRCLE, DYNAMIC, restitution 1, friction 0, Gravity Scale 0`, paddle `KINAMATIC` or `STATIC` moved by `goTo` / velocity, walls `STATIC`.

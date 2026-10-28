@@ -1,5 +1,7 @@
 # Block examples (1 of 2): movement, jump, pickups, score
 
+Examples that use `destroyLater` need the helper defined first (see `blocks`, last section).
+
 Every JSON array below is a complete value for `blocks` in an `events` op. Titles, field labels and reporter texts are the real ones from the catalog. More examples (shooting, spawning, game over, saving, animation, camera) are in `blocks-examples-2`.
 
 Assumed scene (1280 x 720): BOX `player` (DYNAMIC, Fixed Rotation, restitution 0), BOX `ground` and `ground2` (STATIC), BOX `coin1`..`coin5` (STATIC, isSensor), JOYSTICK `joy` (UI), BOX `jumpBtn` (UI), TEXT `scoreText` (UI). Variables (`variables` tool): `score` int = 0, `groundContacts` int = 0.
@@ -8,7 +10,7 @@ Assumed scene (1280 x 720): BOX `player` (DYNAMIC, Fixed Rotation, restitution 0
 
 ```json
 [
- {"block":"setWorldGravity","fields":{"strength":1500}},
+ {"block":"setWorldGravity","fields":{"strength":800}},
  {"block":"setVariable","fields":{"variable":"score","value":0}},
  {"block":"setText","fields":{"ui":"scoreText","text":"\"Score: 0\""}}
 ]
@@ -34,7 +36,7 @@ The text field is raw Java, so the literal has quotes inside the JSON string.
 [
  {"block":"ifThen","fields":{"boolean":{"r":"___ > ___","args":["groundContacts",0]}},
   "do":[
-   {"block":"jump","fields":{"body":"player","power":720}},
+   {"block":"jump","fields":{"body":"player","power":450}},
    {"block":"playSound","fields":{"Sound":"jump.wav"}}
   ]}
 ]
@@ -47,27 +49,18 @@ The text field is raw Java, so the literal has quotes inside the JSON string.
 [
  {"block":"ifThen","fields":{"boolean":"(body1.getName().equals(\"player\") && body2.getName().startsWith(\"ground\")) || (body2.getName().equals(\"player\") && body1.getName().startsWith(\"ground\"))"},
   "do":[{"block":"changeVariable","fields":{"variable":"groundContacts","by":1}}]},
- {"block":"ifThen","fields":{"boolean":"body1.getName().equals(\"player\") && body2.getName().startsWith(\"coin\")"},
+ {"block":"ifThen","fields":{"boolean":"(body1.getName().equals(\"player\") && body2.getName().startsWith(\"coin\")) || (body2.getName().equals(\"player\") && body1.getName().startsWith(\"coin\"))"},
   "do":[
-   {"block":"codeLine","fields":{"code":"final PlayerItem hit = body2;"}},
+   {"block":"codeLine","fields":{"code":"PlayerItem hit = body1.getName().startsWith(\"coin\") ? body1 : body2;"}},
    {"block":"changeVariable","fields":{"variable":"score","by":1}},
    {"block":"setText","fields":{"ui":"scoreText","text":{"r":"join ___ ___","args":[{"r":"\"___\"","args":["Score: "]},"score"]}}},
    {"block":"playSound","fields":{"Sound":"coin.wav"}},
    {"block":"hide","fields":{"body":"hit"}},
-   {"block":"destroyAfter","fields":{"body":"hit","seconds":0.05}}
-  ]},
- {"block":"ifThen","fields":{"boolean":"body2.getName().equals(\"player\") && body1.getName().startsWith(\"coin\")"},
-  "do":[
-   {"block":"codeLine","fields":{"code":"final PlayerItem hit = body1;"}},
-   {"block":"changeVariable","fields":{"variable":"score","by":1}},
-   {"block":"setText","fields":{"ui":"scoreText","text":{"r":"join ___ ___","args":[{"r":"\"___\"","args":["Score: "]},"score"]}}},
-   {"block":"playSound","fields":{"Sound":"coin.wav"}},
-   {"block":"hide","fields":{"body":"hit"}},
-   {"block":"destroyAfter","fields":{"body":"hit","seconds":0.05}}
+   {"block":"destroyLater","fields":{"item":"hit","seconds":0.05}}
   ]}
 ]
 ```
-Why it looks like this: (a) `body1`/`body2` come in either order, so both are tested; (b) names with a common prefix (`coin1`, `coin2`...) let one test cover all coins; (c) `destroyAfter` runs on a timer, and `body1`/`body2` are not `final`, so the first line copies the touched coin to a `final` local (`hit`); (d) the body is never destroyed inside the callback itself.
+Why it looks like this: (a) `body1`/`body2` come in either order, so both are tested; (b) names with a common prefix (`coin1`, `coin2`...) let one test cover all coins; (c) the first line picks which of the two is the coin; (d) the coin is hidden at once and removed by `destroyLater` (the helper from `blocks`: it waits 0.05 s so nothing is destroyed inside the callback, is safe if called twice, and handles Java's `final` rule). Define `destroyLater` with `define_blocks` before using it.
 
 ## 5. Scene `onCollisionEnd`: leave the ground
 

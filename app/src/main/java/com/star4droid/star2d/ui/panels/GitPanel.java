@@ -619,7 +619,9 @@ public class GitPanel implements PanelHost.Panel {
                 T("git_ai_prepare_q", "Two Markdown files are added to your project: ENGINE.md explains how Star2D projects work, STATE.md lists your scenes, elements, events and the last build errors. They are updated on every commit."),
                 T("ok", "OK"), () -> g.workWithProgress(T("git_working", "Working..."), false, (r, p) -> {
                     AiDocs.generate(r.dir(), true);
-                    r.commit("Add ENGINE.md and STATE.md for AI assistants", java.util.Arrays.asList(AiDocs.ENGINE, AiDocs.STATE));
+                    java.util.ArrayList<String> files = new java.util.ArrayList<>(java.util.Arrays.asList(AiDocs.ENGINE, AiDocs.STATE));
+                    files.addAll(AiDocs.docPaths(r.dir()));
+                    r.commit("Add ENGINE.md, STATE.md and AI docs for assistants", files);
                     if (r.hasRemote() && canPush() && GitHubSession.connected(shell.activity())) r.push(false, p);
                     return true;
                 }, ok -> {

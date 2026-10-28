@@ -1,10 +1,13 @@
 package com.star4droid.star2d.git;
 
+import android.content.Context;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.star4droid.star2d.ui.ai.AiContext;
+import com.star4droid.star2d.evo.star2dApp;
+import com.star4droid.star2d.remote.RemoteDocs;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -12,13 +15,18 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 
 /**
- * Writes the two Markdown files that let an AI assistant (Claude, ChatGPT...) understand the repository:
- * ENGINE.md (how a Star2D project works, fixed) and STATE.md (what is in this project right now, regenerated).
+ * Writes the Markdown files that let an AI assistant (Claude, ChatGPT...) understand the repository:
+ * ENGINE.md (short: what Star2D is, the layout, the rules, links), STATE.md (what is in this project right now,
+ * regenerated) and the documentation topics in {@code .star2d/docs/<topic>.md} (the same texts the editor serves to
+ * Claude through the remote tools: {@link RemoteDocs}).
  */
 public final class AiDocs {
     private AiDocs() {}
@@ -26,9 +34,17 @@ public final class AiDocs {
     public static final String ENGINE = "ENGINE.md", STATE = "STATE.md";
     /** Where the editor leaves the result of the last build for STATE.md. */
     public static final String BUILD_LOG = ".star2d/last-build.txt";
+    /** Folder (relative to the project) with the documentation topics. */
+    public static final String DOCS_DIR = ".star2d/docs";
 
     public static void generate(File dir, boolean engine) throws IOException {
-        if (engine) write(new File(dir, ENGINE), engineText(dir.getName()));
+        generate(dir, engine, star2dApp.getContext());
+    }
+
+    /** Same as {@link #generate(File, boolean)} with an explicit Context (needed to read the documentation assets). */
+    public static void generate(File dir, boolean engine, Context c) throws IOException {
+        if (engine) writeIfChanged(new File(dir, ENGINE), engineText(dir.getName(), c));
+        if ((engine || enabled(dir)) && c != null) writeDocs(dir, c);
         write(new File(dir, STATE), stateText(dir));
     }
 
@@ -37,40 +53,83 @@ public final class AiDocs {
         return new File(dir, ENGINE).exists();
     }
 
+    /** Project-relative paths (forward slashes) of the documentation topics currently on disk: add them to a commit. */
+    public static List<String> docPaths(File dir) {
+        ArrayList<String> out = new ArrayList<>();
+        File[] l = new File(dir, DOCS_DIR).listFiles();
+        if (l == null) return out;
+        Arrays.sort(l);
+        for (File f : l) if (f.isFile() && f.getName().endsWith(".md")) out.add(DOCS_DIR + "/" + f.getName());
+        return out;
+    }
+
     private static void write(File f, String text) throws IOException {
+        File parent = f.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
         try (FileOutputStream o = new FileOutputStream(f)) {
             o.write(text.getBytes("UTF-8"));
         }
     }
 
+    /** Writes the file only when its content differs (keeps modification times and git status quiet). */
+    private static boolean writeIfChanged(File f, String text) throws IOException {
+        if (f.isFile() && text.equals(read(f))) return false;
+        write(f, text);
+        return true;
+    }
+
+    // ------------------------------------------------------------------ docs
+
+    private static void writeDocs(File dir, Context c) throws IOException {
+        File docs = new File(dir, DOCS_DIR);
+        docs.mkdirs();
+        HashSet<String> keep = new HashSet<>();
+        for (String[] t : RemoteDocs.topics(c)) {
+            String name = t[0] + ".md";
+            keep.add(name);
+            writeIfChanged(new File(docs, name), RemoteDocs.topic(c, t[0]));
+        }
+        File[] old = docs.listFiles();
+        if (old != null)
+            for (File f : old) if (f.isFile() && f.getName().endsWith(".md") && !keep.contains(f.getName())) f.delete();
+    }
+
     // ------------------------------------------------------------------ ENGINE.md
 
-    static String engineText(String project) {
-        String g = AiContext.ENGINE_GUIDE;
-        int a = g.indexOf("## How a Star2D project works");
-        int b = g.indexOf("## Taking actions in the editor");
-        String guide = a >= 0 ? g.substring(a, b > a ? b : g.length()) : g;
+    static String engineText(String project, Context c) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Star2D project: ").append(project).append("\n\n");
-        sb.append("This repository is a game made with the **Star2D** engine editor (Android, LibGDX + Box2D).\n");
-        sb.append("It is edited on a phone: the person using the editor can ask you (an AI assistant) to change the game, ")
+        sb.append("This repository is a game made with the **Star2D** engine editor (Android, LibGDX + Box2D, Java). ")
+                .append("It is edited on a phone; the person using the editor can ask you (an AI assistant) to change the game, ")
                 .append("then taps **Pull** in the editor to receive your commits.\n\n");
-        sb.append("**Read `STATE.md` first**: it lists the scenes, elements, events with code and the last build errors as of the last commit.\n\n");
-        sb.append(guide.replace("\n- ", "\n- ")).append("\n");
-        sb.append("## How to change this repository (rules for AI assistants)\n");
-        sb.append("1. Work directly on the files below and commit to the same branch the person uses (normally `main`). Small, focused commits with a clear message.\n");
-        sb.append("2. **Scenes** (`scenes/<scene>`) are a JSON array, one object per element. To add an element copy an existing object of the same kind, ")
-                .append("then change `name` (must be unique, letters/digits/underscore, it becomes a field in the generated class), `x`, `y`, `width`, `height` and `image`. ")
-                .append("Keep every other key. Positions are in the scene's logic units (see `configs/<scene>.json`: `or` is `portrait` or empty for landscape).\n");
-        sb.append("3. **Events**: the build uses `Events/<scene>/public/<Event>.java` and `Events/<scene>/private/<element>/<event>.java` (plain Java statements, no class or method header). ")
-                .append("Each may have a `.visual` twin used by the block editor. **If you edit a `.java` event, delete its `.visual` twin** so the two cannot disagree.\n");
-        sb.append("4. **Custom scripts** are `scripts/<name>.java` (members pasted into the scene class); advanced body/scene scripts live under `java/com/star4droid/Game/Scripts/...` and `.../SceneScript/...`.\n");
-        sb.append("5. **Assets**: images in `images/`, sounds in `sounds/`, animations in `anims/`. Refer to an image as `/name.png` (relative to `images/`). Do not commit files larger than 50 MB.\n");
-        sb.append("6. **Never edit** generated or machine-local files (they are in `.gitignore`): `java/com/star4droid/Game/*.java`, `dex/`, `bin/`, `logs/`, `Events/JavaChanges.json`, `Events/*/UndoRedo.json`.\n");
-        sb.append("7. Do not edit `STATE.md`; the editor regenerates it. Do not rename scenes or elements unless asked: events and joints refer to them by name.\n");
-        sb.append("8. After your change the person pulls it in the editor, which reloads the scene and builds the game. If the build fails the errors appear in `STATE.md` after their next commit; ask them to commit and read it.\n\n");
-        sb.append("## Folder map\n");
-        sb.append("```\nscenes/            one JSON file per scene\nconfigs/           per-scene settings (orientation, size, colors)\nEvents/            visual scripts per scene and element (.java + .visual)\njoints/            physics joints per scene\nscripts/           custom Java members\njava/              advanced scripts (Game/Scripts, Game/SceneScript)\nimages/ sounds/ anims/ files/   assets\nICON/ icon/        app icon\nENGINE.md STATE.md  these documents\n```\n");
+        sb.append("**Read `STATE.md` first**: scenes, elements, events with code and the last build errors as of the last commit.\n\n");
+        sb.append("## Documentation\n\n");
+        sb.append("Generated by the editor, so it always matches the editor's version. Start with the index, then read only what you need.\n\n");
+        List<String[]> topics = c == null ? new ArrayList<String[]>() : RemoteDocs.topics(c);
+        if (topics.isEmpty()) sb.append("- (open the project in the editor and use Prepare for Claude / ChatGPT again to generate `").append(DOCS_DIR).append("/`)\n");
+        for (String[] t : topics)
+            sb.append("- [").append(t[0]).append("](").append(DOCS_DIR).append("/").append(t[0]).append(".md): ").append(t[1]).append("\n");
+        sb.append("\nThe docs are written for an AI that drives the editor through tools (`elements`, `events`, `scenes`...). ")
+                .append("When you edit this repository directly, the same property names, block JSON and rules apply to the files below.\n\n");
+        sb.append("## Layout\n\n```\n")
+                .append("scenes/<scene>            JSON array, one object per element (all its properties)\n")
+                .append("configs/<scene>.json      orientation, logic size, colors\n")
+                .append("Events/<scene>/public/    scene events (.visual blocks + generated .java), variables.json\n")
+                .append("Events/<scene>/private/<script>/   element events\n")
+                .append("joints/<scene>/           physics joints\n")
+                .append("scripts/<scene>/          Java members pasted into the scene class\n")
+                .append("java/                     your own Java classes (compiled with the game)\n")
+                .append("images/ sounds/ anims/ files/   assets\n")
+                .append("ENGINE.md STATE.md .star2d/docs/   these documents\n```\n\n");
+        sb.append("## Rules for AI assistants\n\n");
+        sb.append("1. Commit directly to the branch the person uses (normally `main`), small focused commits with a clear message.\n");
+        sb.append("2. Units are editor pixels of the scene's logic screen, origin BOTTOM-LEFT, y up; `x`,`y` is an element's bottom-left corner. ")
+                .append("To add an element copy an existing object of the same kind and change `name` (unique, letters/digits/underscore), `x`, `y`, `width`, `height`, `image` (`/file.png`, relative to `images/`).\n");
+        sb.append("3. An event is `Events/<scene>/public/<Event>.java` or `Events/<scene>/private/<script>/<event>.java` (plain Java statements, no method header, Java 7). ")
+                .append("The `.java` file is what is compiled; the `.visual` twin holds the blocks for the block editor. **If you edit a `.java` event, delete its `.visual` twin** so they cannot disagree.\n");
+        sb.append("4. Never edit generated or machine-local files (they are in `.gitignore`): `java/com/star4droid/Game/*.java`, `dex/`, `bin/`, `logs/`, `Events/JavaChanges.json`, `Events/*/UndoRedo.json`. Do not edit `STATE.md`.\n");
+        sb.append("5. Do not rename scenes or elements unless asked: events and joints refer to them by name. Do not commit files larger than 50 MB.\n");
+        sb.append("6. The engine runs only on the phone: you cannot compile or run the game. After your commit the person pulls it in the editor, which builds the game; build errors appear in `STATE.md` after their next commit.\n");
         return sb.toString();
     }
 

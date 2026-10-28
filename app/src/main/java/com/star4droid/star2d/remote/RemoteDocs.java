@@ -108,16 +108,27 @@ public final class RemoteDocs {
     /** One Markdown table per element type: name | kind | default | allowed values. */
     public static synchronized String elementTables(Context c) {
         if (tablesCache != null) return tablesCache;
+        String t = elementTables(path -> readAsset(c, path));
+        if (!t.startsWith("(element tables could not")) tablesCache = t;
+        return t;
+    }
+
+    /** Source of asset files (so the generators can also run outside Android, e.g. in tests). */
+    interface Assets {
+        String read(String path) throws Exception;
+    }
+
+    static String elementTables(Assets a) {
         StringBuilder sb = new StringBuilder();
         try {
-            String defaults = readAsset(c, "items/default.json");
-            Map<String, String> kinds = kinds(c);
-            JsonObject spinners = JsonParser.parseString(readAsset(c, "spinners.json")).getAsJsonObject();
+            String defaults = a.read("items/default.json");
+            Map<String, String> kinds = kinds(a);
+            JsonObject spinners = JsonParser.parseString(a.read("spinners.json")).getAsJsonObject();
             for (String[] t : TYPES) {
                 String typeName = t[0].startsWith("LIGHT") ? "LIGHT" : t[0];
                 String own = "";
                 try {
-                    own = readAsset(c, "items/" + t[1]).trim();
+                    own = a.read("items/" + t[1]).trim();
                 } catch (Exception ignored) {
                 }
                 JsonObject o = JsonParser.parseString(defaults.replace("--other--", own.isEmpty() ? "" : "," + own)).getAsJsonObject();
@@ -132,23 +143,23 @@ public final class RemoteDocs {
                     String v = e.getValue().isJsonPrimitive() ? e.getValue().getAsString() : e.getValue().toString();
                     if (v.equals("ItemName")) v = "<element name>";
                     String kind = kinds.get(k);
-                    if (kind == null) kind = "spinner";
+                    if (kind == null && k.equals("Map")) kind = "File";
+                    boolean internal = kind == null;
+                    if (internal) kind = "internal";
                     sb.append("| ").append(esc(k)).append(" | ").append(kind).append(" | ").append(v.isEmpty() ? "(empty)" : esc(v))
-                            .append(" | ").append(allowed(k, kind, spinners)).append(" |\n");
+                            .append(" | ").append(internal ? "leave as is (must not be empty)" : allowed(k, kind, spinners)).append(" |\n");
                 }
                 sb.append("\n");
             }
         } catch (Exception e) {
-            sb.append("(element tables could not be generated: ").append(e).append(")\n");
-            return sb.toString();
+            return "(element tables could not be generated: " + e + ")\n";
         }
-        tablesCache = sb.toString();
-        return tablesCache;
+        return sb.toString();
     }
 
-    private static Map<String, String> kinds(Context c) throws Exception {
+    private static Map<String, String> kinds(Assets a) throws Exception {
         HashMap<String, String> m = new HashMap<>();
-        JsonObject o = JsonParser.parseString(readAsset(c, "types.json")).getAsJsonObject();
+        JsonObject o = JsonParser.parseString(a.read("types.json")).getAsJsonObject();
         for (Map.Entry<String, JsonElement> e : o.entrySet())
             for (String f : e.getValue().getAsString().split(",")) if (!f.trim().isEmpty()) m.put(f.trim(), e.getKey());
         return m;
@@ -161,7 +172,7 @@ public final class RemoteDocs {
             case "color": return "#RRGGBB or #RRGGBBAA";
             case "float": return "number";
             case "image": return "/name.png (relative to images/)";
-            case "File": return key.equals("font") ? "project path of a .s2df font" : "path relative to files/ or images/";
+            case "File": return key.equals("font") ? "project path of a .s2df font" : key.equals("Map") ? "/level.tmx (a .tmx under images/)" : "/effect.p (a particle file under files/)";
             case "string": return key.equals("name") ? "letters, digits, _" : "text";
             case "body": return key.equals("Collision") ? "e.g. (a)(b): names of elements that do not collide" : "element name";
             case "script": return "name of the event script";
@@ -203,7 +214,7 @@ public final class RemoteDocs {
         BLOCK_NOTES.put("setCameraY", "WORLD units (px*0.25)");
         BLOCK_NOTES.put("setCameraCenter", "WORLD units (px*0.25)");
         BLOCK_NOTES.put("setZoom", "bigger = closer; the default view is 4");
-        BLOCK_NOTES.put("cameraFollow", "sets the camera ONCE (does not follow by itself): put it in OnStep");
+        BLOCK_NOTES.put("cameraFollow", "centers the camera once, it does not follow by itself: put it in OnStep");
         BLOCK_NOTES.put("copyBody", "clone of the element; prefer spawnCopy");
         BLOCK_NOTES.put("setText", "text is a Java expression: quote literals, e.g. \"Score: \" + score");
         BLOCK_NOTES.put("showText", "text is a Java expression (default \"Hello\" has quotes)");
@@ -214,10 +225,16 @@ public final class RemoteDocs {
         BLOCK_NOTES.put("setTint", "color without quotes, e.g. FF0000FF (RRGGBBAA)");
         BLOCK_NOTES.put("setWorldGravity", "also sets physics to 1 step per frame: speeds in px/s become true px/s. Call first in OnCreate");
         BLOCK_NOTES.put("OpenScene", "scene name without quotes");
-        BLOCK_NOTES.put("destroyAfter", "safe inside collision events");
+        BLOCK_NOTES.put("destroyAfter", "destroying the same element twice can crash: prefer the destroyLater helper (topic blocks)");
+        BLOCK_NOTES.put("destroy", "never inside a collision event, never twice on one element: prefer destroyLater (topic blocks)");
+        BLOCK_NOTES.put("destroyLater", "helper from topic blocks: safe delayed destroy, handles final");
         BLOCK_NOTES.put("spawnCopy", "clone of the element at x,y px; var = Java variable name, newName = Java expression (quoted)");
         BLOCK_NOTES.put("ifCollision", "same test as the reporter ___ touches ___");
         BLOCK_NOTES.put("setBodyType", "DynamicBody | StaticBody | KinematicBody");
+        BLOCK_NOTES.put("setSpringFrequencyHz", "WheelJoint only");
+        BLOCK_NOTES.put("setSpringDampingRatio", "WheelJoint only");
+        BLOCK_NOTES.put("setMotorSpeed", "joint = the joint's name; Revolute/Prismatic/Wheel; radians per second for hinges");
+        BLOCK_NOTES.put("setMaxMotorTorque", "joint = the joint's name; Revolute/Wheel");
         BLOCK_NOTES.put("saveData", "persistent; read it back with the reporter saved number ___ / saved text ___");
 
         REPORTER_NOTES.put("x of ___", "center x in px");
@@ -238,6 +255,7 @@ public final class RemoteDocs {
         REPORTER_NOTES.put("height of ___", "actor height in WORLD units for world elements");
         REPORTER_NOTES.put("angle (deg) ___", "points OPPOSITE to the stick direction, avoid; use joystick x / y");
         REPORTER_NOTES.put("power ___", "squared distance of the stick");
+        REPORTER_NOTES.put("___ equals ___", "compares the two values as text");
         REPORTER_NOTES.put("random ___ to ___", "integer, both ends included");
         REPORTER_NOTES.put("saved number ___", "key is a plain string without quotes");
         REPORTER_NOTES.put("saved text ___", "key is a plain string without quotes");
@@ -249,6 +267,11 @@ public final class RemoteDocs {
     public static String blockCatalog(Context c) {
         Context app = c.getApplicationContext() != null ? c.getApplicationContext() : c;
         BlockCatalog.load(app);
+        return blockCatalogText();
+    }
+
+    /** The text for the blocks currently loaded in {@link BlockCatalog}. */
+    static String blockCatalogText() {
         StringBuilder sb = new StringBuilder();
         sb.append("Statement blocks. Line format: `title(field, field:Type) [container] - defaults`. ")
                 .append("Use the field name before the colon as the key in \"fields\". ")

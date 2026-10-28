@@ -10,7 +10,8 @@ Star2D is a 2D game-engine editor that runs on an Android phone (LibGDX + Box2D)
 4. **Units are editor pixels.** Positions and sizes you give in `elements` are pixels of the scene's logic screen (see `scenes`). The origin is the BOTTOM-LEFT, y goes UP, `x`/`y` is the element's bottom-left corner. Block "px" fields use the same pixels. Raw Box2D blocks and Java use world units (= px * 0.25). The `physics` topic explains this in full.
 5. **Always verify by running.** After building, `run_game`/`run_test`, look at `screenshot`, `game_state` and `game_logs`. Never say it works without checking. A compile error appears in the `build` result with file and line.
 6. **Names:** elements, scenes, variables and joints are named with letters, digits and `_`, not starting with a digit. Use lowercase scene names (`scene1` is the main scene and cannot be renamed or deleted).
-7. **Plan, then work:** `set_plan` after reading the docs, `update_task` as you go, `finish_work` at the end.
+7. **Physics:** the first block of every physical scene's `OnCreate` is `setWorldGravity` (about 800 for platformers, 0 for top-down); keep speeds at or below about 450 px/s. Use collision events of the SCENE (`onCollisionStart`), `isSensor` for pickups, and `hide` + the `destroyLater` helper (see `blocks`) to remove things.
+8. **Plan, then work:** `set_plan` after reading the docs, `update_task` as you go, `finish_work` at the end.
 
 ## Topics
 
