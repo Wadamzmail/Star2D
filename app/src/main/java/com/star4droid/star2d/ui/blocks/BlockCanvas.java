@@ -62,6 +62,13 @@ public class BlockCanvas extends View {
 
     // view transform
     private float scale = 1f, tx, ty;
+
+    // ---- errors found by the compiler check (shown red) and the "show me" fly-to animation
+    private final java.util.IdentityHashMap<BlockModel.Node, String> errors = new java.util.IdentityHashMap<>();
+    private BlockModel.Node flashNode;
+    private float flash;
+    private android.animation.ValueAnimator flyAnim;
+
     private final float d; // density
 
     // layout
@@ -634,6 +641,8 @@ public class BlockCanvas extends View {
 
     private void drawBox(Canvas c, Box b, boolean ghost) {
         int col = b.color;
+        boolean bad = !ghost && errors.containsKey(b.node);
+        if (bad) col = 0xFFD32F2F;
         // soft bottom shadow for depth
         if (!ghost) {
             c.save();
@@ -661,6 +670,18 @@ public class BlockCanvas extends View {
             if (b.node.no == null && b.noMouth != null) c.drawRoundRect(emptyMouth(b.noMouth), RADIUS, RADIUS, stroke);
             stroke.setPathEffect(null);
         }
+        if (bad) {
+            stroke.setColor(0xFFFFCDD2);
+            stroke.setStrokeWidth(2f * d);
+            c.drawPath(b.shape, stroke);
+        }
+        if (!ghost && b.node == flashNode && flash > 0f) {
+            stroke.setColor(Color.WHITE);
+            stroke.setAlpha((int) (255 * flash));
+            stroke.setStrokeWidth((3f + 5f * flash) * d);
+            c.drawPath(b.shape, stroke);
+            stroke.setAlpha(255);
+        }
         // selection outline: whole block shape (the full C for if / else blocks)
         if (b.node == selected && !ghost) {
             stroke.setColor(Color.WHITE);
@@ -679,13 +700,15 @@ public class BlockCanvas extends View {
         }
         for (Slot s : b.slots) drawSlot(c, s, ghost);
         if (!ghost) {
-            fill.setColor(0x40000000);
+            fill.setColor(bad ? 0xFFFFFFFF : 0x40000000);
             c.drawCircle(b.info.centerX(), b.info.centerY(), INFO_R, fill);
+            if (bad) text.setColor(0xFFD32F2F);
             text.setTextSize(12 * d);
             text.setTextAlign(Paint.Align.CENTER);
             c.drawText("!", b.info.centerX(), b.info.centerY() + 4.5f * d, text);
             text.setTextAlign(Paint.Align.LEFT);
             text.setTextSize(13.5f * d);
+            if (bad) text.setColor(Color.WHITE);
         }
     }
 
@@ -1387,5 +1410,72 @@ public class BlockCanvas extends View {
             ty += dy;
             invalidate();
         }
+    }
+
+    // ================================================================ errors
+
+    /** Blocks (by identity) that have compile errors, with the message to show. */
+    public void setErrors(java.util.Map<BlockModel.Node, String> map) {
+        errors.clear();
+        if (map != null) errors.putAll(map);
+        invalidate();
+    }
+
+    public String errorOf(BlockModel.Node n) {
+        return n == null ? null : errors.get(n);
+    }
+
+    public boolean hasErrors() {
+        return !errors.isEmpty();
+    }
+
+    /** Smoothly scrolls so the block is centered, then pulses its outline. */
+    public void animateTo(final BlockModel.Node n) {
+        final Box b = n == null ? null : boxOf(n);
+        if (b == null || getWidth() == 0) return;
+        if (flyAnim != null) flyAnim.cancel();
+        selected = n;
+        final float sx = tx, sy = ty;
+        final float ex = getWidth() / 2f - (b.header.centerX()) * scale;
+        float ey = getHeight() / 2.6f - (b.header.centerY()) * scale;
+        final float fey = ey;
+        flashNode = n;
+        flyAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        flyAnim.setDuration(650);
+        flyAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f));
+        flyAnim.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                float f = (Float) a.getAnimatedValue();
+                tx = sx + (ex - sx) * f;
+                ty = sy + (fey - sy) * f;
+                invalidate();
+            }
+        });
+        flyAnim.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(android.animation.Animator a) {
+                pulse();
+            }
+        });
+        flyAnim.start();
+        listener.onSelect(n);
+    }
+
+    private void pulse() {
+        android.animation.ValueAnimator p = android.animation.ValueAnimator.ofFloat(1f, 0f, 1f, 0f, 1f, 0f);
+        p.setDuration(1400);
+        p.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                flash = (Float) a.getAnimatedValue();
+                invalidate();
+            }
+        });
+        p.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(android.animation.Animator a) {
+                flash = 0f;
+                flashNode = null;
+                invalidate();
+            }
+        });
+        p.start();
     }
 }

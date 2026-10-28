@@ -72,12 +72,21 @@ import java.util.Map;
 public class BlockEditorActivity extends AppCompatActivity implements BlockCanvas.Listener {
 
     private static String pendingFile, pendingHints;
+    private static int pendingBlock = -1;
+    private static final java.util.HashMap<String, String> LAST_HINTS = new java.util.HashMap<>();
     public static BlockEditorActivity current;
+
+    /** Open the editor and fly to a block (position in the block list), e.g. from a compiler error. */
+    public static boolean open(Activity a, String file, String hints, int block) {
+        pendingBlock = block;
+        return open(a, file, hints);
+    }
 
     /** Open the editor for a .visual file. Always handled natively. */
     public static boolean open(Activity a, String file, String hints) {
         pendingFile = file;
-        pendingHints = hints == null ? "" : hints;
+        if (hints != null && !hints.isEmpty()) LAST_HINTS.put(file, hints);
+        pendingHints = hints != null && !hints.isEmpty() ? hints : (LAST_HINTS.containsKey(file) ? LAST_HINTS.get(file) : "");
         Class<?> cls = gameIsLandscape(file) ? BlockEditorLandscapeActivity.class : BlockEditorActivity.class;
         a.runOnUiThread(() -> a.startActivity(new Intent(a, cls)));
         return true;
@@ -163,6 +172,67 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         if (!BlockCatalog.CATEGORIES.isEmpty()) currentCategory = BlockCatalog.CATEGORIES.keySet().iterator().next();
         build();
         canvas.post(canvas::home);
+        runCheck(false);
+        if (pendingBlock >= 0) {
+            final int target = pendingBlock;
+            pendingBlock = -1;
+            canvas.postDelayed(() -> {
+                BlockModel.Node n = model.nodeAt(target);
+                if (n != null) canvas.animateTo(n);
+            }, 450);
+        }
+    }
+
+    // =============================================================== compiler check
+
+    private BlockChecker.Result lastCheck;
+    private int checkRun;
+
+    /** Check the saved script in the background and paint the faulty blocks red. */
+    private void runCheck(final boolean thenExitDialog) {
+        final int run = ++checkRun;
+        final File f = file;
+        final BlockModel m = model;
+        new Thread(() -> {
+            final BlockChecker.Result r = BlockChecker.check(f.getAbsolutePath(), m);
+            runOnUiThread(() -> {
+                if (run != checkRun || isFinishing()) return;
+                lastCheck = r;
+                applyCheck(r);
+                if (thenExitDialog) {
+                    if (r.hasErrors()) askAboutErrors();
+                    else finish();
+                }
+            });
+        }, "block-check").start();
+    }
+
+    private void applyCheck(BlockChecker.Result r) {
+        java.util.IdentityHashMap<BlockModel.Node, String> map = new java.util.IdentityHashMap<>();
+        for (Map.Entry<Integer, String> e : r.byBlock.entrySet()) {
+            BlockModel.Node n = model.nodeAt(e.getKey());
+            if (n != null) map.put(n, e.getValue());
+        }
+        canvas.setErrors(map);
+    }
+
+    /** "There are errors in the blocks": Show me / Ignore / Cancel. */
+    private void askAboutErrors() {
+        int n = lastCheck == null ? 0 : lastCheck.byBlock.size();
+        new AlertDialog.Builder(this)
+                .setTitle(Tr.t("blk_errors_title", "There are errors in the blocks"))
+                .setMessage(Tr.t("blk_errors_msg", "Some blocks have errors and the game may not compile.") + "  (" + n + ")")
+                .setPositiveButton(Tr.t("blk_show_me", "Show me"), (d, w) -> showFirstError())
+                .setNegativeButton(Tr.t("blk_ignore", "Ignore"), (d, w) -> finish())
+                .setNeutralButton(Tr.t("cancel", "Cancel"), null)
+                .show();
+    }
+
+    private void showFirstError() {
+        if (lastCheck == null || lastCheck.byBlock.isEmpty()) return;
+        Integer first = lastCheck.byBlock.keySet().iterator().next();
+        BlockModel.Node node = model.nodeAt(first);
+        if (node != null) canvas.animateTo(node);
     }
 
     @Override
@@ -1084,6 +1154,16 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
 
     @Override
     public void onInfo(BlockModel.Node node) {
+        String err = canvas.errorOf(node);
+        if (err != null) {
+            new AlertDialog.Builder(this)
+                    .setTitle(Tr.t("blk_error", "Error in this block"))
+                    .setMessage(err)
+                    .setPositiveButton(Tr.t("ok", "OK"), null)
+                    .setNeutralButton("ⓘ", (d, w) -> showInfo(node.title, BlockCatalog.find(node.title)))
+                    .show();
+            return;
+        }
         showInfo(node.title, BlockCatalog.find(node.title));
     }
 
@@ -1330,7 +1410,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             model.save(file);
             changed = false;
             Snack.show(Tr.t("saved", "Saved") + " ✓");
-            if (thenFinish) finish();
+            runCheck(thenFinish);
         } catch (Exception e) {
             Dialogs.longText(this, "Save error", e.toString());
         }
@@ -1471,6 +1551,10 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             return;
         }
         if (!changed) {
+            if (lastCheck != null && lastCheck.hasErrors()) {
+                askAboutErrors();
+                return;
+            }
             super.onBackPressed();
             return;
         }

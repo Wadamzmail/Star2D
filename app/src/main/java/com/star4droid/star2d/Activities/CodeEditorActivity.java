@@ -16,6 +16,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.star4droid.star2d.CodeEditor.EngineLanguage;
+import com.star4droid.star2d.CodeEditor.SmartEditor;
 import com.star4droid.star2d.Helpers.EngineSettings;
 import com.star4droid.star2d.Helpers.FileUtil;
 import com.star4droid.star2d.Items.Editor;
@@ -41,6 +42,7 @@ import org.eclipse.tm4e.core.registry.IThemeSource;
 */
 public class CodeEditorActivity extends AppCompatActivity {
 	CodeEditor editor;
+	SmartEditor smart;
 	String path;
 	View save;
 	TextView save_info;
@@ -141,13 +143,18 @@ public class CodeEditorActivity extends AppCompatActivity {
 		loadTMThemes(this);
 		TextMateColorScheme scheme = TextMateColorScheme.create(ThemeRegistry.getInstance());
 		editor.setColorScheme(scheme);
-		if(TestApp.getCurrentApp().preferences.getBoolean("Auto Completion",true)){
-		TextMateLanguage language = TextMateLanguage.create(GrammarRegistry.getInstance().loadGrammars("editor/languages.json").get(0).getScopeName(), true);
-		//language.setCompleterKeywords(new String[]{"hello","hii","holaaaa","idk"});
-		language.setAutoCompleteEnabled(true);
-		EngineLanguage eng= new EngineLanguage(editor/*,getIntent().getStringArrayListExtra("list")*/,path);
-		
+		smart = new SmartEditor(this, editor, path, (TextView) findViewById(R.id.hint_bar), (TextView) findViewById(R.id.error_badge));
+		EngineLanguage eng= new EngineLanguage(editor, smart);
+		eng.setAutoCompletionEnabled(TestApp.getCurrentApp().preferences.getBoolean("Auto Completion",true));
 		editor.setEditorLanguage(eng);
+		smart.start();
+		if(getIntent().hasExtra("goto_line")){
+			final int gl = getIntent().getIntExtra("goto_line", 1), gc = getIntent().getIntExtra("goto_col", 1), ge = getIntent().getIntExtra("goto_end", -1);
+			final String gm = getIntent().getStringExtra("goto_msg");
+			editor.post(() -> {
+				smart.showExternalAt(gl, gc, ge, gm == null ? "" : gm);
+				smart.goTo(gl, gc, ge);
+			});
 		}
 		} catch(Exception ex){
 			//Utils.showMessage(this,"Error : \n"+Log.getStackTraceString(ex));
@@ -163,6 +170,12 @@ public class CodeEditorActivity extends AppCompatActivity {
 				}
 			}).start();
 		});
+	}
+	
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		if(smart != null) smart.destroy();
 	}
 	
 	/*@Override

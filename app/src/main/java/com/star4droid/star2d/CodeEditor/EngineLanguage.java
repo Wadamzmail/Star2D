@@ -32,14 +32,14 @@ public class EngineLanguage extends EmptyLanguage {
 	private final TextMateLanguage mTextMateLanguage;
 	private final IndentationRules mIndentationRules;
 	private final CodeEditor mEditor;
-	private final CodeCompletionHelper codeCompletionHelper;
+	private SmartEditor smart;
 	
 	// للتحكم في سلوك الإكمال التلقائي
 	private boolean autoCompletionEnabled = true;
 	
-	public EngineLanguage(CodeEditor editor, String file) {
+	public EngineLanguage(CodeEditor editor, SmartEditor smart) {
 		mEditor = editor;
-		codeCompletionHelper = new CodeCompletionHelper(file, editor);
+		this.smart = smart;
 		
 		String scope = GrammarRegistry.getInstance().loadGrammars("editor/languages.json").get(0).getScopeName();
 		mTextMateLanguage = TextMateLanguage.create(scope, false);
@@ -106,20 +106,14 @@ public class EngineLanguage extends EmptyLanguage {
 			return;
 		}
 		
-		// استخدام نظام الإكمال التلقائي المحسّن
 		try {
-			codeCompletionHelper.requireAutoComplete(content, position, publisher);
+			if (smart != null) smart.requireAutoComplete(content, position, publisher);
+		} catch (io.github.rosemoe.sora.lang.completion.CompletionCancelledException e) {
+			throw e;
 		} catch (Exception e) {
-			// في حالة حدوث خطأ، لا نعرض شيء بدلاً من تعطيل المحرر
-			android.util.Log.e("EngineLanguage", "Auto-completion error: " + e.getMessage());
+			// never break typing because of a completion problem
+			android.util.Log.e("EngineLanguage", "Auto-completion error: " + e);
 		}
-	}
-	
-	/**
-	 * الحصول على CodeCompletionHelper للتحكم المباشر
-	 */
-	public CodeCompletionHelper getCompletionHelper() {
-		return codeCompletionHelper;
 	}
 	
 	public class EndwiseNewlineHandler implements NewlineHandler {

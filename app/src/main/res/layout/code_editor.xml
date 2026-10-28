@@ -33,6 +33,21 @@
 				android:textStyle="bold"
 				android:textColor="#FFFFFF"
 				android:layout_weight="1" />
+			<TextView
+				android:id="@+id/error_badge"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_gravity="center_vertical"
+				android:layout_marginRight="6dp"
+				android:paddingLeft="8dp"
+				android:paddingRight="8dp"
+				android:paddingTop="2dp"
+				android:paddingBottom="2dp"
+				android:background="#D32F2F"
+				android:textColor="#FFFFFF"
+				android:textSize="12sp"
+				android:textStyle="bold"
+				android:visibility="gone" />
 			<ImageView
 				android:id="@+id/info"
 				android:layout_width="35dp"
@@ -86,6 +101,21 @@
 					android:textColorHint="#607D8B" />
 			</LinearLayout>
 		</LinearLayout>
+		<TextView
+			android:id="@+id/hint_bar"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:background="#263238"
+			android:paddingLeft="10dp"
+			android:paddingRight="10dp"
+			android:paddingTop="6dp"
+			android:paddingBottom="6dp"
+			android:singleLine="true"
+			android:ellipsize="end"
+			android:textColor="#CFD8DC"
+			android:textSize="12sp"
+			android:typeface="monospace"
+			android:visibility="gone" />
 		<HorizontalScrollView
 			android:layout_height="wrap_content"
 			android:scrollbars="none"

@@ -8,6 +8,8 @@ import com.palantir.javaformat.java.JavaFormatterOptions;
 import com.squareup.javapoet.*;
 import com.palantir.javaformat.java.Formatter;
 import com.star4droid.star2d.Items.*;
+import com.star4droid.star2d.CodeEditor.smart.SourceTrace;
+import com.badlogic.gdx.files.FileHandle;
 import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.editor.Utils;
 import com.star4droid.star2d.editor.items.EditorItem;
@@ -89,6 +91,42 @@ public class CodeGenerator {
         generateFor(editor.getProject(), editor.getScene(), properties, generateListener);
     }
     
+    public interface AllListener {
+        /** {@code all} has the Java of every scene (already written to the project); {@code changed} tells whether any file differs from before. */
+        void onGenerate(ArrayList<SceneCode> all, boolean changed);
+    }
+
+    /**
+     * Generate and write the Java of ALL scenes of the editor's project (the open one from its live items),
+     * off the GL thread; the listener runs on the GL thread.
+     */
+    public static void generateAllFor(LibgdxEditor editor, final AllListener listener) {
+        final ArrayList<PropertySet<String, Object>> properties = new ArrayList<>();
+        for (Actor actor : editor.getActors())
+            if (actor instanceof EditorItem) properties.add(((EditorItem) actor).getPropertySet());
+        final com.star4droid.star2d.Helpers.editor.Project project = editor.getProject();
+        final String scene = editor.getScene();
+        new Thread(() -> {
+            ArrayList<SceneCode> all = null;
+            boolean changed = false;
+            try {
+                all = buildAll(project, scene, properties);
+                for (SceneCode sc : all) {
+                    FileHandle f = Gdx.files.absolute(sc.path);
+                    if (!f.exists() || !f.readString().equals(sc.code)) {
+                        changed = true;
+                        f.writeString(sc.code, false);
+                    }
+                }
+            } catch (Throwable t) {
+                Gdx.files.external("logs/code generation.txt").writeString(Utils.getStackTraceString(t), false);
+            }
+            final ArrayList<SceneCode> res = all;
+            final boolean ch = changed;
+            if (res != null) Gdx.app.postRunnable(() -> listener.onGenerate(res, ch));
+        }).start();
+    }
+
     /**
      * Generate code for a specific scene with provided properties
      * 
@@ -102,9 +140,64 @@ public class CodeGenerator {
                                   ArrayList<PropertySet<String, Object>> properties, 
                                   final GenerateListener generateListener) {
         // Run code generation in a separate thread to avoid blocking the UI
-        new Thread() {
-            @Override
-            public void run() {
+        new Thread(() -> {
+            String result = null;
+            try {
+                result = build(project, scene, properties);
+            } catch (Throwable t) {
+                Gdx.files.external("logs/code generation.txt").writeString(Utils.getStackTraceString(t), false);
+            }
+            final String code = result;
+            if (generateListener != null && code != null)
+                Gdx.app.postRunnable(() -> generateListener.onGenerate(code));
+        }).start();
+    }
+
+    /**
+     * Generate the Java of one scene synchronously (no UI thread needed). User-written pieces are
+     * wrapped in marker comments and recorded in a {@link SourceTrace} so compiler errors can be
+     * traced back to the block / line (see {@link SourceTrace#of(String)}).
+     */
+    public static String build(final com.star4droid.star2d.Helpers.editor.Project project,
+                               final String scene,
+                               final ArrayList<PropertySet<String, Object>> properties) {
+        return build(project, scene, properties, true);
+    }
+
+    /** File path -> text to use instead of the file's content (only for the generating thread). Used by the editor. */
+    private static final ThreadLocal<Map<String, String>> OVERRIDES = new ThreadLocal<>();
+
+    /** Like {@link #build(com.star4droid.star2d.Helpers.editor.Project, String, ArrayList)} but with some files replaced by the given text and no re-formatting, so offsets inside the replaced text stay exact. */
+    public static String buildWithOverrides(com.star4droid.star2d.Helpers.editor.Project project, String scene,
+                                            ArrayList<PropertySet<String, Object>> properties, Map<String, String> overrides) {
+        OVERRIDES.set(overrides);
+        try {
+            return build(project, scene, properties, false);
+        } finally {
+            OVERRIDES.remove();
+        }
+    }
+
+    private static final ThreadLocal<SourceTrace> LAST_TRACE = new ThreadLocal<>();
+
+    /** Trace of the last {@code build*} call made on this thread. */
+    public static SourceTrace lastTrace() {
+        return LAST_TRACE.get();
+    }
+
+    private static String fileText(String path) {
+        Map<String, String> o = OVERRIDES.get();
+        if (o != null && o.containsKey(path)) return o.get(path);
+        return null;
+    }
+
+    public static String build(final com.star4droid.star2d.Helpers.editor.Project project,
+                               final String scene,
+                               final ArrayList<PropertySet<String, Object>> properties,
+                               final boolean format) {
+        final SourceTrace trace = new SourceTrace(project.getCodesPath(scene));
+        {
+            {
                 // Initialize code building variables - preserved from original implementation
                 String itemsCode = "";
                 String fixZ = "";
@@ -123,7 +216,9 @@ public class CodeGenerator {
                 
                 for (String path : scriptsList) {
                     if (path.endsWith(".java") || path.endsWith(".code")) {
-                        scriptBuilder.append(FileUtil.readFile(path));
+                        String body = fileText(path) != null ? fileText(path) : FileUtil.readFile(path);
+                        SourceTrace.Segment seg = trace.add(path, null, body, scene + " › " + new java.io.File(path).getName());
+                        scriptBuilder.append(SourceTrace.wrap(seg, body));
                     }
                 }
                 
@@ -210,7 +305,7 @@ public class CodeGenerator {
                         // Load event handlers for non-light objects
                         if (!isLight) {
                             for (int ev = 0; ev < eventsList.length - 1; ev++) {
-                                eventsList[ev] = project.readEvent(scriptScene, eventsList[ev], script);
+                                eventsList[ev] = readTraced(trace, project, scriptScene, script, eventsList[ev], scene + " › " + name + " › " + eventsList[ev]);
                             }
                         }
                         
@@ -330,7 +425,7 @@ public class CodeGenerator {
                 }
                 
                 // Finalize item code
-                itemsCode += "\n" + fixZ + (addChilds.equals("")?"":("\n"+addChilds)) + joint.toString() + project.readEvent(scene, "OnCreate");
+                itemsCode += "\n" + fixZ + (addChilds.equals("")?"":("\n"+addChilds)) + joint.toString() + readTraced(trace, project, scene, "", "OnCreate", scene + " › OnCreate");
                 
                 // Finalize variable declarations
                 if (!vars.equals("")) {
@@ -352,64 +447,144 @@ public class CodeGenerator {
                 final String variables = userVars.toString() + vars + "\n" + jointVars + "\n" + lightsVar;
                 final boolean replaceImportOfTheScript = (!thereIsScript);
                 
-                // Return generated code through callback
-                if (generateListener != null) {
-                    Gdx.app.postRunnable(() -> {
-						// Load Player.java template
-                        String playerCode = Gdx.files.internal("java/Player.java").readString();
-                        try {
-                            
-                            // Replace script import placeholder if needed
-                            /*
-							playerCode = playerCode.replace(
-                                script_import,
-                                replaceImportOfTheScript ? "" : 
-                                String.format("import com.star4droid.Game.Scripts.%1$s.*;", scene.toLowerCase())
-                            );
-							*/
-                            
-                            // Format final code with all components
-                            String codeResult = String.format(
-                                playerCode,
-                                scene.toLowerCase(),
-                                variables,
-                                code,
-                                project.readEvent(scene, "OnPause"),
-                                project.readEvent(scene, "OnResume"),
-                                project.readEvent(scene, "OnStep"),
-                                project.readEvent(scene, "onCollisionStart"),
-                                project.readEvent(scene, "onCollisionEnd"),
-                                scriptBuilder.toString()
-                            );
-                            
-                            // Format the code using Palantir Java Format
-                            String formattedCode = formatWithPalantir(codeResult);
-                            
-                            // Return generated code through callback
-                            generateListener.onGenerate(formattedCode);
-                        } catch (Exception e) {
-							
-                            // If formatting fails, return unformatted code
-                            String codeResult = String.format(
-                                playerCode,
-                                scene.toLowerCase(),
-                                variables,
-                                code,
-                                project.readEvent(scene, "OnPause"),
-                                project.readEvent(scene, "OnResume"),
-                                project.readEvent(scene, "OnStep"),
-                                project.readEvent(scene, "onCollisionStart"),
-                                project.readEvent(scene, "onCollisionEnd"),
-                                scriptBuilder.toString()
-                            );
-                            generateListener.onGenerate(codeResult);
-                        }
-                    });
+                // Load Player.java template
+                String playerCode = Gdx.files.internal("java/Player.java").readString();
+                String onPause = readTraced(trace, project, scene, "", "OnPause", scene + " › OnPause"),
+                        onResume = readTraced(trace, project, scene, "", "OnResume", scene + " › OnResume"),
+                        onStep = readTraced(trace, project, scene, "", "OnStep", scene + " › OnStep"),
+                        onCollStart = readTraced(trace, project, scene, "", "onCollisionStart", scene + " › onCollisionStart"),
+                        onCollEnd = readTraced(trace, project, scene, "", "onCollisionEnd", scene + " › onCollisionEnd");
+                String codeResult = String.format(
+                        playerCode,
+                        scene.toLowerCase(),
+                        variables,
+                        code,
+                        onPause,
+                        onResume,
+                        onStep,
+                        onCollStart,
+                        onCollEnd,
+                        scriptBuilder.toString());
+                // Format the code using Palantir Java Format (returns the input when it fails)
+                String finalCode = format ? formatWithPalantir(codeResult) : codeResult;
+                trace.finish(finalCode);
+                LAST_TRACE.set(trace);
+                if (format) SourceTrace.remember(trace);
+                return finalCode;
+            }
+        }
+    }
+
+    /** Generated Java of one scene. */
+    public static final class SceneCode {
+        public String scene, path, code;
+    }
+
+    /** Names of all scenes of the project (files in the scenes folder). */
+    public static ArrayList<String> sceneNames(com.star4droid.star2d.Helpers.editor.Project project) {
+        ArrayList<String> out = new ArrayList<>();
+        java.io.File[] fs = new java.io.File(project.getScenesPath()).listFiles();
+        if (fs != null) for (java.io.File f : fs) if (f.isFile()) out.add(f.getName());
+        java.util.Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
+        return out;
+    }
+
+    /** The saved items of a scene (what the scene editor wrote with Save), parents re-linked. */
+    public static ArrayList<PropertySet<String, Object>> loadProperties(com.star4droid.star2d.Helpers.editor.Project project, String scene) {
+        ArrayList<PropertySet<String, Object>> list = new ArrayList<>();
+        try {
+            String json = FileUtil.readFile(project.getScenesPath() + scene);
+            if (json == null || json.trim().isEmpty()) return list;
+            ArrayList<PropertySet<String, Object>> loaded = new Gson().fromJson(json,
+                    new TypeToken<ArrayList<PropertySet<String, Object>>>() {}.getType());
+            if (loaded == null) return list;
+            HashMap<String, PropertySet<String, Object>> byName = new HashMap<>();
+            for (PropertySet<String, Object> ps : loaded) {
+                ps.init();
+                byName.put(ps.getString("name"), ps);
+            }
+            for (PropertySet<String, Object> ps : loaded) {
+                String parent = ps.getString("parent");
+                if (parent != null && !parent.isEmpty() && byName.containsKey(parent)) ps.setParent(byName.get(parent));
+            }
+            list.addAll(loaded);
+        } catch (Throwable ignored) {
+        }
+        return list;
+    }
+
+    /**
+     * Java for every scene of the project: the scene being edited ({@code liveScene}, with its
+     * unsaved {@code liveProperties}) plus all the others from their saved files. Synchronous.
+     */
+    public static ArrayList<SceneCode> buildAll(com.star4droid.star2d.Helpers.editor.Project project,
+                                                String liveScene, ArrayList<PropertySet<String, Object>> liveProperties) {
+        ArrayList<SceneCode> out = new ArrayList<>();
+        ArrayList<String> names = sceneNames(project);
+        if (liveScene != null && !names.contains(liveScene)) names.add(liveScene);
+        for (String scene : names) {
+            SceneCode sc = new SceneCode();
+            sc.scene = scene;
+            sc.path = project.getCodesPath(scene);
+            ArrayList<PropertySet<String, Object>> props = scene.equals(liveScene) && liveProperties != null
+                    ? liveProperties : loadProperties(project, scene);
+            try {
+                sc.code = build(project, scene, props);
+            } catch (Throwable t) {
+                Gdx.files.external("logs/code generation.txt").writeString(Utils.getStackTraceString(t), false);
+                continue;
+            }
+            out.add(sc);
+        }
+        return out;
+    }
+
+    /**
+     * Event code of a piece (a body's event, or a public event when {@code body} is empty), wrapped in
+     * trace markers. Block files get one marker per block when their generated code still matches the .java.
+     */
+    private static String readTraced(SourceTrace trace, com.star4droid.star2d.Helpers.editor.Project project,
+                                     String scene, String body, String event, String origin) {
+        String base = project.getEventPath(scene, body, event);
+        StringBuilder out = new StringBuilder();
+        String javaText = "", codeText = "";
+        try {
+            FileHandle jf = Gdx.files.absolute(base + ".java");
+            if (fileText(base + ".java") != null) javaText = fileText(base + ".java");
+            else if (jf.exists()) javaText = jf.readString();
+        } catch (Exception ignored) {
+        }
+        if (!body.equals("")) {
+            try {
+                FileHandle cf = Gdx.files.absolute(base + ".code");
+                if (fileText(base + ".code") != null) codeText = fileText(base + ".code");
+                else if (cf.exists()) codeText = cf.readString();
+            } catch (Exception ignored) {
+            }
+        }
+        if (javaText.length() > 0) {
+            String visual = null, text = javaText;
+            java.io.File vf = new java.io.File(base + ".visual");
+            if (vf.exists()) {
+                try {
+                    com.star4droid.star2d.ui.blocks.BlockModel m = com.star4droid.star2d.ui.blocks.BlockModel.load(vf);
+                    if (m.exportCode(false).trim().equals(javaText.trim())) {
+                        text = m.exportCode(true);
+                        visual = vf.getPath();
+                    }
+                } catch (Throwable ignored) {
                 }
             }
-        }.start();
+            SourceTrace.Segment seg = trace.add(base + ".java", visual, javaText, origin);
+            out.append(SourceTrace.wrap(seg, text)).append(body.equals("") ? "" : "\n");
+        }
+        if (codeText.length() > 0) {
+            SourceTrace.Segment seg = trace.add(base + ".code", null, codeText, origin);
+            out.append(SourceTrace.wrap(seg, codeText));
+        }
+        return out.toString();
     }
-    
+
     /**
      * Format Java code using Palantir Java Format
      * 

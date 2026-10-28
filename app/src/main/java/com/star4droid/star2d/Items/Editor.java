@@ -20,10 +20,8 @@ import android.util.AttributeSet;
 import android.content.Context;
 import android.widget.FrameLayout;
 import java.util.ArrayList;
-import com.star4droid.star2d.CodeEditor.MyIndexer;
 
 public class Editor extends FrameLayout {
-	private MyIndexer myIndexer;
 	Runnable whenAppReady;
 	private static Editor currentEditor;
 	TestApp testApp;
@@ -116,9 +114,6 @@ public class Editor extends FrameLayout {
 		testApp.setEditorReadyAction(runnable);
 	}
 
-	public void setIndexer(MyIndexer indexer){
-		myIndexer = indexer;
-	}
 
 	public void setToCurrentEditor(){
 		currentEditor = this;
@@ -140,9 +135,6 @@ public class Editor extends FrameLayout {
 		return testApp.getEditor().selectByName(name);
 	}
 	
-	public MyIndexer getIndexer(){
-		return myIndexer;
-	}
 	
 	public static Editor getCurrentEditor(){
 		return currentEditor;

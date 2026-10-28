@@ -407,17 +407,41 @@ public class BlockModel {
     // ===================================================================== code export (same as NodeSerializer)
 
     public String exportCode() {
+        return exportCode(false);
+    }
+
+    /** Indexes of blocks whose code template could not be formatted in the last {@link #exportCode(boolean)}. */
+    public final ArrayList<Integer> formatFailures = new ArrayList<>();
+
+    /**
+     * @param markers when true every block's code is preceded by a {@code /&#42;@b<index>&#42;/} comment, where
+     *                index is the block's position in {@link #allNodes()}. Used to trace compiler errors back to blocks.
+     */
+    public String exportCode(boolean markers) {
+        formatFailures.clear();
         Node entry = root();
         if (entry == null) {
             // fallback: first head (no incoming links by construction)
             entry = heads.isEmpty() ? null : heads.get(0);
         }
+        IdentityHashMap<Node, Integer> ids = null;
+        if (markers) {
+            ids = new IdentityHashMap<>();
+            ArrayList<Node> all = allNodes();
+            for (int i = 0; i < all.size(); i++) ids.put(all.get(i), i);
+        }
         StringBuilder sb = new StringBuilder();
-        if (entry != null) gen(entry, sb, 0, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
+        if (entry != null) gen(entry, sb, 0, java.util.Collections.newSetFromMap(new IdentityHashMap<>()), ids, formatFailures);
         return sb.toString();
     }
 
-    private static void gen(Node node, StringBuilder code, int indent, Set<Node> visited) {
+    /** The block with this index in {@link #allNodes()}, or null. */
+    public Node nodeAt(int index) {
+        ArrayList<Node> all = allNodes();
+        return index >= 0 && index < all.size() ? all.get(index) : null;
+    }
+
+    private static void gen(Node node, StringBuilder code, int indent, Set<Node> visited, IdentityHashMap<Node, Integer> ids, ArrayList<Integer> failures) {
         if (node == null || visited.contains(node)) return;
         visited.add(node);
         StringBuilder ind = new StringBuilder();
@@ -430,17 +454,17 @@ public class BlockModel {
         String trueCode = "", falseCode = "", nextCode = "";
         if (node.yes != null) {
             StringBuilder b = new StringBuilder();
-            gen(node.yes, b, indent + 1, visited);
+            gen(node.yes, b, indent + 1, visited, ids, failures);
             trueCode = b.toString();
         }
         if (node.no != null) {
             StringBuilder b = new StringBuilder();
-            gen(node.no, b, indent + 1, visited);
+            gen(node.no, b, indent + 1, visited, ids, failures);
             falseCode = b.toString();
         }
         if (node.next != null) {
             StringBuilder b = new StringBuilder();
-            gen(node.next, b, indent, visited);
+            gen(node.next, b, indent, visited, ids, failures);
             nextCode = b.toString();
         }
         if (node.isIf) {
@@ -451,8 +475,16 @@ public class BlockModel {
         String formatted = "";
         try {
             formatted = String.format(template, args.toArray());
-        } catch (Exception ignored) {}
-        code.append(indentStr).append(formatted.replace("\n", "\n" + indentStr));
+        } catch (Exception ignored) {
+            Integer id = ids == null ? null : ids.get(node);
+            if (id != null) failures.add(id);
+        }
+        code.append(indentStr);
+        if (ids != null) {
+            Integer id = ids.get(node);
+            if (id != null) code.append("/*@b").append(id).append("*/");
+        }
+        code.append(formatted.replace("\n", "\n" + indentStr));
     }
 
     /** Write the .visual and the sibling .java (like the old Save button). */

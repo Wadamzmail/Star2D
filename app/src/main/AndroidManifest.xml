@@ -87,14 +87,6 @@
 			android:windowSoftInputMode="adjustResize|stateVisible"
 			android:exported="true"/>
 			
-		<service
-		android:enabled="true"
-		android:exported="true"
-		android:name="com.star4droid.star2d.Activities.IndexingService"
-		android:foregroundServiceType="dataSync"
-		android:stopWithTask="false"
-		android:permission="android.permission.FOREGROUND_SERVICE"
-		/>
 		<provider
 		android:name="androidx.core.content.FileProvider"
 		android:authorities="com.star4droid.star2d.evo.fileprovider"

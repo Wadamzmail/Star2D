@@ -92,6 +92,8 @@ public class ControlLayer extends Table {
 		void onIndexing(boolean indexing);
 		/** Compile/run progress. state: 0 = status text, 1 = error, 2 = finished, 3 = started playing. */
 		void onPlayStatus(int state, String text);
+		/** Structured compiler errors of the last build (called before the error text). */
+		default void onBuildErrors(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors){}
 		/** Show a long text (compiler output / errors). */
 		void onShowText(String title, String text);
 	}
@@ -528,6 +530,8 @@ public class ControlLayer extends Table {
 		if(state == 2) textShow.setEnabled(true);
 	}
 
+	private java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> lastBuildErrors;
+
 	/** Generate code, compile when needed, then run the current scene. */
 	public void actionPlay(){
 		String path = app.getEditor().getProject().getPath();
@@ -544,8 +548,7 @@ public class ControlLayer extends Table {
 		final InputProcessor inputProcessor = Gdx.input.getInputProcessor();
 		//disable all inputs...
 		Gdx.input.setInputProcessor(null);
-		CodeGenerator.generateFor(app.getEditor(),(code)->{
-			FileHandle sceneFile = Gdx.files.absolute(app.getEditor().getProject().getCodesPath(app.getEditor().getScene()));
+		CodeGenerator.generateAllFor(app.getEditor(),(allScenes, anyChanged)->{
 			CompileThread compileThread = new CompileThread(app.getEditor().getProject().get("java"),false);
 			compileThread.setOnChangeStatus(new CompileThread.OnStatusChanged(){
 				@Override
@@ -557,6 +560,12 @@ public class ControlLayer extends Table {
 				public void onEnd(String message) {
 					Gdx.input.setInputProcessor(inputProcessor);
 					playStatus(2, message);
+				}
+
+				@Override
+				public void onErrors(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors) {
+					lastBuildErrors = new java.util.ArrayList<>(errors);
+					if(nativeUi != null) nativeUi.onBuildErrors(errors);
 				}
 
 				@Override
@@ -582,9 +591,8 @@ public class ControlLayer extends Table {
 				
 			});
 			
-			if((sceneFile.exists() &&!sceneFile.readString().equals(code))||!sceneFile.exists()){
+			if(anyChanged){
 			    compileThread.start();
-				sceneFile.writeString(code,false);
 			} else {
 				playStatus(0, getTrans("checkJavaFilesChanges"));
 				Executors.newSingleThreadExecutor().execute(()->{
@@ -596,6 +604,7 @@ public class ControlLayer extends Table {
 								if(errorLog.exists()){
 									Gdx.input.setInputProcessor(inputProcessor);
 									if(nativeUi != null){
+										if(lastBuildErrors != null && !lastBuildErrors.isEmpty()) nativeUi.onBuildErrors(lastBuildErrors);
 										nativeUi.onPlayStatus(1, errorLog.readString());
 										nativeUi.onPlayStatus(2, "");
 									} else textShow.setText(errorLog.readString());

@@ -51,6 +51,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         void importFiles(String targetDir, Runnable done);
         /** Open a visual script in the block editor; false = use the legacy editor. */
         boolean openBlocks(String file, String hints);
+        /** Open a block script and fly to the block at this position. */
+        void openBlocksAt(String file, int block);
+        /** Open a Java file at a line (highlighting the error there). */
+        void openJavaAt(String path, int line, int col, int endCol, String message);
     }
 
     private final Activity activity;
@@ -82,6 +86,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     public static EditorShell current;
     private TextView playStatus;
     private ProgressBar playProgress;
+    private BuildConsole console;
+    private TextView consoleChip;
+    private java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> pendingErrors;
+    private boolean errorsHandled;
 
     public EditorShell(Activity activity, Host host) {
         super(activity);
@@ -106,6 +114,22 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         settings = new SettingsPanel(this);
         addItem = new AddItemPanel(this);
 
+        console = new BuildConsole(activity);
+        console.setOpener(this::openError);
+        console.setOnVisibilityChange(this::updateConsoleChip);
+        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+        addView(console, cl);
+        consoleChip = Ui.text(activity, "", 13, Ui.TEXT);
+        consoleChip.setTypeface(Typeface.DEFAULT_BOLD);
+        consoleChip.setPadding(Ui.dp(activity, 12), Ui.dp(activity, 8), Ui.dp(activity, 12), Ui.dp(activity, 8));
+        consoleChip.setBackground(Ui.rounded(0xE6B71C1C, Ui.dp(activity, 18)));
+        consoleChip.setElevation(Ui.dp(activity, 8));
+        consoleChip.setVisibility(GONE);
+        consoleChip.setOnClickListener(v -> console.reveal());
+        FrameLayout.LayoutParams chipLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START);
+        chipLp.setMargins(Ui.dp(activity, 12), 0, 0, Ui.dp(activity, 12));
+        addView(consoleChip, chipLp);
+
         current = this;
         ControlLayer.nativeUi = this;
         TestApp.nativeHooks = this;
@@ -121,6 +145,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     /** Rebuild all bars (rotation, icon-size or language change). */
     public void build() {
         Context c = activity;
+        if (console != null) console.rebuild();
         chrome.removeAllViews();
         toolButtons.clear();
         railButtons.clear();
@@ -591,10 +616,44 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         Bridge.gl(() -> Bridge.controls().actionPlay());
     }
 
+    private void updateConsoleChip() {
+        boolean show = console.count() > 0 && console.getVisibility() != VISIBLE && !playing;
+        consoleChip.setVisibility(show ? VISIBLE : GONE);
+        consoleChip.setText("⚠  " + Tr.t("console_title", "Errors") + " (" + console.count() + ")");
+    }
+
+    private void openError(com.star4droid.star2d.CodeEditor.smart.BuildError e) {
+        console.hide();
+        if (e.target == com.star4droid.star2d.CodeEditor.smart.BuildError.TARGET_BLOCK) {
+            host.openBlocksAt(e.targetFile, e.blockIndex);
+        } else if (e.target == com.star4droid.star2d.CodeEditor.smart.BuildError.TARGET_JAVA) {
+            host.openJavaAt(e.targetFile, e.targetLine, e.targetColumn, e.targetEndColumn, e.message);
+        }
+    }
+
+    @Override
+    public void onBuildErrors(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors) {
+        pendingErrors = errors == null || errors.isEmpty() ? null : new ArrayList<>(errors);
+    }
+
     @Override
     public void onPlayStatus(int state, String text) {
         Ui.ui(() -> {
             if (playDialog == null) return;
+            if (pendingErrors != null && (state == 1 || state == 2)) {
+                // structured errors: they go to the console, not into a dialog
+                if (!errorsHandled) {
+                    errorsHandled = true;
+                    java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> es = pendingErrors;
+                    pendingErrors = null;
+                    playDialog.dismiss();
+                    playDialog = null;
+                    console.show(es, null);
+                    updateConsoleChip();
+                    errorsHandled = false;
+                }
+                return;
+            }
             switch (state) {
                 case 0:
                     if (text != null && !text.isEmpty()) playStatus.setText(text);
@@ -631,6 +690,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
                     }
                     break;
                 case 3:
+                    console.clear();
                     playDialog.dismiss();
                     playDialog = null;
                     break;

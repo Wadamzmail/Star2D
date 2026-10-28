@@ -44,7 +44,7 @@ public class VisualScriptingDialog {
 	
 	public static void openCodeEditor(){
 		Editor editor = Editor.getCurrentEditor();
-		if(editor.getSelectedView()==null||(editor.getIndexer()!=null&&editor.getIndexer().isIndexing())) return;
+		if(editor.getSelectedView()==null) return;
 		PropertySet ps= PropertySet.getPropertySet(editor.getSelectedView());
 		Intent intent= new Intent();
 		intent.putExtra("path",editor.getProject().getBodyScriptPath(ps.getString("name"),editor.getScene()));

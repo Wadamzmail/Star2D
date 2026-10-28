@@ -11,6 +11,11 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import org.eclipse.jdt.internal.compiler.batch.Main;
+import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.ICompilerRequestor;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import com.star4droid.star2d.CodeEditor.smart.BuildError;
+import com.star4droid.star2d.CodeEditor.smart.SourceTrace;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.StandardJavaFileManager;
@@ -46,6 +51,47 @@ public class CompileThread extends Thread {
 		    RunEcj();
 		} catch(Error | Exception exception){
 			push(CHANGE_ERROR,Utils.getStackTraceString(exception));
+		}
+	}
+	
+	private volatile java.util.List<BuildError> lastErrors = new ArrayList<>();
+	
+	/** Structured errors of the last failed build (javac and ecj give the same format). */
+	public java.util.List<BuildError> getErrors(){
+		return lastErrors;
+	}
+	
+	private void publishErrors(ArrayList<BuildError> found){
+		try {
+			SourceTrace.resolveAll(found);
+		} catch(Throwable ignored){}
+		lastErrors = found;
+	}
+	
+	private static void collectEcj(CompilationResult result, ArrayList<BuildError> into){
+		CategorizedProblem[] problems = result.getErrors();
+		if(problems == null) return;
+		for(CategorizedProblem p : problems){
+			if(p == null || !p.isError()) continue;
+			BuildError e = new BuildError();
+			char[] fn = p.getOriginatingFileName();
+			e.file = fn == null ? null : new String(fn);
+			e.line = Math.max(1, p.getSourceLineNumber());
+			e.start = p.getSourceStart();
+			e.end = p.getSourceEnd() + 1;
+			e.message = p.getMessage();
+			e.column = 1;
+			// compute the column from the file text when ecj didn't (or counted differently)
+			try {
+				if(e.file != null && e.start >= 0){
+					String text = readFile(e.file);
+					if(e.start <= text.length()){
+						int ls = text.lastIndexOf('\n', Math.max(0, e.start - 1)) + 1;
+						e.column = e.start - ls + 1;
+					}
+				}
+			} catch(Throwable ignored){}
+			into.add(e);
 		}
 	}
 	
@@ -101,11 +147,27 @@ public class CompileThread extends Thread {
 				}
 			});
 			
-			Main main = new Main(printWriter2, printWriter2, false, null, null);
+			final ArrayList<BuildError> found = new ArrayList<>();
+			Main main = new Main(printWriter2, printWriter2, false, null, null){
+				@Override
+				public ICompilerRequestor getBatchRequestor() {
+					final ICompilerRequestor original = super.getBatchRequestor();
+					return new ICompilerRequestor(){
+						@Override
+						public void acceptResult(CompilationResult result) {
+							try {
+								collectEcj(result, found);
+							} catch(Throwable ignored){}
+							original.acceptResult(result);
+						}
+					};
+				}
+			};
 			
 			main.compile(opt.toArray(new String[0]));
 			
 			if(main.globalErrorsCount > 0) {
+				publishErrors(found);
 				push(CHANGE_ERROR,"errors : "+errs.toString());
 				return;
 			}
@@ -152,10 +214,26 @@ public class CompileThread extends Thread {
 			
 			if(!task.call()){
 				StringBuilder errors=new StringBuilder();
+				ArrayList<BuildError> found = new ArrayList<>();
+				for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics())
+					try {
+						if(diagnostic.getKind() != Diagnostic.Kind.ERROR) continue;
+						BuildError e = new BuildError();
+						JavaFileObject src = diagnostic.getSource();
+						e.file = src == null ? null : new java.io.File(src.toUri()).getAbsolutePath();
+						e.line = (int) Math.max(1, diagnostic.getLineNumber());
+						e.column = (int) Math.max(1, diagnostic.getColumnNumber());
+						e.start = (int) diagnostic.getStartPosition();
+						e.end = (int) diagnostic.getEndPosition();
+						if(e.start < 0) e.start = (int) diagnostic.getPosition();
+						e.message = diagnostic.getMessage(null);
+						found.add(e);
+					} catch(Throwable ignored){}
 				for (Diagnostic diagnostic : diagnostics.getDiagnostics())
 						errors.append(String.format("Error on line %1$s in %2$s, message :\n %3$s\n",
 							diagnostic.getLineNumber(),(diagnostic.getSource()==null?"UnknownSource":((JavaFileObject)diagnostic.getSource()).toUri()),diagnostic.getMessage(null)));
 				fileManager.close();
+				publishErrors(found);
 				push(CHANGE_ERROR,"Error : \n"+errors.toString()+"\n"+sbt.toString());
 				return;
 			}
@@ -230,6 +308,7 @@ public class CompileThread extends Thread {
 				public void run() {
 					switch(type){
 						case CHANGE_ERROR:
+						onStatusChanged.onErrors(lastErrors);
 						onStatusChanged.onError(message);
 						onStatusChanged.onEnd(message);
 						break;
@@ -254,6 +333,8 @@ public class CompileThread extends Thread {
 		public void onEnd(String message);
 		public void onError(String error);
 		public void onSuccess(String message);
+		/** Structured errors, called right before onError (may be empty for non-compiler failures). */
+		default void onErrors(java.util.List<BuildError> errors){}
 	}
 	
 	public static void exit(int status){

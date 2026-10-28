@@ -10,7 +10,6 @@ import axml.xml.AxmlUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.star4droid.star2d.Utils;
 import com.star4droid.star2d.evo.R;
-import com.tyron.code.util.ApkInstaller;
 import java.util.ArrayList;
 import java.util.Random;
 import net.lingala.zip4j.ZipFile;

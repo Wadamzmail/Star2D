@@ -31,7 +31,6 @@ import com.google.gson.reflect.TypeToken;
 import com.star4droid.star2d.Activities.AnimationActivity;
 import com.star4droid.star2d.Adapters.ExportDialog;
 import com.star4droid.star2d.Adapters.SPNote;
-import com.star4droid.star2d.CodeEditor.MyIndexer;
 import com.star4droid.star2d.Helpers.CodeGenerator;
 import com.star4droid.star2d.Helpers.CompileThread;
 import com.star4droid.star2d.Helpers.EngineSettings;
@@ -346,7 +345,6 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 	}
 	
 	private void continueInit(){
-        indexFiles();
 		/*
 		editor.getApp().getFileBrowser().setAnimationOpen(file->{
 			openAnimation(file);
@@ -376,6 +374,19 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                 filePickerAction = "native";
                 files_picker.launch(new String[] {"*/*"});
             }
+            @Override public void openBlocksAt(String file, int block){
+                com.star4droid.star2d.ui.blocks.BlockEditorActivity.open(EditorActivity.this, file, "", block);
+            }
+            @Override public void openJavaAt(String path, int line, int col, int endCol, String message){
+                Intent intent = new Intent();
+                intent.putExtra("path", path);
+                intent.putExtra("goto_line", line);
+                intent.putExtra("goto_col", col);
+                intent.putExtra("goto_end", endCol);
+                intent.putExtra("goto_msg", message);
+                intent.setClass(EditorActivity.this, com.star4droid.star2d.Activities.CodeEditorActivity.class);
+                startActivity(intent);
+            }
             @Override public boolean openBlocks(String file, String hints){
                 return com.star4droid.star2d.ui.blocks.BlockEditorActivity.open(EditorActivity.this, file, hints);
             }
@@ -387,30 +398,6 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         ((ViewGroup) findViewById(R.id.frame)).addView(homeView,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
-    private static int id = 0;
-    public void indexFiles() {
-        if (!editor.getApp().preferences.getBoolean("Auto Completion", true)) {
-            editor.getApp().getControlLayer().setIndexing(false);
-            return;
-        }
-        id++;
-        int currentID = id;
-        new Thread() {
-            public void run() {
-                Looper.prepare();
-                editor.setIndexer(MyIndexer.isIndexerMatch(editor.getProject().getPath())?MyIndexer.lastIndexer:new MyIndexer().indexFiles(editor));
-                if(currentID != id) return;
-                if(editor.getApp().getControlLayer()!=null)
-                Gdx.app.postRunnable(()->{
-                    editor.getApp().toast(com.star4droid.star2d.editor.utils.Lang.getTrans("indexingFilesCompleted"));
-                    try {
-                    editor.getApp().getControlLayer().setIndexing(false);
-                    } catch(Exception e){}
-                });
-            }
-        }.start();
-    }
-
 	@Override
 	protected void onResume() {
 		super.onResume();
