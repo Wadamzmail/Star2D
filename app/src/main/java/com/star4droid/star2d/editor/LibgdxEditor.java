@@ -498,6 +498,7 @@ public class LibgdxEditor extends Stage {
 			}
 		} catch(Exception exx){}
 		propsMap.clear();
+		try { Hierarchy.relink(this); } catch(Throwable ignored){}
 		loadingScene = false;
 		if(controlLayer!=null){
 			if(selectedActor!=null)
@@ -992,6 +993,7 @@ public class LibgdxEditor extends Stage {
 				}
 			} catch(Exception exx){}
 			propsMap.clear();
+			try { Hierarchy.relink(this); } catch(Throwable ignored){}
 			if(controlLayer!=null){
 				if(selectedActor!=null)
 					controlLayer.bodySelected();

@@ -389,9 +389,21 @@ public class CodeGenerator {
                         }
                         
                         // Handle parent-child relationships
-                        if ((!isLight) && propertySet.getParent() != null) {
-                            addChilds += propertySet.getParent().getString("name") + 
-                                        ".addChild(" + name + ");\n";
+                        // (the "parent" name is the truth; the PropertySet link is only a fallback for sets without it)
+                        if (!isLight) {
+                            String parentOfItem = propertySet.containsKey("parent") ? propertySet.getString("parent")
+                                    : (propertySet.getParent() != null ? propertySet.getParent().getString("name") : "");
+                            if (!parentOfItem.equals("") && !parentOfItem.equals(name)) {
+                                boolean parentOk = false;
+                                for (PropertySet<String, Object> other : properties) {
+                                    if (parentOfItem.equals(other.getString("name")) && !other.getString("TYPE").equals("LIGHT")) {
+                                        parentOk = true;
+                                        break;
+                                    }
+                                }
+                                if (parentOk)
+                                    addChilds += parentOfItem + ".addChild(" + name + ");\n";
+                            }
                         }
                         
                         // Add script attachment if needed

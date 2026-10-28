@@ -862,10 +862,15 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private void deleteSelected() {
         Bridge.query(() -> {
             com.badlogic.gdx.scenes.scene2d.Actor sel = Bridge.editor().getSelectedActor();
+            if (sel != null && com.star4droid.star2d.prefab.PrefabSession.isFixedRoot(Bridge.editor(), sel)) return "\u0000";
             return sel == null ? null : sel.getName();
         }, name -> {
             if (name == null) {
                 Ui.toast(activity, Tr.t("ui_select_first", "Select an element first"));
+                return;
+            }
+            if (name.equals("\u0000")) {
+                Ui.toast(activity, Tr.t("prefab_root_locked", "The root of a prefab can't be deleted"));
                 return;
             }
             Dialogs.confirm(activity, Tr.t("delete", "Delete"), Tr.t("areYouSure", "Are you sure?") + "\n" + name,

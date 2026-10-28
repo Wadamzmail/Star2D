@@ -41,6 +41,15 @@ public class ElementsPanel implements PanelHost.Panel {
     private final ArrayList<Bridge.ItemInfo> shown = new ArrayList<>();
     private final Adapter adapter = new Adapter();
     private boolean pending;
+    /** Collapsed groups per scene (kept while the app runs). Searching shows everything. */
+    private static final java.util.HashMap<String, java.util.HashSet<String>> COLLAPSED = new java.util.HashMap<>();
+
+    private static java.util.HashSet<String> collapsedOf(String scene) {
+        String k = scene == null ? "" : scene;
+        java.util.HashSet<String> h = COLLAPSED.get(k);
+        if (h == null) { h = new java.util.HashSet<>(); COLLAPSED.put(k, h); }
+        return h;
+    }
 
     public ElementsPanel(EditorShell shell) {
         this.shell = shell;
@@ -107,8 +116,19 @@ public class ElementsPanel implements PanelHost.Panel {
         if (list == null) return;
         String q = search.getText().toString().toLowerCase(Locale.ROOT).trim();
         shown.clear();
-        for (Bridge.ItemInfo i : all)
-            if (q.isEmpty() || i.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(i);
+        if (q.isEmpty()) {
+            // the children of a collapsed group are not listed
+            int skipBelow = -1;
+            for (Bridge.ItemInfo i : all) {
+                if (skipBelow >= 0 && i.depth > skipBelow) continue;
+                skipBelow = -1;
+                shown.add(i);
+                if (i.children > 0 && collapsedOf(i.scene).contains(i.name)) skipBelow = i.depth;
+            }
+        } else {
+            for (Bridge.ItemInfo i : all)
+                if (i.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(i);
+        }
         computeTree(q.isEmpty());
         adapter.notifyDataSetChanged();
         empty.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
@@ -260,6 +280,24 @@ public class ElementsPanel implements PanelHost.Panel {
                 m.add(com.star4droid.star2d.ui.PrefabUi.ICON, com.star4droid.star2d.ui.PrefabUi.COLOR, Tr.t("prefab_save_as", "Save as prefab"), () -> com.star4droid.star2d.ui.PrefabUi.saveAsPrefab(shell, info.name));
             }
         }
+        m.add(R.drawable.ic_s2_link, Tr.t("ui_move_into", "Move into..."), () -> moveInto(c, info));
+        if ("Group".equals(info.type)) {
+            m.add(R.drawable.ic_s2_merge, Tr.t("ui_ungroup", "Ungroup"), () -> {
+                Bridge.gl(() -> {
+                    Actor a = Bridge.actor(info.name);
+                    if (a != null) ItemActions.ungroup(Bridge.app(), a);
+                });
+                refreshLater();
+            });
+        } else {
+            m.add(R.drawable.ic_s2_container, Tr.t("ui_wrap_group", "Wrap in new group"), () -> {
+                Bridge.gl(() -> {
+                    Actor a = Bridge.actor(info.name);
+                    if (a != null) ItemActions.wrapInGroup(Bridge.app(), a);
+                });
+                refreshLater();
+            });
+        }
         m.add(R.drawable.ic_s2_arrow_up, Tr.t("ui_bring_forward", "Bring forward"), () -> { Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), 1)); refreshLater(); });
         m.add(R.drawable.ic_s2_arrow_down, Tr.t("ui_send_backward", "Send backward"), () -> { Bridge.gl(() -> ItemActions.changeZ(Bridge.app(), Bridge.actor(info.name), -1)); refreshLater(); });
         m.divider();
@@ -272,6 +310,31 @@ public class ElementsPanel implements PanelHost.Panel {
         m.show(anchor);
     }
 
+    /** Picker: put the element inside another one (or back to the top level). */
+    private void moveInto(Context c, Bridge.ItemInfo info) {
+        Bridge.query(() -> {
+            com.star4droid.star2d.editor.LibgdxEditor ed = Bridge.editor();
+            ArrayList<String> names = new ArrayList<>();
+            java.util.HashSet<String> banned = new java.util.HashSet<>();
+            banned.add(info.name);
+            for (Actor a : com.star4droid.star2d.editor.Hierarchy.descendantsOf(ed, info.name)) banned.add(a.getName());
+            for (Bridge.ItemInfo it : Bridge.items())
+                if (!banned.contains(it.name) && !it.isLight) names.add(it.name);
+            return names;
+        }, names -> {
+            String[] items = new String[names.size() + 1];
+            items[0] = Tr.t("ui_parent_none", "None (root)");
+            for (int k = 0; k < names.size(); k++) items[k + 1] = names.get(k);
+            Dialogs.choose(c, Tr.t("ui_move_into", "Move into...") + " - " + info.name, items, which -> {
+                String parent = which == 0 ? "" : names.get(which - 1);
+                Bridge.query(() -> ItemActions.moveInto(Bridge.app(), info.name, parent), err -> {
+                    if (err != null) Ui.toast(c, err);
+                    refresh();
+                });
+            });
+        });
+    }
+
     private void refreshLater() {
         if (list != null) list.postDelayed(this::refresh, 150);
     }
@@ -280,12 +343,12 @@ public class ElementsPanel implements PanelHost.Panel {
 
     private class Holder extends RecyclerView.ViewHolder {
         final LinearLayout row;
-        final ImageView icon, eye, lock, more;
+        final ImageView icon, eye, lock, more, chevron;
         final TextView name, type;
         final TreeLines indent;
-        Holder(LinearLayout row, TreeLines indent, ImageView icon, TextView name, TextView type, ImageView eye, ImageView lock, ImageView more) {
+        Holder(LinearLayout row, TreeLines indent, ImageView chevron, ImageView icon, TextView name, TextView type, ImageView eye, ImageView lock, ImageView more) {
             super(row);
-            this.row = row; this.indent = indent; this.icon = icon; this.name = name; this.type = type;
+            this.row = row; this.indent = indent; this.chevron = chevron; this.icon = icon; this.name = name; this.type = type;
             this.eye = eye; this.lock = lock; this.more = more;
         }
     }
@@ -301,6 +364,11 @@ public class ElementsPanel implements PanelHost.Panel {
             row.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             TreeLines indent = new TreeLines(c);
             row.addView(indent, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
+            ImageView chevron = Ui.smallIcon(c, R.drawable.ic_s2_expand_more, Ui.TEXT_2, 18);
+            chevron.setLayoutParams(new LinearLayout.LayoutParams(Ui.dp(c, 26), Ui.dp(c, 38)));
+            chevron.setPadding(Ui.dp(c, 4), Ui.dp(c, 10), Ui.dp(c, 4), Ui.dp(c, 10));
+            chevron.setBackground(Ui.ripple(0, Ui.dp(c, 10)));
+            row.addView(chevron);
             ImageView icon = Ui.smallIcon(c, R.drawable.ic_s2_square, Ui.ACCENT, 22);
             icon.setBackground(Ui.rounded(0x22FFFFFF, Ui.dp(c, 7)));
             icon.setPadding(Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5));
@@ -321,7 +389,7 @@ public class ElementsPanel implements PanelHost.Panel {
             row.addView(eye);
             row.addView(lock);
             row.addView(more);
-            return new Holder(row, indent, icon, name, type, eye, lock, more);
+            return new Holder(row, indent, chevron, icon, name, type, eye, lock, more);
         }
 
         private ImageView small(Context c, int res) {
@@ -348,8 +416,25 @@ public class ElementsPanel implements PanelHost.Panel {
                 if (img.isFile()) com.star4droid.star2d.ui.FilePickerDialog.thumb(h.icon, img, Ui.dp(c, 32));
             }
             h.name.setText(i.name);
-            h.name.setAlpha(i.visible ? 1f : 0.5f);
+            boolean searching = !search.getText().toString().trim().isEmpty();
+            boolean hiddenNow = !i.visible || i.ancHidden;
+            h.name.setAlpha(hiddenNow ? 0.5f : 1f);
             String typeLabel = i.type == null ? "" : Tr.t("ui_type_" + i.type.toLowerCase(Locale.ROOT), i.type);
+            if (i.children > 0) typeLabel += " · " + String.format(Locale.US, Tr.t("ui_n_children", "%d inside"), i.children);
+            // group chevron: open / closed
+            if (i.children > 0 && !searching) {
+                boolean closed = collapsedOf(i.scene).contains(i.name);
+                h.chevron.setVisibility(View.VISIBLE);
+                Ui.setDirIcon(h.chevron, closed ? R.drawable.ic_s2_chevron_right : R.drawable.ic_s2_expand_more);
+                h.chevron.setOnClickListener(v -> {
+                    java.util.HashSet<String> set = collapsedOf(i.scene);
+                    if (!set.remove(i.name)) set.add(i.name);
+                    filter();
+                });
+            } else {
+                h.chevron.setVisibility(View.INVISIBLE);
+                h.chevron.setOnClickListener(null);
+            }
             // prefab instances: the name is tinted, the root also shows which prefab it is
             boolean inst = i.pid != null && !i.pid.isEmpty();
             h.name.setTextColor(inst ? com.star4droid.star2d.ui.PrefabUi.COLOR : Ui.TEXT);
@@ -357,9 +442,13 @@ public class ElementsPanel implements PanelHost.Panel {
             else if (inst && "root".equals(i.pid)) typeLabel += "  ·  " + Tr.t("prefab_root", "prefab root");
             h.type.setText(typeLabel);
             h.row.setBackground(i.selected ? Ui.rounded(Ui.ACCENT_SOFT, Ui.dp(c, 8), Ui.ACCENT, Ui.dp(c, 1)) : Ui.ripple(0, Ui.dp(c, 8)));
-            h.eye.setImageResource(i.visible ? R.drawable.ic_s2_visible : R.drawable.ic_s2_visible_off);
-            h.lock.setImageResource(i.locked ? R.drawable.ic_s2_lock : R.drawable.ic_s2_lock_open);
-            h.lock.setImageTintList(android.content.res.ColorStateList.valueOf(i.locked ? Ui.WARNING : Ui.TEXT_3));
+            // inside a hidden / locked group the element is hidden / locked too (its own flag is untouched): shown dimmed
+            boolean lockedNow = i.locked || i.ancLocked;
+            h.eye.setImageResource(hiddenNow ? R.drawable.ic_s2_visible_off : R.drawable.ic_s2_visible);
+            h.eye.setAlpha(i.visible && i.ancHidden ? 0.45f : 1f);
+            h.lock.setImageResource(lockedNow ? R.drawable.ic_s2_lock : R.drawable.ic_s2_lock_open);
+            h.lock.setImageTintList(android.content.res.ColorStateList.valueOf(lockedNow ? Ui.WARNING : Ui.TEXT_3));
+            h.lock.setAlpha(!i.locked && i.ancLocked ? 0.45f : 1f);
             h.row.setOnClickListener(v -> select(i.name));
             com.star4droid.star2d.ui.tutorial.Tut.tag(h.row, "elem:" + i.name);
             h.row.setOnLongClickListener(v -> { menu(h.more, i); return true; });

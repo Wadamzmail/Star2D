@@ -208,9 +208,14 @@ public class GroupFollower {
             n.cy = b.getPosition().y - off[1];
             n.rot = (float) Math.toDegrees(b.getAngle());
         } else {
+            // visual center of the actor: it turns around its origin (not always the middle)
             Actor a = n.actor;
-            n.cx = a.getX() + a.getWidth() * 0.5f;
-            n.cy = a.getY() + a.getHeight() * 0.5f;
+            float ox = a.getOriginX(), oy = a.getOriginY();
+            double rad = Math.toRadians(a.getRotation());
+            float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+            float dx = a.getWidth() * 0.5f - ox, dy = a.getHeight() * 0.5f - oy;
+            n.cx = a.getX() + ox + c * dx - s * dy;
+            n.cy = a.getY() + oy + s * dx + c * dy;
             n.rot = a.getRotation();
         }
     }
@@ -301,7 +306,11 @@ public class GroupFollower {
             }
         }
         Actor a = n.actor;
-        a.setPosition(wx - a.getWidth() * 0.5f, wy - a.getHeight() * 0.5f);
+        float ox = a.getOriginX(), oy = a.getOriginY();
+        double rad = Math.toRadians(wr);
+        float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+        float dx = a.getWidth() * 0.5f - ox, dy = a.getHeight() * 0.5f - oy;
+        a.setPosition(wx - ox - (c * dx - s * dy), wy - oy - (s * dx + c * dy));
         a.setRotation(wr);
         n.cx = wx;
         n.cy = wy;
