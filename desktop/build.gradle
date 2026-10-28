@@ -1,0 +1,115 @@
+// Desktop (Windows / Linux) game template. Same runtime sources as the Android template (see template/runtime-sources.txt),
+// compiled for the JVM with the LWJGL3 backend. macOS is not built (yet). Nothing here is committed as a binary:
+// docs/DESKTOP.md and .github/workflows/build-desktop.yml explain how the zips are produced (manually).
+plugins {
+    id 'java'
+}
+
+ext {
+    gdxVersion = '1.14.2'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+dependencies {
+    implementation("com.badlogicgames.gdx:gdx:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-freetype:$gdxVersion")
+    implementation("com.badlogicgames.gdx:gdx-box2d:$gdxVersion")
+    runtimeOnly("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
+    runtimeOnly("com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop")
+    runtimeOnly("com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop")
+    implementation("com.kotcrab.vis:vis-ui:1.5.9")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("net.lingala.zip4j:zip4j:2.11.5")
+    implementation(files("../app/libs/box2dlights-1.5.jar"))
+}
+
+// ---- runtime sources: the very same files the Android template compiles (no copies in git) ----
+def runtimePatterns = file('../template/runtime-sources.txt').readLines().collect { it.trim() }.findAll { it && !it.startsWith('#') }
+
+// Android-only classes of the runtime package (Activities). Everything else is platform independent.
+def androidOnly = [
+        'com/star4droid/template/MainActivity.java',
+        'com/star4droid/template/LoadingScreen.java',
+]
+
+def syncRuntime = tasks.register('syncRuntimeSources', Sync) {
+    from(file('../app/src/main/java')) {
+        include runtimePatterns
+        exclude androidOnly
+    }
+    // the slim Project (paths only) that the Android template uses too
+    from(file('../template/src/main/java')) {
+        include 'com/star4droid/star2d/Helpers/Project.java'
+    }
+    into layout.buildDirectory.dir('runtime-src')
+}
+
+sourceSets {
+    main {
+        java.srcDir(layout.buildDirectory.dir('runtime-src'))
+        // engine assets the runtime reads with Gdx.files.internal (images/logo.png, files/default.fnt, ...)
+        resources.srcDir('../template/src/main/assets')
+    }
+}
+tasks.named('compileJava') { dependsOn syncRuntime }
+tasks.named('processResources') { dependsOn syncRuntime }
+
+// ---- fat jars: everything in ONE jar, natives of the target OS inside ----
+def macNatives = ['macos/**', 'macosx/**', '**/*.dylib', '**/*.jnilib']
+def linuxNatives = ['linux/**', '**/*.so', '**/*.so.*']
+def windowsNatives = ['windows/**', '**/*.dll']
+
+def fat = { String name, List<String> excludes ->
+    tasks.register(name, Jar) {
+        group = 'build'
+        description = "Single runnable jar (${name})"
+        archiveBaseName = 'star2d-desktop'
+        archiveClassifier = name.replace('fatJar', '').toLowerCase() ?: 'all'
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        manifest {
+            attributes(
+                    'Main-Class': 'com.star4droid.desktop.DesktopLauncher',
+                    'Implementation-Title': 'Star2D desktop template',
+                    'Implementation-Version': project.version == 'unspecified' ? '1' : project.version,
+                    'Multi-Release': 'false'
+            )
+        }
+        from(sourceSets.main.output)
+        from({ configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }) {
+            exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/MANIFEST.MF',
+                    'META-INF/versions/**', 'module-info.class', 'META-INF/INDEX.LIST'
+            exclude macNatives
+            exclude excludes
+        }
+        dependsOn tasks.named('classes')
+    }
+}
+
+fat('fatJarLinux', windowsNatives)
+fat('fatJarWindows', linuxNatives)
+fat('fatJar', [])   // natives of both OSes (no macOS)
+
+// ---- plain tests (no framework): java -cp ... com.star4droid.desktop.SelfTest style mains ----
+tasks.register('windowSizingTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks the window sizing rules (portrait/landscape, monitor sizes)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.star4droid.desktop.WindowSizingTest'
+}
+tasks.register('selfTest', JavaExec) {
+    group = 'verification'
+    description = 'Loads the classes and the natives without opening a window'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.star4droid.desktop.DesktopLauncher'
+    args '--selftest'
+}

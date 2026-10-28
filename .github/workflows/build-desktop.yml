@@ -1,0 +1,59 @@
+name: Build desktop templates (manual)
+
+# MANUAL ONLY. Nothing is committed or pushed by this workflow: the zips are uploaded as run artifacts.
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "Which desktop build to make"
+        type: choice
+        options: [both, windows, linux]
+        default: both
+      with_jre:
+        description: "Bundle a Java runtime (bigger zip, no Java needed)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    if: ${{ inputs.os == 'both' || inputs.os == 'linux' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build
+        run: python3 tools/make_desktop.py --os linux ${{ inputs.with_jre && '--with-jre' || '' }}
+      - name: Self test
+        run: java -jar desktop/build/libs/star2d-desktop-linux.jar --selftest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: star2d-desktop-linux
+          path: build/desktop-dist/star2d-desktop-linux.zip
+          if-no-files-found: error
+
+  windows:
+    if: ${{ inputs.os == 'both' || inputs.os == 'windows' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build
+        shell: bash
+        run: python tools/make_desktop.py --os windows ${{ inputs.with_jre && '--with-jre' || '' }}
+      - name: Self test
+        shell: bash
+        run: java -jar desktop/build/libs/star2d-desktop-windows.jar --selftest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: star2d-desktop-windows
+          path: build/desktop-dist/star2d-desktop-windows.zip
+          if-no-files-found: error
