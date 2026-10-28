@@ -143,13 +143,50 @@ public final class RemoteClient {
         if (!wanted || a == null) return;
         final int gen = ++generation;
         setState(State.CONNECTING, "");
-        Request req;
+        final Request req;
+        final Request check;
         try {
             req = new Request.Builder().url(RemoteSettings.wsUrl(a)).build();
+            check = new Request.Builder().url(RemoteSettings.server(a) + "/version").build();
         } catch (Exception e) {
             setState(State.ERROR, "bad server URL");
             return;
         }
+        // first ask the server which API versions it speaks: an old server (no /version, or without our version) needs an update
+        http.newCall(check).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                openSocket(gen, a, req); // offline or unreachable: the normal retry logic reports it
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, Response r) {
+                boolean ok = false;
+                try (Response rr = r) {
+                    if (rr.isSuccessful() && rr.body() != null) {
+                        com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(rr.body().string()).getAsJsonObject();
+                        for (com.google.gson.JsonElement v : o.getAsJsonArray("versions"))
+                            if (v.getAsInt() == RemoteSettings.API_VERSION) ok = true;
+                    }
+                } catch (Exception ignored) {
+                }
+                if (ok) openSocket(gen, a, req);
+                else serverOutdated(gen);
+            }
+        });
+    }
+
+    /** The server does not speak this app's API version: say so, and look again slowly (the owner may update it). */
+    public static final String SERVER_OUTDATED = "server_outdated";
+
+    private synchronized void serverOutdated(int gen) {
+        if (gen != generation || !wanted) return;
+        setState(State.ERROR, SERVER_OUTDATED);
+        main.postDelayed(reconnect, 60_000);
+    }
+
+    private synchronized void openSocket(int gen, Activity a, Request req) {
+        if (gen != generation || !wanted) return;
         socket = http.newWebSocket(req, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket ws, Response response) {

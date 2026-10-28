@@ -107,7 +107,12 @@ public class GitPanel implements PanelHost.Panel {
     private void withContext(final Runnable then) {
         if (!Bridge.ready()) return;
         // the editor can be gone for a moment (project being closed): then there is nothing to show
-        Bridge.query(() -> Bridge.editor() == null ? "" : Bridge.editor().getProject().getPath(), p -> {
+        Bridge.query(() -> {
+            com.star4droid.star2d.editor.LibgdxEditor ed = Bridge.editor();
+            if (ed == null) return "";
+            com.star4droid.star2d.Helpers.editor.Project pr = ed.getProject();
+            return pr == null || pr.getPath() == null ? "" : pr.getPath();
+        }, p -> {
             if (p.isEmpty()) return;
             if (g == null || !p.equals(projectPath)) {
                 projectPath = p;

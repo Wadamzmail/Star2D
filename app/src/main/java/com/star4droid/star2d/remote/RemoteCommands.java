@@ -40,13 +40,12 @@ public final class RemoteCommands {
 
     /** Two lines for Claude: the guide link and the request. All rules come from the server (connector instructions and AI.md). */
     public static String workCommand(Context c, String repoUrl) {
-        return "Star2D: " + RemoteSettings.server(c) + "/AI.md\nMy request: ";
+        return "Star2D: " + RemoteSettings.guideUrl(c) + "\nMy request: ";
     }
 
     /** The short one for any other AI. */
     public static String otherAiCommand(Context c) {
-        String server = RemoteSettings.server(c);
-        return "use this link to understand my project : " + server + "/AI.md\n"
+        return "use this link to understand my project : " + RemoteSettings.guideUrl(c) + "\n"
                 + "(plain HTTP API, private, do not share: POST " + RemoteSettings.apiBase(c) + "/<tool> with the JSON arguments as the body)\n";
     }
 }

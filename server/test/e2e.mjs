@@ -28,7 +28,7 @@ async function waitUp() {
 }
 
 const rpc = async (method, params, id = 1) => {
-  const r = await fetch(`${BASE}/mcp/${SECRET}`, {
+  const r = await fetch(`${BASE}/v1/mcp/${SECRET}`, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
     body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
@@ -39,7 +39,7 @@ const call = async (name, args = {}) => (await rpc("tools/call", { name, argumen
 
 function phone() {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/${SECRET}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/v1/ws/${SECRET}`);
     ws.on("open", () => {
       ws.send(JSON.stringify({ t: "hello", app: "Star2D", ver: "test", device: "sim" }));
       resolve(ws);
@@ -69,7 +69,7 @@ try {
   r = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
   check("initialize", r.json.result.protocolVersion === "2025-06-18" && r.json.result.instructions.includes("Star2D"));
 
-  r = await fetch(`${BASE}/mcp/${SECRET}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
+  r = await fetch(`${BASE}/v1/mcp/${SECRET}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
   check("notification -> 202", r.status === 202);
 
   r = await rpc("tools/list", {});
@@ -105,12 +105,12 @@ try {
   check("image content passes through", r.content[0].type === "image" && r.content[0].data === "AAAA");
 
   // plain HTTP api
-  const api = await (await fetch(`${BASE}/api/${SECRET}/status`, { method: "POST", body: "{}" })).json();
+  const api = await (await fetch(`${BASE}/v1/api/${SECRET}/status`, { method: "POST", body: "{}" })).json();
   check("HTTP api", JSON.parse(api.content[0].text).echo === "status");
-  r = await fetch(`${BASE}/api/${SECRET}/nope`, { method: "POST", body: "{}" });
+  r = await fetch(`${BASE}/v1/api/${SECRET}/nope`, { method: "POST", body: "{}" });
   check("HTTP api unknown tool 404", r.status === 404);
 
-  r = await fetch(`${BASE}/mcp/short`, { method: "POST", body: "{}" });
+  r = await fetch(`${BASE}/v1/mcp/short`, { method: "POST", body: "{}" });
   check("bad secret rejected", r.status === 404);
 
   // a second connection replaces the first
@@ -130,6 +130,20 @@ try {
     limited = r.isError && r.content[0].text.startsWith("daily_limit");
   }
   check("daily limit stops a runaway client", limited);
+  // versions: /version lists them, /v1 works, the old unversioned paths still work, an unknown version says the server needs an update
+  {
+    const v = await (await fetch(`${BASE}/version`)).json();
+    check("version endpoint lists v1", Array.isArray(v.versions) && v.versions.includes(1));
+    const g1 = await (await fetch(`${BASE}/v1/AI.md`)).text();
+    check("v1 guide points at /v1 paths", g1.includes(`${BASE}/v1/mcp/<secret>`), g1.slice(0, 200));
+    const g0 = await (await fetch(`${BASE}/AI.md`)).text();
+    check("legacy guide keeps unversioned paths", g0.includes(`${BASE}/mcp/<secret>`));
+    const old = await fetch(`${BASE}/mcp/${SECRET}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "ping" }) });
+    check("legacy unversioned mcp path still answers", old.status === 200, String(old.status));
+    const v9 = await fetch(`${BASE}/v9/mcp/${SECRET}`, { method: "POST", body: "{}" });
+    const j9 = await v9.json();
+    check("unknown version reports unsupported_version", v9.status === 404 && j9.error === "unsupported_version" && j9.versions.includes(1));
+  }
 } catch (e) {
   console.log("ERROR", e);
   failed++;
