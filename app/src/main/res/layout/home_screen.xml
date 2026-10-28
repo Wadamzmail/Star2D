@@ -36,6 +36,21 @@
             android:textColor="@color/home_text"
             android:textSize="19sp"
             android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <ImageView
+            android:id="@+id/home_gear"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Settings"
+            android:padding="9dp"
+            android:src="@drawable/ic_s2_settings"
+            android:tint="@color/home_text" />
     </LinearLayout>
 
     <!-- Tabs (scrollable so they never get squeezed) -->

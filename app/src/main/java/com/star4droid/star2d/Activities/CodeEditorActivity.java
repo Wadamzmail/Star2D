@@ -55,6 +55,23 @@ public class CodeEditorActivity extends AppCompatActivity {
 		save_info = findViewById(R.id.save_info);
 		path = getIntent().getStringExtra("path");
 		editor = findViewById(R.id.editor);
+		// the bars (symbols + save) must stay above the keyboard (edge-to-edge ignores adjustResize)
+		androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
+			androidx.core.graphics.Insets bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+			androidx.core.graphics.Insets ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime());
+			v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+			return androidx.core.view.WindowInsetsCompat.CONSUMED;
+		});
+		// no keyboard suggestions / auto-correct while coding
+		editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+				| android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+		try {
+			io.github.rosemoe.sora.widget.component.EditorAutoCompletion ac = editor.getComponent(io.github.rosemoe.sora.widget.component.EditorAutoCompletion.class);
+			ac.setEnabledAnimation(true);
+			ac.setHighlightMatchedLabel(true);
+		} catch(Throwable ignored){}
+		if(android.text.TextUtils.getLayoutDirectionFromLocale(java.util.Locale.getDefault()) == android.view.View.LAYOUT_DIRECTION_RTL)
+			findViewById(R.id.back).setScaleX(-1f);
 		
 		findViewById(R.id.keyboard).setOnClickListener(v->{
 			if(!showKeyboard())

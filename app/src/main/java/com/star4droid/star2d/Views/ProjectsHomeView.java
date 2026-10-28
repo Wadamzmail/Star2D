@@ -94,6 +94,7 @@ public class ProjectsHomeView extends FrameLayout {
         setupTemplates();
         setupCommunity();
         setupSettings();
+        findViewById(R.id.home_gear).setOnClickListener(v -> selectTab(4));
         selectTab(0);
         refresh();
         askLanguageOnFirstRun();

@@ -121,6 +121,7 @@ public final class SmartEditor {
 
     /** Called by the language on Sora's completion thread. */
     public void requireAutoComplete(ContentReference content, CharPosition pos, CompletionPublisher publisher) {
+        publisher.setUpdateThreshold(1);
         long deadline = System.currentTimeMillis() + 5000;
         while (doc == null && System.currentTimeMillis() < deadline) {
             publisher.checkCancelled();
