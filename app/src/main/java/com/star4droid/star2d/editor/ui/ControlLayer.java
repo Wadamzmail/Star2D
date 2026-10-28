@@ -521,7 +521,18 @@ public class ControlLayer extends Table {
 		if(nativeUi == null) app.toast(getTrans("saved"));
 	}
 
+	/** Watches builds started by actionPlay (used by the remote/AI tools). */
+	public interface BuildObserver {
+		void status(int state, String text);
+		void errors(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors);
+	}
+	public static volatile BuildObserver buildObserver;
+	/** When true actionPlay compiles but does not start the game. */
+	public static volatile boolean buildOnly;
+
 	private void playStatus(int state, String text){
+		BuildObserver bo = buildObserver;
+		if(bo != null) try { bo.status(state, text); } catch(Throwable ignored){}
 		if(nativeUi != null){
 			nativeUi.onPlayStatus(state, text);
 			return;
@@ -534,6 +545,10 @@ public class ControlLayer extends Table {
 
 	/** Generate code, compile when needed, then run the current scene. */
 	public void actionPlay(){
+		if(app.getEditor() != null && app.getEditor().isLoading()){
+			app.toast("please wait, the scene is still loading...");
+			return;
+		}
 		String path = app.getEditor().getProject().getPath();
 		// get project name...
 		final String projectName = path.contains("/") ? path.substring(path.lastIndexOf("/"),path.length()) : path;
@@ -565,6 +580,8 @@ public class ControlLayer extends Table {
 				@Override
 				public void onErrors(java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> errors) {
 					lastBuildErrors = new java.util.ArrayList<>(errors);
+					BuildObserver bo = buildObserver;
+					if(bo != null) try { bo.errors(lastBuildErrors); } catch(Throwable ignored){}
 					if(nativeUi != null) nativeUi.onBuildErrors(errors);
 				}
 
@@ -586,7 +603,7 @@ public class ControlLayer extends Table {
 					Gdx.files.absolute(app.getEditor().getProject().getPath()+"/java/classes.dex").moveTo(fileHandle);
 					
 					playStatus(3, "");
-					app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
+					if(!buildOnly) app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
 				}
 				
 			});
@@ -603,6 +620,8 @@ public class ControlLayer extends Table {
 							Gdx.app.postRunnable(()->{
 								if(errorLog.exists()){
 									Gdx.input.setInputProcessor(inputProcessor);
+									BuildObserver bo2 = buildObserver;
+									if(bo2 != null && lastBuildErrors != null) try { bo2.errors(lastBuildErrors); } catch(Throwable ignored){}
 									if(nativeUi != null){
 										if(lastBuildErrors != null && !lastBuildErrors.isEmpty()) nativeUi.onBuildErrors(lastBuildErrors);
 										nativeUi.onPlayStatus(1, errorLog.readString());
@@ -610,7 +629,7 @@ public class ControlLayer extends Table {
 									} else textShow.setText(errorLog.readString());
 								} else {
 									playStatus(3, "");
-									app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
+									if(!buildOnly) app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
 								}
 							});
 							

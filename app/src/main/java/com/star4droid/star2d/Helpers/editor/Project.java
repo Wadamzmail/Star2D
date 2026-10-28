@@ -202,6 +202,8 @@ public class Project {
 	}
 	
 	public void save(LibgdxEditor editor){
+		// never write a half-loaded scene over the real file
+		if(editor.isLoading()) return;
 		Gdx.files.absolute(path+"/scenes/"+editor.getScene()).writeString(editor.getSaveState(),false);
 		if(TestApp.getCurrentApp().preferences.getBoolean("SaveUndoRedo",true))
 			Gdx.files.absolute(getUndoRedo(editor.getScene())).writeString(editor.getUndoRedoJson(),false);

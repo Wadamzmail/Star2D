@@ -372,6 +372,11 @@ public class StageImp extends ApplicationAdapter {
 	    return initDone;
 	}
 	
+	/** The scene that is really running right now (this, or the scene opened from it). */
+	public StageImp activeStage(){
+		return currentStage == null ? this : currentStage;
+	}
+	
 	public PlayerItem findItem(String name){
 	    //String names="";
 		try {

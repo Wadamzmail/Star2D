@@ -1,0 +1,19 @@
+{
+  "name": "star2d-remote-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker that lets Claude (or any MCP client) control the Star2D editor running on a phone.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/e2e.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261023.1",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0",
+    "ws": "^8.18.0"
+  }
+}

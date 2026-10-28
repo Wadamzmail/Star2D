@@ -72,6 +72,11 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     public final com.star4droid.star2d.ui.panels.GitPanel git;
     public final SettingsPanel settings;
     public final AddItemPanel addItem;
+    public final com.star4droid.star2d.ui.panels.RemotePanel remote;
+    private RemoteOverlay remoteOverlay;
+    /** Dimming layers over the editing bars; shown while an AI works (see applyRemoteLock). */
+    private final ArrayList<View> shields = new ArrayList<>();
+    private final com.star4droid.star2d.remote.RemoteSession.Listener sessionListener = this::applyRemoteLock;
 
     private ImageView undoBtn, redoBtn, lockBtn;
     private final ArrayList<ImageView> toolButtons = new ArrayList<>();
@@ -89,6 +94,9 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private ProgressBar playProgress;
     private BuildConsole console;
     private ImageView consoleBtn;
+    private LinearLayout loadingBox;
+    private ProgressBar loadingBar;
+    private TextView loadingText;
     private java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> pendingErrors;
     private boolean errorsHandled;
 
@@ -101,6 +109,8 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
         chrome = new FrameLayout(activity);
         addView(chrome, Ui.match());
+        remoteOverlay = new RemoteOverlay(activity);
+        addView(remoteOverlay, Ui.match());
         panels = new PanelHost(activity);
         addView(panels, Ui.match());
         panels.setOnVisibilityChanged(this::updateRailSelection);
@@ -115,17 +125,54 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         git = new com.star4droid.star2d.ui.panels.GitPanel(this);
         settings = new SettingsPanel(this);
         addItem = new AddItemPanel(this);
+        remote = new com.star4droid.star2d.ui.panels.RemotePanel(this);
+        com.star4droid.star2d.remote.RemoteSession.addListener(sessionListener);
+        com.star4droid.star2d.remote.RemoteClient.get().addListener((st, d) -> applyRemoteLock());
 
         console = new BuildConsole(activity);
         console.setOpener(this::openError);
         console.setOnVisibilityChange(this::updateConsoleChip);
         FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         addView(console, cl);
+        buildLoadingBar();
         current = this;
         ControlLayer.nativeUi = this;
         TestApp.nativeHooks = this;
         setVisibility(GONE);
         build();
+    }
+
+    /** Thin bar + label shown while a big scene is being created (see LibgdxEditor.loadChunked). */
+    private void buildLoadingBar() {
+        Context c = activity;
+        loadingBox = Ui.column(c);
+        loadingBox.setBackgroundColor(0xE617191D);
+        loadingBox.setPadding(Ui.dp(c, 16), Ui.dp(c, 8), Ui.dp(c, 16), Ui.dp(c, 8));
+        loadingText = Ui.text(c, Tr.t("ui_loading_scene", "Loading scene…"), 12, Ui.TEXT_2);
+        loadingBox.addView(loadingText, Ui.matchWrap());
+        loadingBar = new ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
+        loadingBar.setMax(1000);
+        loadingBar.getProgressDrawable().setColorFilter(Ui.ACCENT, android.graphics.PorterDuff.Mode.SRC_IN);
+        loadingBox.addView(loadingBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(c, 4)));
+        loadingBox.setVisibility(GONE);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP);
+        addView(loadingBox, lp);
+    }
+
+    @Override
+    public void onSceneLoading(float progress) {
+        Ui.ui(() -> {
+            if (loadingBox == null) return;
+            if (progress < 0f) {
+                loadingBox.setVisibility(GONE);
+                return;
+            }
+            int pct = Math.round(progress * 100f);
+            loadingBar.setProgress(Math.round(progress * 1000f));
+            loadingText.setText(Tr.t("ui_loading_scene", "Loading scene…") + " " + pct + "%");
+            loadingBox.setVisibility(VISIBLE);
+            loadingBox.bringToFront();
+        });
     }
 
     public Activity activity() { return activity; }
@@ -138,6 +185,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         Context c = activity;
         if (console != null) console.rebuild();
         chrome.removeAllViews();
+        shields.clear();
         toolButtons.clear();
         railButtons.clear();
         railPanels.clear();
@@ -146,13 +194,13 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         LinearLayout root = Ui.column(c);
         chrome.addView(root, Ui.match());
 
-        root.addView(buildTopBar(c, land), Ui.matchWrap());
+        root.addView(shield(buildTopBar(c, land), true), Ui.matchWrap());
         if (!land) {
             LinearLayout tools = bar(c);
             tools.setBackgroundColor(0xEC1C1F24);
             addSceneTools(c, tools);
-            root.addView(wrapScroll(c, tools, false), Ui.matchWrap());
-            root.addView(buildTabsBar(c), Ui.matchWrap());
+            root.addView(shield(wrapScroll(c, tools, false), true), Ui.matchWrap());
+            root.addView(shield(buildTabsBar(c), true), Ui.matchWrap());
         }
 
         // middle: canvas is visible through here; rails float on the sides
@@ -170,9 +218,9 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             FrameLayout.LayoutParams tlp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             tlp.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
             tlp.setMarginStart(Ui.dp(c, 6));
-            middle.addView(wrapScroll(c, tools, true), tlp);
+            middle.addView(shield(wrapScroll(c, tools, true), false), tlp);
         } else {
-            root.addView(wrapScroll(c, buildTools(c, false), false), Ui.matchWrap());
+            root.addView(shield(wrapScroll(c, buildTools(c, false), false), true), Ui.matchWrap());
         }
 
         indexingChip = Ui.text(c, "  " + Tr.t("indexing", "Indexing files...") + "  ", 12, Ui.TEXT_2);
@@ -189,6 +237,43 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         updateToolSelection();
         updateRailSelection();
         refreshUndoRedo();
+        applyRemoteLock();
+    }
+
+    /** Wraps a bar so it can be dimmed and made untouchable while an AI is working. */
+    private View shield(View v, boolean matchWidth) {
+        FrameLayout f = new FrameLayout(activity);
+        f.addView(v, new FrameLayout.LayoutParams(matchWidth ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        View s = new View(activity);
+        s.setBackgroundColor(0x99101216);
+        s.setClickable(true);
+        s.setVisibility(GONE);
+        s.setOnClickListener(x -> Ui.toast(activity, Tr.t("rc_locked_toast", "The AI is working. Press “Take control” to edit.")));
+        f.addView(s, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        shields.add(s);
+        return f;
+    }
+
+    /** UI thread: reflect "an AI is working" (dim the editing bars, only files stay open) and the connection state on the rail icon. */
+    private void applyRemoteLock() {
+        Ui.ui(() -> {
+            boolean locked = com.star4droid.star2d.remote.RemoteSession.isLocked();
+            for (View s : shields) s.setVisibility(locked ? VISIBLE : GONE);
+            for (int i = 0; i < railButtons.size(); i++) {
+                PanelHost.Panel p = railPanels.get(i);
+                boolean allowed = !locked || p == files || p == remote;
+                railButtons.get(i).setAlpha(allowed ? 1f : 0.35f);
+                if (p == remote) {
+                    boolean on = com.star4droid.star2d.remote.RemoteClient.get().state() == com.star4droid.star2d.remote.RemoteClient.State.CONNECTED;
+                    railButtons.get(i).setImageTintList(ColorStateList.valueOf(on ? Ui.SUCCESS : Ui.TEXT));
+                }
+            }
+            if (locked) {
+                PanelHost.Panel cur = panels.current();
+                if (cur != null && cur != files && cur != remote) panels.hide();
+            }
+            if (remote != null) remote.refresh();
+        });
     }
 
     private View wrapScroll(Context c, LinearLayout content, boolean vertical) {
@@ -308,6 +393,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         addRail(c, rail, files);
         addRail(c, rail, ai);
         addRail(c, rail, git);
+        addRail(c, rail, remote);
         return rail;
     }
 
@@ -426,6 +512,10 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     }
 
     public void togglePanel(PanelHost.Panel p) {
+        if (com.star4droid.star2d.remote.RemoteSession.isLocked() && p != files && p != remote) {
+            Ui.toast(activity, Tr.t("rc_locked_toast", "The AI is working. Press “Take control” to edit."));
+            return;
+        }
         panels.toggle(p);
     }
 

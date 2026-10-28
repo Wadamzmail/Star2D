@@ -106,12 +106,16 @@ public class GitPanel implements PanelHost.Panel {
 
     private void withContext(final Runnable then) {
         if (!Bridge.ready()) return;
-        Bridge.query(() -> Bridge.editor().getProject().getPath(), p -> {
+        // the editor can be gone for a moment (project being closed): then there is nothing to show
+        Bridge.query(() -> Bridge.editor() == null ? "" : Bridge.editor().getProject().getPath(), p -> {
+            if (p.isEmpty()) return;
             if (g == null || !p.equals(projectPath)) {
                 projectPath = p;
                 g = new GitContext(shell.activity(), new File(p));
                 g.saver = next -> Bridge.query(() -> {
                     Bridge.controls().actionSave();
+                    // remember what each open scene looks like on disk, to reload only what git changes
+                    sceneStamps = Bridge.app().openSceneFingerprints();
                     return true;
                 }, v -> next.run());
                 g.onFilesChanged = this::reloadProject;
@@ -124,8 +128,15 @@ public class GitPanel implements PanelHost.Panel {
         });
     }
 
+    /** Scene fingerprints taken right before the last git operation (null = unknown, reload everything). */
+    private java.util.HashMap<String, String> sceneStamps;
+
+    /** Files changed on disk: reload only the open scene when it changed, close other changed tabs. */
     private void reloadProject() {
-        Bridge.query(() -> Bridge.app().reloadProject(), ok -> {
+        final java.util.HashMap<String, String> before = sceneStamps;
+        sceneStamps = null;
+        Bridge.query(() -> Bridge.app().applyExternalChanges(before), report -> {
+            if (report != null && !report.isEmpty()) Snack.show(report);
         });
     }
 
