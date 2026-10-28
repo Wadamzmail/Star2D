@@ -87,7 +87,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private TextView playStatus;
     private ProgressBar playProgress;
     private BuildConsole console;
-    private TextView consoleChip;
+    private ImageView consoleBtn;
     private java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> pendingErrors;
     private boolean errorsHandled;
 
@@ -119,17 +119,6 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         console.setOnVisibilityChange(this::updateConsoleChip);
         FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         addView(console, cl);
-        consoleChip = Ui.text(activity, "", 13, Ui.TEXT);
-        consoleChip.setTypeface(Typeface.DEFAULT_BOLD);
-        consoleChip.setPadding(Ui.dp(activity, 12), Ui.dp(activity, 8), Ui.dp(activity, 12), Ui.dp(activity, 8));
-        consoleChip.setBackground(Ui.rounded(0xE6B71C1C, Ui.dp(activity, 18)));
-        consoleChip.setElevation(Ui.dp(activity, 8));
-        consoleChip.setVisibility(GONE);
-        consoleChip.setOnClickListener(v -> console.reveal());
-        FrameLayout.LayoutParams chipLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START);
-        chipLp.setMargins(Ui.dp(activity, 12), 0, 0, Ui.dp(activity, 12));
-        addView(consoleChip, chipLp);
-
         current = this;
         ControlLayer.nativeUi = this;
         TestApp.nativeHooks = this;
@@ -380,6 +369,14 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         del.setImageTintList(ColorStateList.valueOf(0xFFFF8A80));
         t.addView(del);
         t.addView(Ui.iconButton(c, R.drawable.ic_s2_camera, Tr.t("ui_center_camera", "Center camera"), v -> Bridge.gl(() -> Bridge.editor().centerCamera())));
+        // build errors: only there when the last build failed; opens / closes the console
+        consoleBtn = Ui.iconButton(c, R.drawable.ic_s2_bug, Tr.t("console_title", "Errors"), v -> {
+            if (console.getVisibility() == VISIBLE) console.hide();
+            else console.reveal();
+        });
+        consoleBtn.setImageTintList(ColorStateList.valueOf(0xFFFF8A80));
+        t.addView(consoleBtn);
+        updateConsoleChip();
         return t;
     }
 
@@ -617,9 +614,9 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     }
 
     private void updateConsoleChip() {
-        boolean show = console.count() > 0 && console.getVisibility() != VISIBLE && !playing;
-        consoleChip.setVisibility(show ? VISIBLE : GONE);
-        consoleChip.setText("⚠  " + Tr.t("console_title", "Errors") + " (" + console.count() + ")");
+        if (consoleBtn == null) return;
+        consoleBtn.setVisibility(console.count() > 0 ? VISIBLE : GONE);
+        consoleBtn.setSelected(console.getVisibility() == VISIBLE);
     }
 
     private void openError(com.star4droid.star2d.CodeEditor.smart.BuildError e) {
