@@ -26,10 +26,17 @@ public class EditorGroupItem extends Image implements EditorItem {
 	LibgdxEditor editor;
 	ShapeRenderer shapeRenderer;
 	private static BitmapFont font;
+	private static TextureRegionDrawable icon;
+	
+	private static TextureRegionDrawable icon(){
+		if(icon == null)
+			icon = new TextureRegionDrawable(new com.badlogic.gdx.graphics.g2d.TextureRegion(new Texture(Gdx.files.internal("images/bodies/group.png"))));
+		return icon;
+	}
 	private final Vector2 tmp = new Vector2();
 	
 	public EditorGroupItem(final LibgdxEditor libgdxEditor){
-		super(new TextureRegionDrawable(new com.badlogic.gdx.graphics.g2d.TextureRegion(new Texture(Gdx.files.internal("images/bodies/group.png")))));
+		super(icon());
 		this.editor = libgdxEditor;
 		this.shapeRenderer = libgdxEditor.getShapeRenderer();
 		setSize(100,100);

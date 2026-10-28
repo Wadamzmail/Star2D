@@ -269,7 +269,7 @@ public class GroupFollower {
     /** Computes (and applies) the pose of a node from its parent. Roots and not driven nodes are only observed. */
     private void step(Node n, boolean uiPass) {
         Node p = n.parent;
-        if (p == null || !n.recorded || n.mode == MODE_NONE || p.actor.getStage() == null) {
+        if (p == null || !n.recorded || n.mode == MODE_NONE || p.actor.getStage() == null || !drivable(n)) {
             observe(n);
             return;
         }

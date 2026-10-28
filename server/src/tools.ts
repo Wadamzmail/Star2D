@@ -474,6 +474,7 @@ Rules:
 6. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); speeds <= 450 px/s; scene collision events, isSensor pickups, hide + destroyLater to remove.
 7. Images: create_image name.png -> element image "/name.png". TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT/PROGRESS without touch events is click-through: put onClick/onTouchStart on the BOX button only.
 8. UI: after building a screen run layout_check, then screenshot (target scene, region/camera) and fix what you see.
+8b. Structure: put related elements under a GROUP (parent, read_docs groups); a repeated enemy/UI piece becomes a prefab (prefabs tool, read_docs prefabs), edit one instance then apply.
 9. Test: run_game returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
 
 Docs are long: read only what you need. read_docs {} = topic map; {topic, section} (e.g. elements/JOYSTICK); {search:'words'}. Tool errors name the section to read. Cheap project reading: status -> scene_dump {brief:true} -> get_elements {names}.`;
