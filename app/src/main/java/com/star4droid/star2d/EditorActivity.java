@@ -399,6 +399,16 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 	@Override
+	protected void onStart() {
+		super.onStart();
+		com.star4droid.star2d.remote.RemoteClient.get().onForeground(this);
+	}
+	@Override
+	protected void onStop() {
+		com.star4droid.star2d.remote.RemoteClient.get().onBackground(this);
+		super.onStop();
+	}
+	@Override
 	protected void onResume() {
 		super.onResume();
 		if(editor!=null)

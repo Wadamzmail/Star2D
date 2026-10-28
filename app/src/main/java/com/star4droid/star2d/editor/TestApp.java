@@ -63,10 +63,24 @@ public class TestApp implements ApplicationListener {
 		void showText(String text);
 		/** Back key pressed in the editor. */
 		void onBackKey();
+		/** Scene loading progress of the current editor: 0..1, or a negative value when finished. GL thread. */
+		void onSceneLoading(float progress);
 	}
 	public static NativeHooks nativeHooks;
 
+	/** Called (GL thread) at the very end of each frame, once. Used for screenshots. */
+	public static volatile Runnable frameHook;
+	/** Sees runtime error texts of the game (the remote/AI tools collect them). */
+	public static volatile java.util.function.Consumer<String> errorObserver;
+
+	/** The running game (or null). */
+	public com.star4droid.template.Items.StageImp getPlayingStage(){
+		return stageImp;
+	}
+
 	private void showErrorText(String text){
+		java.util.function.Consumer<String> eo = errorObserver;
+		if(eo != null) try { eo.accept(text); } catch(Throwable ignored){}
 		if(nativeHooks != null) nativeHooks.showText(text);
 		else fileBrowser.showText(text);
 	}
@@ -324,6 +338,13 @@ public class TestApp implements ApplicationListener {
 			}
 			pos++;
 		}
+		LibgdxEditor editor = createSceneEditor(scene);
+		editors.add(editor);
+		setCurrentEditor(editors.size - 1);
+	}
+	
+	/** A loaded (it loads in chunks) editor for a scene, set up like the ones of the other tabs. Not added to the tabs. */
+	private LibgdxEditor createSceneEditor(String scene){
 		LibgdxEditor editor = new LibgdxEditor(project,scene,projectAssetLoader);
 		editor.enableAutoSave(preferences.getBoolean("AutoSave",true));
 		editor.setEditorListener(editor.getEditorListener());
@@ -337,22 +358,130 @@ public class TestApp implements ApplicationListener {
 		controlLayer.getJointsList().refresh();
 		controlLayer.getVarsItem().setFileHandle(Gdx.files.absolute(project.getVariables(scene)));
 		editor.setUiStage(UiStage);
-		
-		/*
-		try {
-			landscape = editor.getConfig().getString("or").equals("");
-		} catch(Exception e){}
-		*/
 		editor.setLandscape(this.editor.isLandscape());
-		//if(whenEditorReady!=null)
-			//whenEditorReady.run();
-		
-		//editor.getFilePicker(false);
 		if(width != -1){
 			resize(width,height);
 		}
-		editors.add(editor);
-		setCurrentEditor(editors.size - 1);
+		return editor;
+	}
+	
+	// ---------------------------------------------------------------- external changes (git, remote AI)
+	
+	private static void crcFile(java.util.zip.CRC32 crc, java.io.File f){
+		try {
+			if(f.isDirectory()){
+				java.io.File[] list = f.listFiles();
+				if(list == null) return;
+				java.util.Arrays.sort(list);
+				for(java.io.File c:list){
+					crc.update(c.getName().getBytes("UTF-8"));
+					crcFile(crc,c);
+				}
+			} else if(f.isFile()){
+				crc.update(java.nio.file.Files.readAllBytes(f.toPath()));
+			} else crc.update(0);
+		} catch(Exception ignored){}
+	}
+	
+	/** What defines a scene on disk (scene file, config, joints, variables) as one number. */
+	public String sceneFingerprint(String scene){
+		java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+		crcFile(crc,new java.io.File(project.getScenesPath()+scene));
+		crcFile(crc,new java.io.File(project.getConfig(scene)));
+		crcFile(crc,new java.io.File(project.getJoints(scene)));
+		crcFile(crc,new java.io.File(project.getVariables(scene)));
+		return Long.toHexString(crc.getValue());
+	}
+	
+	/** Fingerprints of the scenes that are open in tabs. Call after saving, before an operation that may change files. GL thread. */
+	public java.util.HashMap<String,String> openSceneFingerprints(){
+		java.util.HashMap<String,String> m = new java.util.HashMap<>();
+		if(project == null) return m;
+		for(LibgdxEditor ed:editors)
+			m.put(ed.getScene(),sceneFingerprint(ed.getScene()));
+		return m;
+	}
+	
+	/**
+	 * Files changed on disk behind the editor's back. Only the scenes that really changed are touched:
+	 * the open one is reloaded in place, other changed tabs are closed, everything else is left alone.
+	 * With no "before" snapshot every open scene counts as changed. Returns a short report for the user. GL thread.
+	 */
+	public String applyExternalChanges(java.util.HashMap<String,String> before){
+		if(project == null || editors.size == 0 || editor == null) return "";
+		// new images etc. that arrived with the change
+		try { if(projectAssetLoader != null) projectAssetLoader.load(new com.star4droid.star2d.Helpers.Project(project.getPath())); } catch(Throwable ignored){}
+		LibgdxEditor current = this.editor;
+		java.util.ArrayList<LibgdxEditor> closed = new java.util.ArrayList<>();
+		boolean currentChanged = false, currentGone = false;
+		for(LibgdxEditor ed:snapshotEditors()){
+			String sc = ed.getScene();
+			boolean gone = !new java.io.File(project.getScenesPath()+sc).exists();
+			boolean changed = gone || before == null || !before.containsKey(sc) || !before.get(sc).equals(sceneFingerprint(sc));
+			if(!changed) continue;
+			if(ed == current){
+				currentChanged = true;
+				currentGone = gone;
+			} else closed.add(ed);
+		}
+		// other changed tabs: close them
+		for(LibgdxEditor ed:closed){
+			editors.removeValue(ed,true);
+			ed.dispose();
+		}
+		String report = "";
+		if(!closed.isEmpty()) report = closed.size()+" tab(s) closed";
+		if(currentChanged){
+			int pos = editors.indexOf(current,true);
+			if(currentGone){
+				// the open scene does not exist any more: go to another tab, or start over
+				editors.removeValue(current,true);
+				if(editors.size == 0){
+					editors.add(current); // reloadProject closes (and disposes) everything itself
+					reloadProject();
+					return "reloaded";
+				}
+				multiplexer.removeProcessor(current);
+				current.dispose();
+				this.editor = editors.get(0);
+				multiplexer.addProcessor(this.editor);
+				currentEditorPos = 0;
+				setCurrentEditorQuiet();
+			} else {
+				LibgdxEditor fresh = createSceneEditor(current.getScene());
+				editors.set(pos,fresh);
+				multiplexer.removeProcessor(current);
+				this.editor = fresh;
+				multiplexer.addProcessor(fresh);
+				Gdx.input.setInputProcessor(multiplexer);
+				currentEditorPos = pos;
+				current.dispose();
+				setCurrentEditorQuiet();
+			}
+			report = (report.isEmpty() ? "" : report+", ")+"scene reloaded";
+		} else if(!closed.isEmpty()){
+			if(!editors.contains(this.editor,true)) {
+				this.editor = editors.get(0);
+				multiplexer.addProcessor(this.editor);
+			}
+			currentEditorPos = Math.max(0,editors.indexOf(this.editor,true));
+			setCurrentEditorQuiet();
+		} 
+		return report;
+	}
+	
+	private java.util.ArrayList<LibgdxEditor> snapshotEditors(){
+		java.util.ArrayList<LibgdxEditor> l = new java.util.ArrayList<>();
+		for(LibgdxEditor e:editors) l.add(e);
+		return l;
+	}
+	
+	private void setCurrentEditorQuiet(){
+		controlLayer.tabsItem.refresh();
+		controlLayer.getJointsList().refresh();
+		controlLayer.getBodiesList().update();
+		controlLayer.getVarsItem().setFileHandle(Gdx.files.absolute(project.getVariables(editor.getScene())));
+		if(nativeHooks != null) nativeHooks.onEditorChanged();
 	}
 	
 	public LibgdxEditor.TOUCHMODE getTouchMode(String mode){
@@ -618,6 +747,11 @@ public class TestApp implements ApplicationListener {
 	        renderIn();
 	    } catch(Exception ex){
 	        Gdx.files.external("logs/renderIn.error.txt").writeString(Utils.getStackTraceString(ex)+"\n",false);
+	    }
+	    Runnable hook = frameHook;
+	    if(hook != null){
+	        frameHook = null;
+	        try { hook.run(); } catch(Throwable ignored){}
 	    }
 	}
 	

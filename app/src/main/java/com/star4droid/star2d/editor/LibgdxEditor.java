@@ -198,6 +198,7 @@ public class LibgdxEditor extends Stage {
 	// when the touch of the editor ends
 	@Override
 	public boolean touchUp(int arg0, int arg1, int arg2, int arg3) {
+		if(loadingScene || com.star4droid.star2d.remote.RemoteSession.isLocked()) return true;
 	    // save the end position if touch type is grid and push it to the events for undo redo.. 
 		if(touch_mode!=TOUCHMODE.GRID && getSelectedActor()!=null){
 			PropertySet<String,Object> ps = PropertySet.getPropertySet(selectedActor);
@@ -229,6 +230,7 @@ public class LibgdxEditor extends Stage {
 	// when the editor touch started 
 	@Override
 	public boolean touchDown(int arg0, int arg1, int arg2, int arg3) {
+		if(loadingScene || com.star4droid.star2d.remote.RemoteSession.isLocked()) return true; // locked: an AI is editing, the camera can still be moved
 		if(selectedActor == null){
 		    ArrayList<String> bodies = getBodiesList();
 		    if(bodies.size()>0)
@@ -343,7 +345,158 @@ public class LibgdxEditor extends Stage {
 			string = fileHandle.readString();
 		} catch(Exception e){}
 		updateConfig();
-		load(string);
+		loadChunked(string);
+	}
+	
+	// ---------------------------------------------------------------- chunked loading
+	// Big scenes used to freeze the app while every item was created in one go. The items are now
+	// created a few milliseconds per frame, with a progress report for the UI.
+	private volatile int loadToken = 0;
+	private boolean loadingScene = false;
+	private float loadProgress = 0f;
+	private final ArrayList<Runnable> loadedCallbacks = new ArrayList<>();
+	
+	/** True while the scene file is still being turned into items (saving is blocked meanwhile). */
+	public boolean isLoading(){
+		return loadingScene;
+	}
+	
+	/** 0..1 while loading. */
+	public float getLoadProgress(){
+		return loadProgress;
+	}
+	
+	/** Run when the scene finished loading (now, if it already did). GL thread. */
+	public void whenLoaded(Runnable r){
+		if(!loadingScene) r.run();
+		else loadedCallbacks.add(r);
+	}
+	
+	private void reportLoading(float p){
+		loadProgress = p;
+		try {
+			TestApp app = TestApp.getCurrentApp();
+			if(TestApp.nativeHooks != null && app != null && app.getEditor() == this)
+				TestApp.nativeHooks.onSceneLoading(p);
+		} catch(Throwable ignored){}
+	}
+	
+	private EditorItem createItem(PropertySet<String, Object> propertySet){
+		switch(propertySet.getString("TYPE")){
+			case "BOX": return new BoxItem(this);
+			case "CUSTOM": return new CustomItem(this);
+			case "CIRCLE": return new CircleItem(this);
+			case "TEXT": return new EditorTextItem(this);
+			case "PROGRESS": return new EditorProgressItem(this);
+			case "JOYSTICK": return new JoyStickItem(this);
+			case "LIGHT": return new LightItem(this);
+			case "PARTICLE": return new ParticleItem(this);
+			case "CAMERA": return new EditorCameraItem(this);
+			case "MAP": return new EditorMapItem(this);
+		}
+		return null;
+	}
+	
+	public void loadChunked(String jsonSave){
+		final int token = ++loadToken;
+		currentState = jsonSave;
+		clear();
+		world = new World(new Vector2(0,-9.8f),true);
+		if(jsonSave.equals("")){
+			loadingScene = false;
+			return;
+		}
+		loadingScene = true;
+		reportLoading(0f);
+		try {
+			loadUndoRedo();
+		} catch(Exception ex){
+			toast("loading undo redo lists error : "+ex.toString(),9);
+			Gdx.files.external("logs/undo loading.error.txt").writeString(ex.toString()+"\n",true);
+		}
+		// parsing a big file is slow too, so it runs off the GL thread
+		new Thread(()->{
+			ArrayList<PropertySet<String, Object>> sets = null;
+			try {
+				sets = new Gson().fromJson(jsonSave,
+					new TypeToken<ArrayList<PropertySet<String, Object>>>() {}.getType());
+			} catch(Throwable t){
+				Gdx.files.external("logs/load.error.txt").writeString(Utils.getStackTraceString(t)+"\n",true);
+			}
+			final ArrayList<PropertySet<String, Object>> parsed = sets == null ? new ArrayList<>() : sets;
+			Gdx.app.postRunnable(()->{
+				if(token != loadToken) return;
+				loadStep(token, parsed, new HashMap<String,PropertySet>(), 0);
+			});
+		},"scene-parse").start();
+	}
+	
+	private void loadStep(int token, ArrayList<PropertySet<String, Object>> sets, HashMap<String,PropertySet> propsMap, int index){
+		if(token != loadToken) return;
+		long end = System.nanoTime() + 8_000_000L; // ~8ms of work per frame
+		int total = Math.max(1, sets.size());
+		try {
+			while(index < sets.size()){
+				PropertySet<String, Object> propertySet = sets.get(index++);
+				if(propertySet != null){
+					EditorItem item = createItem(propertySet);
+					if(item != null){
+						propsMap.put(propertySet.getString("name"),propertySet);
+						((Actor)item).setName(propertySet.getString("name"));
+						item.setProperties(propertySet);
+						if(selectedActor == null)
+							selectActor((Actor) item);
+					}
+				}
+				if(System.nanoTime() > end) break;
+			}
+		} catch(Exception e){
+			Gdx.files.external("logs/load.error.txt").writeString(Utils.getStackTraceString(e)+"\n",true);
+		}
+		if(index < sets.size()){
+			reportLoading(index / (float) total);
+			final int next = index;
+			Gdx.app.postRunnable(()->loadStep(token, sets, propsMap, next));
+			return;
+		}
+		// everything is created: link the parents and tell the UI
+		try {
+			for(Actor actor:getActors()){
+				if(Utils.isEditorItem(actor)){
+					PropertySet set1= PropertySet.getPropertySet(actor);
+					if(!set1.getString("parent").equals("")){
+						if(propsMap.containsKey(set1.getString("parent"))){
+							set1.setParent(propsMap.get(set1.getString("parent")));
+						} else {
+							Gdx.files.external("logs/parent.error.txt").writeString("parent not found for : "+set1.getString("name")+", parent name : "+set1.getString("parent")+"\n",true);
+							set1.put("parent","");
+						}
+					}
+				}
+			}
+		} catch(Exception exx){}
+		propsMap.clear();
+		loadingScene = false;
+		if(controlLayer!=null){
+			if(selectedActor!=null)
+				controlLayer.bodySelected();
+			controlLayer.updateUndoRedo();
+		}
+		if(editorListener!=null){
+			editorListener.onUpdateUndoRedo();
+			if(selectedActor!=null)
+				editorListener.onBodySelected();
+		}
+		reportLoading(-1f);
+		ArrayList<Runnable> cbs = new ArrayList<>(loadedCallbacks);
+		loadedCallbacks.clear();
+		for(Runnable r:cbs){
+			try { r.run(); } catch(Throwable t){ Gdx.files.external("logs/load.error.txt").writeString(Utils.getStackTraceString(t)+"\n",true); }
+		}
+		try {
+			if(TestApp.nativeHooks != null && TestApp.getCurrentApp() != null && TestApp.getCurrentApp().getEditor() == this)
+				TestApp.nativeHooks.onEditorChanged();
+		} catch(Throwable ignored){}
 	}
 	
 	// editor listener to listen for body selection and undo/redo events change
@@ -903,6 +1056,11 @@ public class LibgdxEditor extends Stage {
 	
 	@Override
 	public boolean touchDragged(int arg0, int arg1, int arg2) {
+		if(loadingScene) return true;
+		if(com.star4droid.star2d.remote.RemoteSession.isLocked()){
+			handleTouch();
+			return true;
+		}
 	    // handle the touch with movement...
 		handleTouch();
 		return super.touchDragged(arg0, arg1, arg2);
@@ -915,7 +1073,7 @@ public class LibgdxEditor extends Stage {
 			float deltaX = lockY ? 0 : (-Gdx.input.getDeltaX() * camera.zoom * 0.5f);
 			float deltaY = lockX ? 0 : (Gdx.input.getDeltaY() * camera.zoom * 0.5f);
 			boolean locked = propertySet != null && propertySet.getString("lock").equals("true");
-			if(touch_mode == TOUCHMODE.GRID || selectedActor == null || locked || !(selectedActor instanceof EditorItem)){
+			if(touch_mode == TOUCHMODE.GRID || com.star4droid.star2d.remote.RemoteSession.isLocked() || selectedActor == null || locked || !(selectedActor instanceof EditorItem)){
 				//movement
 				camera.translate(deltaX,deltaY);
 			} else if(touch_mode == TOUCHMODE.MOVE){
@@ -1177,6 +1335,8 @@ public class LibgdxEditor extends Stage {
 	
 	@Override
 	public void dispose() {
+		loadToken++;
+		loadingScene = false;
 		super.dispose();
 		debugRenderer.dispose();
 		rayHandler.dispose();

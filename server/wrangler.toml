@@ -1,0 +1,24 @@
+name = "star2d"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+
+# One Durable Object per user (named by the user's secret). SQLite-backed = allowed on the free plan.
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]
+
+# AI.md is bundled into the Worker as text
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
+[vars]
+# Calls one secret may make per day (protects the free plan when many people share this server).
+DAILY_CALLS = "4000"
+# How long (hours) an idle user's data is kept after the phone disconnects.
+IDLE_PURGE_HOURS = "24"

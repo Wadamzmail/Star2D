@@ -186,7 +186,7 @@ public final class AiActions {
     private static HashMap<String, String> types;
 
     /** Apply a property by its schema type (GL thread, acts on the selected element). */
-    static String applyProperty(TestApp app, String field, String value) {
+    public static String applyProperty(TestApp app, String field, String value) {
         if (types == null) {
             types = new HashMap<>();
             try {
