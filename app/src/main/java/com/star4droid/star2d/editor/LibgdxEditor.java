@@ -754,6 +754,9 @@ public class LibgdxEditor extends Stage {
     				((EditorItem)actor).update();
     		}
     		saveConfig();
+    		// the flag must follow the config at once: other code (AI status, new scene editors, the toggle)
+    		// reads isLandscape() right after this and used to get the OLD value until the next config reload
+    		LANDSCAPE = b;
     		if(orienationChangeListener!=null)
     			orienationChangeListener.onChange(b);
 	    } catch(Exception ex){
@@ -763,6 +766,44 @@ public class LibgdxEditor extends Stage {
 	
 	public boolean isLandscape(){
 		return LANDSCAPE;
+	}
+	
+	/** The two numbers as stored in the config. Convention: logicWidth = the LONG side, logicHeight = the SHORT side, in both orientations (portrait swaps them when used). */
+	public float getRawLogicWidth(){
+		PropertySet<String,Object> c = getConfig();
+		return c != null && c.containsKey("logicWidth") ? c.getFloat("logicWidth") : Math.max(Gdx.graphics.getWidth(),Gdx.graphics.getHeight());
+	}
+	
+	public float getRawLogicHeight(){
+		PropertySet<String,Object> c = getConfig();
+		return c != null && c.containsKey("logicHeight") ? c.getFloat("logicHeight") : Math.min(Gdx.graphics.getWidth(),Gdx.graphics.getHeight());
+	}
+	
+	/** True when the stored size breaks the convention (logicWidth shorter than logicHeight): the frame (and the game) then looks reversed. */
+	public boolean logicSizeLooksSwapped(){
+		return getRawLogicWidth() < getRawLogicHeight();
+	}
+	
+	/** Explicit user action: exchange the two stored sizes (fixes a reversed frame). */
+	public void swapLogicSize(){
+		float w = getRawLogicWidth(), h = getRawLogicHeight();
+		setLogicalWH(h,w);
+		saveConfig();
+		for(Actor actor:getActors())
+			if(actor instanceof EditorItem)
+				((EditorItem)actor).update();
+	}
+	
+	private boolean swapHintShown = false;
+	/** Once per editor: tells the user when the size looks reversed and where the fix is. */
+	public void checkLogicSizeHint(){
+		if(swapHintShown) return;
+		try {
+			if(logicSizeLooksSwapped()){
+				swapHintShown = true;
+				toast(com.star4droid.star2d.ui.Tr.t("logic_swapped_hint","The game size looks reversed (width < height). Settings > Scene > Swap width and height."),4);
+			}
+		} catch(Throwable ignored){}
 	}
 	
 	public void setLogicalWH(float width,float height){

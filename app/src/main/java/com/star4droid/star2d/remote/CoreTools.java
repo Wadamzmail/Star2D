@@ -94,6 +94,7 @@ final class CoreTools {
             logic.addProperty("width", ed.getLogicWidth());
             logic.addProperty("height", ed.getLogicHeight());
             o.add("logic_size", logic);
+            if (ed.logicSizeLooksSwapped()) o.addProperty("logic_size_warning", "stored logicWidth < logicHeight: the frame is reversed. Fix with scenes configure {swap_size:true}");
             JsonObject screen = new JsonObject();
             screen.addProperty("width", Gdx.graphics.getWidth());
             screen.addProperty("height", Gdx.graphics.getHeight());
@@ -170,6 +171,7 @@ final class CoreTools {
             logic.addProperty("width", ed.getLogicWidth());
             logic.addProperty("height", ed.getLogicHeight());
             o.add("logic_size", logic);
+            if (ed.logicSizeLooksSwapped()) o.addProperty("logic_size_warning", "stored logicWidth < logicHeight: the frame is reversed. Fix with scenes configure {swap_size:true}");
             JsonArray scenes = new JsonArray();
             for (String n : Proj.scenes(p)) {
                 JsonObject so = new JsonObject();

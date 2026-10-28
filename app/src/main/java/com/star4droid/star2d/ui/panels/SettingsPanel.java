@@ -119,7 +119,11 @@ public class SettingsPanel implements PanelHost.Panel {
         wh.addView(h, hl);
         LinearLayout apply = Ui.button(c, R.drawable.ic_s2_check, Tr.t("ui_apply", "Apply"), true, v -> {
             try {
-                float fw = Float.parseFloat(w.getText().toString()), fh = Float.parseFloat(h.getText().toString());
+                float a = Float.parseFloat(w.getText().toString()), b = Float.parseFloat(h.getText().toString());
+                // stored convention: the first number is the LONG side (a smaller one would reverse the frame and the game)
+                final float fw = Math.max(a, b), fh = Math.min(a, b);
+                w.setText(String.valueOf(fw));
+                h.setText(String.valueOf(fh));
                 Bridge.gl(() -> {
                     Bridge.editor().setLogicalWH(fw, fh);
                     Bridge.editor().saveConfig();
@@ -133,6 +137,20 @@ public class SettingsPanel implements PanelHost.Panel {
         al.setMarginStart(Ui.dp(c, 8));
         wh.addView(apply, al);
         col.addView(wh, Ui.margins(Ui.matchWrap(), c, 0, 6, 0, 0));
+        // when the red frame looks reversed (wide in a portrait game or the other way round): exchange the two numbers
+        LinearLayout swapBtn = Ui.button(c, R.drawable.ic_s2_flip, Tr.t("ui_swap_size", "Swap width and height"), false, v -> {
+            if (!Bridge.ready()) return;
+            Bridge.query(() -> {
+                Bridge.editor().swapLogicSize();
+                PropertySet<String, Object> cfg = Bridge.editor().getConfig();
+                return new String[]{cfg.getString("logicWidth"), cfg.getString("logicHeight")};
+            }, r -> {
+                w.setText(r[0]);
+                h.setText(r[1]);
+                Ui.toast(c, Tr.t("saved", "Saved"));
+            });
+        });
+        col.addView(swapBtn, Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 0, 6, 0, 0));
         if (Bridge.ready()) Bridge.query(() -> {
             PropertySet<String, Object> cfg = Bridge.editor().getConfig();
             return new String[]{cfg.getString("logicWidth"), cfg.getString("logicHeight"), String.valueOf(Bridge.editor().isLandscape())};

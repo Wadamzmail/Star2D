@@ -134,6 +134,7 @@ final class EditTools {
             LibgdxEditor ed = Proj.editor();
             StringBuilder sb = new StringBuilder();
             float lw = -1, lh = -1;
+            boolean swap = false;
             for (Map.Entry<String, JsonElement> e : c.entrySet()) {
                 String k = e.getKey(), v = str(e.getValue());
                 switch (k) {
@@ -150,12 +151,23 @@ final class EditTools {
                         break;
                     case "logicWidth": lw = Bridge.num(v); break;
                     case "logicHeight": lh = Bridge.num(v); break;
+                    case "swap_size":
+                    case "swapSize": swap = v.equalsIgnoreCase("true") || v.equals("1"); break;
                     default: sb.append("ignored unknown key '").append(k).append("'; ");
                 }
             }
             if (lw > 0 || lh > 0) {
-                ed.setLogicalWH(lw > 0 ? lw : ed.getLogicWidth(), lh > 0 ? lh : ed.getLogicHeight());
+                // stored convention: logicWidth = LONG side, logicHeight = SHORT side (portrait swaps them when used).
+                // The missing one comes from the STORED values (the display getters are swapped in portrait).
+                float a = lw > 0 ? lw : ed.getRawLogicWidth(), b = lh > 0 ? lh : ed.getRawLogicHeight();
+                float longSide = Math.max(a, b), shortSide = Math.min(a, b);
+                if (a < b) sb.append("logicWidth is the LONG side: stored as ").append((int) longSide).append(" x ").append((int) shortSide).append("; ");
+                ed.setLogicalWH(longSide, shortSide);
                 ed.saveConfig();
+            }
+            if (swap) {
+                ed.swapLogicSize();
+                sb.append("sizes swapped (logicWidth now ").append((int) ed.getRawLogicWidth()).append(", logicHeight ").append((int) ed.getRawLogicHeight()).append("); ");
             }
             Proj.project().save(ed);
             return "Scene '" + ed.getScene() + "' configured. " + sb;

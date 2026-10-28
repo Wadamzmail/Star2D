@@ -290,12 +290,17 @@ public class TestApp implements ApplicationListener {
 		editors.clear();
 		UiStage.clear();
 		toastManager = new ToastManager(UiStage);
+		boolean hadConfig = new java.io.File(project.getConfig("scene1")).exists();
 		editor = new LibgdxEditor(project,"scene1",projectAssetLoader);
 		editor.enableAutoSave(preferences.getBoolean("AutoSave",true));
 		editor.loadFromPath();
 		//editor.setOrienationChangeListener(orienationChangeListener);
 		editor.setToastManager(toastManager);
-		editor.setLandscape(landscape);
+		if(hadConfig){
+			// the saved config is the truth: never push a guessed orientation (a failed read defaulted to landscape) over it
+			landscape = editor.isLandscape();
+			if(orienationChangeListener != null) orienationChangeListener.onChange(landscape);
+		} else editor.setLandscape(landscape);
 		editor.setFilePicker(filePicker);
 		if(controlLayer==null)
 	    	controlLayer = new ControlLayer(this);
@@ -331,6 +336,7 @@ public class TestApp implements ApplicationListener {
 			resize(width,height);
 		editors.add(editor);
 		controlLayer.tabsItem.refresh();
+		editor.checkLogicSizeHint();
 		canExitFromProject = true;
 		if(nativeHooks != null) nativeHooks.onEditorChanged();
 	}
