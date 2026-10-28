@@ -74,6 +74,13 @@
 			android:scaleType="fitCenter"
 			android:tint="#FFFFFF" />
 		</LinearLayout>
+		<ProgressBar
+			android:id="@+id/init_progress"
+			style="?android:attr/progressBarStyleHorizontal"
+			android:layout_width="match_parent"
+			android:layout_height="3dp"
+			android:indeterminate="true"
+			android:visibility="gone" />
 		<LinearLayout
 			android:id="@+id/linear5"
 			android:layout_width="match_parent"
@@ -116,23 +123,6 @@
 			android:textSize="12sp"
 			android:typeface="monospace"
 			android:visibility="gone" />
-		<HorizontalScrollView
-			android:layout_height="wrap_content"
-			android:scrollbars="none"
-			android:layout_width="match_parent">
-		<LinearLayout
-			android:layout_height="wrap_content"
-			android:layout_width="match_parent"
-			android:id="@+id/symbols">
-				<TextView
-					android:layout_height="match_parent"
-					android:layout_width="50dp"
-					android:text="TAB"
-					android:padding="8dp"
-					android:textColor="#FFFFFF"
-					/>
-			</LinearLayout>
-		</HorizontalScrollView>
 		<LinearLayout
 			android:id="@+id/linear3"
 			android:layout_width="match_parent"
@@ -184,5 +174,22 @@
 					android:textColor="#FFFFFF" />
 			</LinearLayout>
 		</LinearLayout>
+		<HorizontalScrollView
+			android:layout_height="wrap_content"
+			android:scrollbars="none"
+			android:layout_width="match_parent">
+		<LinearLayout
+			android:layout_height="wrap_content"
+			android:layout_width="match_parent"
+			android:id="@+id/symbols">
+				<TextView
+					android:layout_height="match_parent"
+					android:layout_width="50dp"
+					android:text="TAB"
+					android:padding="8dp"
+					android:textColor="#FFFFFF"
+					/>
+			</LinearLayout>
+		</HorizontalScrollView>
 	</LinearLayout>
 </LinearLayout>

@@ -57,6 +57,17 @@ public final class SmartEditor {
     private Hint hint;
     private int hintShown;
     private boolean destroyed;
+    private View busyView;
+    private volatile boolean ready;
+
+    /** A thin progress bar shown while the analyzer sets up (first run extracts libraries and reads the class index). */
+    public void setBusyView(View v) {
+        busyView = v;
+    }
+
+    private void busy(boolean on) {
+        if (busyView != null) busyView.setVisibility(on ? View.VISIBLE : View.GONE);
+    }
 
     public SmartEditor(Activity activity, CodeEditor editor, String file, TextView hintBar, TextView errorBadge) {
         this.activity = activity;
@@ -67,6 +78,7 @@ public final class SmartEditor {
     }
 
     public void start() {
+        busy(true);
         worker.execute(new Runnable() {
             @Override
             public void run() {
@@ -77,7 +89,8 @@ public final class SmartEditor {
                 }
                 ui.post(new Runnable() {
                     public void run() {
-                        scheduleDiagnostics(50);
+                        if (doc == null || doc.project == null) busy(false);
+                        else scheduleDiagnostics(50);
                     }
                 });
             }
@@ -163,8 +176,10 @@ public final class SmartEditor {
                     try {
                         found = d.diagnose(text);
                     } catch (Throwable t) {
+                        markReady();
                         return;
                     }
+                    markReady();
                     if (gen != generation) return;
                     final List<BuildError> res = found;
                     ui.post(new Runnable() {
@@ -178,6 +193,16 @@ public final class SmartEditor {
             });
         }
     };
+
+    private void markReady() {
+        if (ready) return;
+        ready = true;
+        ui.post(new Runnable() {
+            public void run() {
+                busy(false);
+            }
+        });
+    }
 
     private void scheduleDiagnostics(long delay) {
         ui.removeCallbacks(diagRun);

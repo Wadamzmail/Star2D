@@ -147,6 +147,7 @@ public class CodeEditorActivity extends AppCompatActivity {
 		EngineLanguage eng= new EngineLanguage(editor, smart);
 		eng.setAutoCompletionEnabled(TestApp.getCurrentApp().preferences.getBoolean("Auto Completion",true));
 		editor.setEditorLanguage(eng);
+		smart.setBusyView(findViewById(R.id.init_progress));
 		smart.start();
 		if(getIntent().hasExtra("goto_line")){
 			final int gl = getIntent().getIntExtra("goto_line", 1), gc = getIntent().getIntExtra("goto_col", 1), ge = getIntent().getIntExtra("goto_end", -1);
