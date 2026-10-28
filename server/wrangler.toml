@@ -1,4 +1,4 @@
-name = "star2d-remote"
+name = "star2d"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
 

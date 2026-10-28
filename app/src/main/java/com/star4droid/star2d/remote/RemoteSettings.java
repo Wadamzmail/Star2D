@@ -14,7 +14,7 @@ public final class RemoteSettings {
     private RemoteSettings() {}
 
     /** Server used when the user did not type one. Put the URL of your deployed `server/` here (https://....workers.dev). */
-    public static final String DEFAULT_SERVER = "";
+    public static final String DEFAULT_SERVER = "https://star2d.ans44029.workers.dev";
 
     private static final String PREFS = "star2d_remote";
 
