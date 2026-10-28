@@ -66,7 +66,7 @@ public class EditorTextItem extends Label implements EditorItem {
 			}
 		//}
 		//Gdx.files.external("logs/text.txt").writeString("eh : "+getStage().getHeight()+", txh : "+height+", y : "+y+" \n = "+getY()+"\n"+"_".repeat(10)+"\n",true);
-		setZIndex(propertySet.getInt("z"));
+		setZIndex(Math.max(0, propertySet.getInt("z")));
 		setRotation(-propertySet.getFloat("rotation"));
 		setVisible(propertySet.getString("Visible").equals("true"));
 		setText(propertySet.get("Text").toString());

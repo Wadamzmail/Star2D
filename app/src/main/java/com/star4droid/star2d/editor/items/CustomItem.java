@@ -88,7 +88,7 @@ public class CustomItem extends Image implements EditorItem {
         setPosition(x, y);
         
         // Common properties
-        setZIndex(propertySet.getInt("z"));
+        setZIndex(Math.max(0, propertySet.getInt("z")));
         setRotation(-propertySet.getFloat("rotation"));
         setScale(propertySet.getFloat("Scale X"),propertySet.getFloat("Scale Y"));
         setVisible(propertySet.getString("Visible").equals("true"));

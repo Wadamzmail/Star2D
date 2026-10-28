@@ -52,7 +52,7 @@ public class ParticleItem extends Image implements EditorItem,Disposable {
 			setName(name);
 		setPosition(x,y);
 		particleEffect.reset();
-		setZIndex(propertySet.getInt("z"));
+		setZIndex(Math.max(0, propertySet.getInt("z")));
 		//setRotation(-propertySet.getFloat("rotation"));
 		setVisible(propertySet.getString("Visible").equals("true"));
 		particleEffect.setPosition(x,y);

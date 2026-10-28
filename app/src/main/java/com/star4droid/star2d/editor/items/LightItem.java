@@ -47,7 +47,7 @@ public class LightItem extends Image implements EditorItem {
 		if(!name.equals(""))
 			setName(name);
 		setPosition(x,y);
-		setZIndex(propertySet.getInt("z"));
+		setZIndex(Math.max(0, propertySet.getInt("z")));
 		int rays = propertySet.getInt("rays");
 		float rotation = propertySet.getFloat("rotation"),
 			Distance = propertySet.getFloat("Distance"),

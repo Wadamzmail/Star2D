@@ -57,7 +57,7 @@ public class BoxItem extends Image implements EditorItem {
 		if(!name.equals(""))
 			setName(name);
 		setPosition(x,y);
-		setZIndex(propertySet.getInt("z"));
+		setZIndex(Math.max(0, propertySet.getInt("z")));
 		setRotation(-propertySet.getFloat("rotation"));
 		setScale(propertySet.getFloat("Scale X"),propertySet.getFloat("Scale Y"));
 		setVisible(propertySet.getString("Visible").equals("true"));

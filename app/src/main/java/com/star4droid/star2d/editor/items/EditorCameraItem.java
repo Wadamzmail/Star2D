@@ -54,7 +54,7 @@ public class EditorCameraItem extends Image implements EditorItem {
 		if(!name.equals(""))
 			setName(name);
 		setPosition(x,y);
-		setZIndex(propertySet.getInt("z"));
+		setZIndex(Math.max(0, propertySet.getInt("z")));
 		setRotation(-propertySet.getFloat("rotation"));
 	}
 	

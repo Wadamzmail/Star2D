@@ -414,7 +414,7 @@ public final class PrefabOps {
         o.addProperty(K_PID, node.pid);
         o.addProperty("x", PrefabFiles.fmt(rx + PrefabFiles.num(valueOf(node.props.get("x")), 0)));
         o.addProperty("y", PrefabFiles.fmt(ry + PrefabFiles.num(valueOf(node.props.get("y")), 0)));
-        o.addProperty("z", PrefabFiles.fmt(rz + PrefabFiles.num(valueOf(node.props.get("z")), 0)));
+        o.addProperty("z", PrefabFiles.fmt(Math.max(0, rz + PrefabFiles.num(valueOf(node.props.get("z")), 0)))); // the editor cannot show a negative z-index
         o.addProperty("Script", name);
         PrefabFiles.deleteBody(root, scene, name); // leftovers of an old element with this name
         for (Map.Entry<String, Map<String, String>> e : node.events.entrySet()) PrefabFiles.writeEvent(root, scene, name, e.getKey(), e.getValue());
@@ -799,6 +799,9 @@ public final class PrefabOps {
         PrefabModel.Node rn = model.root();
         double rw = PrefabFiles.num(valueOf(rn.props.get("width")), 100), rh = PrefabFiles.num(valueOf(rn.props.get("height")), 100);
         double cx = lw / 2 - rw / 2, cy = lh / 2 - rh / 2;
+        // z is stored relative to the root and can be negative (children behind the root): the editor cannot show a negative z-index, so lift everything
+        double zShift = 0;
+        for (PrefabModel.Node zn : model.nodes) if (zn != rn) zShift = Math.max(zShift, -PrefabFiles.num(valueOf(zn.props.get("z")), 0));
         Set<String> taken = new HashSet<>();
         List<PrefabModel.Node> order = new ArrayList<>(model.nodes);
         for (PrefabModel.Node n : order) {
@@ -811,7 +814,7 @@ public final class PrefabOps {
             o.addProperty("parent", "");
             o.addProperty("x", PrefabFiles.fmt(cx + (isRoot ? 0 : PrefabFiles.num(valueOf(n.props.get("x")), 0))));
             o.addProperty("y", PrefabFiles.fmt(cy + (isRoot ? 0 : PrefabFiles.num(valueOf(n.props.get("y")), 0))));
-            o.addProperty("z", PrefabFiles.fmt(isRoot ? 0 : PrefabFiles.num(valueOf(n.props.get("z")), 0)));
+            o.addProperty("z", PrefabFiles.fmt(isRoot ? zShift : zShift + PrefabFiles.num(valueOf(n.props.get("z")), 0)));
             o.addProperty("Script", name);
             o.addProperty(K_PID, n.pid);
             PrefabFiles.clearEvents(root, tmp, name);

@@ -50,7 +50,7 @@ public class JoyStickItem extends Touchpad implements EditorItem {
 		}
         setSize(width, height);
         setPosition(x, y);
-        setZIndex(propertySet.getInt("z"));
+        setZIndex(Math.max(0, propertySet.getInt("z")));
         setVisible(propertySet.getString("Visible").equals("true"));
         
         // Update knob size

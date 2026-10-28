@@ -61,7 +61,7 @@ public class EditorGroupItem extends Image implements EditorItem {
 		if(!name.equals(""))
 			setName(name);
 		setPosition(propertySet.getFloat("x"),propertySet.getFloat("y"));
-		setZIndex(propertySet.getInt("z"));
+		setZIndex(Math.max(0, propertySet.getInt("z")));
 		setRotation(-propertySet.getFloat("rotation"));
 		setVisible(!propertySet.getString("Visible").equals("false"));
 	}

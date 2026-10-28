@@ -80,4 +80,5 @@
 	<string name="delete_the_point">Delete The Point</string>
 	<string name="update_needed">Download The New Update</string>
 	<string name="update">Update</string>
+	<string name="splash_hint">Tap anywhere</string>
 </resources>

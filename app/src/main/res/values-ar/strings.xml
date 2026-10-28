@@ -71,4 +71,5 @@
 	<string name="update_needed">قم بتنزيل التحديث الجديد</string>
 	<string name="update">تحديث</string>
 	<string name="close">إغلاق</string>
+	<string name="splash_hint">المس الشاشة</string>
 </resources>

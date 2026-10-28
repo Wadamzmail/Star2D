@@ -57,7 +57,7 @@ public class EditorProgressItem extends Group implements EditorItem {
         
         setSize(width, height);
         setPosition(x, y);
-        setZIndex(propertySet.getInt("z"));
+        setZIndex(Math.max(0, propertySet.getInt("z")));
         setVisible(propertySet.getString("Visible").equals("true"));
         setRotation(-propertySet.getFloat("rotation"));
 

@@ -1,44 +1,75 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-	android:gravity="center"
-	android:background="#333333"
-    tools:context=".MainActivity" >
+    android:background="#17191D"
+    tools:context=".MainActivity">
+
+    <com.star4droid.star2d.ui.SplashView
+        android:id="@+id/splash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1"
         android:gravity="center"
-        android:orientation="vertical" >
-			<ImageView
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:padding="1dp"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:id="@+id/logo_card"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:padding="12dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:scaleType="fitCenter"
-				android:layout_marginBottom="10dp"
                 android:src="@drawable/icon" />
-			<com.star4droid.star2d.Views.XPProgressView
-				android:layout_height="25dp"
-				android:layout_width="100dp"
-				android:layout_marginBottom="6dp"
-				/>
-			<TextView
-				android:layout_height="wrap_content"
-				android:layout_width="wrap_content"
-				android:text="• Star2D.E •"
-				android:textStyle="bold"
-				android:textColor="@color/text_color"
-				android:textSize="15sp"/>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/bar_track"
+            android:layout_width="120dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="22dp">
+
+            <View
+                android:id="@+id/bar_fill"
+                android:layout_width="match_parent"
+                android:layout_height="4dp" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="• Star2D.E •"
+            android:textColor="#E6EDF3"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/splash_hint"
+            android:textColor="#7D8590"
+            android:textSize="12sp" />
     </LinearLayout>
-	<TextView
-    	android:layout_height="wrap_content"
-    	android:layout_width="wrap_content"
-    	android:text="@string/translation_by"
-    	android:textStyle="bold"
-    	android:padding="8dp"
-    	android:textColor="@color/text_color"
-    	android:textSize="15sp"/>
-</LinearLayout>
+
+    <TextView
+        android:id="@+id/credit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:padding="14dp"
+        android:text="@string/translation_by"
+        android:textColor="@color/text_color"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+</FrameLayout>
