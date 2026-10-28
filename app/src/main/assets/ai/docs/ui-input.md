@@ -12,11 +12,19 @@ UI elements (`type: "UI"`) are placed in logic pixels, origin bottom-left, and n
 
 - The default font is small and ASCII only: `Font Scale` 3 to 5 for HUD text on a 1280 x 720 screen, 8+ for titles. A different alphabet needs a `.s2df` font file in `font` (made with the app's font editor; skip it if possible).
 - The text is left-aligned and vertically centered in its box and wraps at the box width. To center it, use a block: `{"block":"codeLine","fields":{"code":"((com.badlogic.gdx.scenes.scene2d.ui.Label)scoreText.getActor()).setAlignment(com.badlogic.gdx.utils.Align.center);"}}` in `OnCreate`.
+
+### Text size: how wide and how tall a TEXT must be
+
+The text is drawn with the default font at `Font Scale`. One line is about `Font Scale x (sum of the letter advances)` px wide and `20 x Font Scale` px high. Advances of the default font: capital letters about 10 px (W 17, I 5), small letters about 8, digits 9, space 5, `^` 9. Examples at `Font Scale` 1: `UP` 20, `JUMP` 38, `PLAY` 35, `Score: 0` 56, `Game Over` 83. At Font Scale 4 `UP` needs 80 px.
+- If the text is wider than `width` it WRAPS onto a second line (a two-letter label can break between its letters). Fix it with `set`: raise `width` (and `height`), or lower `Font Scale`. The `elements` tool measures every TEXT you add or change and returns a warning with the width it needs; do not ignore it.
+- For a label on a button: make the TEXT exactly as big as the button and keep `Font Scale` so that `needed width <= button width - 10`.
+- A single symbol (`^`, `<`, `>`, `v`, `+`) never wraps; handy for arrow buttons.
+- Any element's `x`, `y`, `width`, `height` (and `radius`) can be changed at any time with `elements` `set`; resizing is the normal way to fix a layout.
 - Change it: block `setText` (text is Java: `"\"Lives: \" + lives"` or a `join` reporter) or `showText`. `\n` in `Text` makes a new line.
 
 ## Buttons
 
-There is no button element. Make a BOX with `type: "UI"` and an image (or a white `create_image` PNG with `Tint`), plus a TEXT with the SAME `x`, `y`, `width`, `height` and a higher `z`; put the `onClick` event on the TEXT (it is the topmost element, so it receives the tap). Use `onTouchStart` instead of `onClick` for game controls (instant response), `onClick` for menu buttons.
+There is no button element. Make a BOX with `type: "UI"` and an image (or a white `create_image` PNG with `Tint`), plus a TEXT with the SAME `x`, `y`, `width`, `height` and a higher `z`; put the SAME touch event on the TEXT too (it is the topmost element, so it receives the tap; a TEXT without events still swallows the touch and the box below never sees it). The `events` tool does both in one call: `{"op":"set","scope":"element","element":"jumpBox","event":"onTouchStart","blocks":[...],"also_on":["jumpBtn"]}`; `elements` and `events` warn when a TEXT lies on a button. Use `onTouchStart` instead of `onClick` for game controls (instant response), `onClick` for menu buttons.
 
 ```json
 {"ops":[

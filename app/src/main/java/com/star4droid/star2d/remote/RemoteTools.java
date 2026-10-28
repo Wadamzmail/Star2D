@@ -7,7 +7,39 @@ import com.star4droid.star2d.ui.Bridge;
 public final class RemoteTools {
     private RemoteTools() {}
 
+    /** Where to read when a tool fails: one short line, so the AI loads that section instead of whole topics. */
+    private static String docHint(String tool) {
+        switch (tool) {
+            case "elements": return "read_docs {topic:'elements', section:'<TYPE>'}";
+            case "events": return "read_docs {topic:'events'} and {topic:'blocks'}";
+            case "define_blocks": case "block_catalog": return "read_docs {topic:'blocks', section:'define_blocks'}";
+            case "create_image": case "create_sound": case "import_asset": return "read_docs {topic:'assets', section:'paths'}";
+            case "game_input": case "run_test": case "game_state": case "screenshot": return "read_docs {topic:'testing'}";
+            case "build": case "run_game": return "read_docs {topic:'pitfalls'} and {search:'<error text>'}";
+            case "scenes": return "read_docs {topic:'scenes'}";
+            case "variables": return "read_docs {topic:'variables'}";
+            case "joints": return "read_docs {topic:'joints'}";
+            case "files": return "read_docs {topic:'overview'}";
+            default: return null;
+        }
+    }
+
     public static ToolResult run(String tool, JsonObject args) {
+        ToolResult r = dispatch(tool, args);
+        try {
+            String hint = docHint(tool);
+            boolean failed = r.isError;
+            if (!failed && r.content.size() > 0 && r.content.get(0).getAsJsonObject().has("text")) {
+                String t = r.content.get(0).getAsJsonObject().get("text").getAsString();
+                failed = t.contains("\"ok\":false");
+            }
+            if (failed && hint != null) r.addText("Docs: " + hint);
+        } catch (Throwable ignored) {
+        }
+        return r;
+    }
+
+    private static ToolResult dispatch(String tool, JsonObject args) {
         if (args == null) args = new JsonObject();
         try {
             // everything but status/docs counts as "Claude is working" for the idle timer

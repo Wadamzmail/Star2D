@@ -372,6 +372,14 @@ public class StageImp extends ApplicationAdapter {
 	    return initDone;
 	}
 	
+	private int framesAfterReady = 0;
+	/** True when the assets are loaded, the scene's OnCreate ran and a few frames of the real scene were drawn (no loading screen). */
+	public boolean isReady(){
+		StageImp a = activeStage();
+		if(a == this) return loadComplete && onCreateCalled && framesAfterReady >= 3;
+		return a.initComplete() && a.framesAfterReady >= 3;
+	}
+	
 	/** The scene that is really running right now (this, or the scene opened from it). */
 	public StageImp activeStage(){
 		return currentStage == null ? this : currentStage;
@@ -517,6 +525,7 @@ public class StageImp extends ApplicationAdapter {
 			    loadingStage.draw();
 			}
 		} else if(currentStage==null){
+			if(onCreateCalled && framesAfterReady < 1000) framesAfterReady++;
 			if(!finished){
     			act();
     			draw();
@@ -529,6 +538,7 @@ public class StageImp extends ApplicationAdapter {
 		        currentStage.init(null);
 			currentStage.act();
 			currentStage.draw();
+			if(currentStage.initComplete() && currentStage.framesAfterReady < 1000) currentStage.framesAfterReady++;
 			//if(!currentStage.draw())
 			    //throw new RuntimeException("game not drawn for unknown reason...");
 		}

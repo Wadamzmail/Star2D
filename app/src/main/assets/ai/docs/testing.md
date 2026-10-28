@@ -39,11 +39,18 @@ One call = start the game (default), play a scenario, report. At most about 45 s
 ]}
 ```
 
-Steps: any `game_input` action (`tap`, `down`, `move`, `up`, `swipe`, `key`, `joystick`, `wait`), plus `screenshot` (with `label`), `read` (`elements`: values returned), `assert`.
+Steps: any `game_input` action (`tap`, `hold`, `down`, `move`, `up`, `release`, `swipe`, `key`, `joystick`, `wait`), plus `screenshot` (with `label`), `read` (`elements`: values returned), `assert`.
 
 `assert` fields: `element` (not needed for variables), `prop` = `x|y|vx|vy|width|height|rotation|visible|text|progress|var:NAME`, `op` = `==|!=|>|<|>=|<=|near`, `value`, `tol` (for `near`, default 1). Numbers compare numerically, other values as text. The report has `pass`/`actual` for each assert and `all_assertions_passed`. Assert values are in the units of `game_state` (world units for world elements, see above). Prefer relative checks (`x` greater than before, `vy` greater than 0 after a jump, a variable increased) over exact positions.
 
 Include `start:false` to test the game that is already running. Use `scene` to start from another scene.
+
+## Loading and fingers
+
+- `run_game` (and `run_test` with `start`) return only when the game finished loading: the reply says `ready:true`. If you start `game_input` / `screenshot` earlier the tool waits for the loading screen to end by itself, so never guess waiting times after a start.
+- A finger pressed with `down` STAYS pressed after the call (even across `wait` steps and separate calls) until you send `up` or `{"do":"release"}`; it is released automatically after 60 s without input. Look at the game with `screenshot` / `game_state` while holding.
+- `hold` = `tap` with `ms`: `{"do":"hold","element":"jumpBtn","ms":800}`.
+- Tests run in real time on the phone (45 s per call). For a long scenario use several `run_test` calls with `"start":false`; the game keeps running between them.
 
 ## game_input
 

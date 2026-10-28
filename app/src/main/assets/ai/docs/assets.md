@@ -35,6 +35,12 @@ Colors in `create_image` are Android colors: `#RRGGBB`, **`#AARRGGBB` (alpha FIR
 
 Tips: sprite sizes of 16 to 32 cells with `scale` 4 to 8 look like pixel art; draw facing right. A white `white.png` + element `Tint` gives any flat colored rectangle without more images. Call `create_image` once per file (not batched), make all needed images before adding elements.
 
+## Paths (read this when create_image / import_asset says the path is wrong)
+
+- `create_image` and `create_sound` take a plain file name: `hero.png`, `images/hero.png` and `/hero.png` all mean the same file `images/hero.png`; sounds go to `sounds/`. The reply gives `use_as`: that exact string (for example `/hero.png`) goes into the element's `image` property (a leading slash, no `images/`).
+- `import_asset` needs the folder in the path (`images/`, `sounds/`, `anims/`, `files/`).
+- Nothing is written outside the project folder.
+
 ## Sprite animations (`anims/`)
 
 An animation is a JSON file `anims/<name>` (no extension) with the frames in order:
